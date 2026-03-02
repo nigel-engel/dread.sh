@@ -310,7 +310,7 @@ const landingPage = `<!DOCTYPE html>
   /* ---- HERO ---- */
   .hero {
     max-width: 1080px; margin: 0 auto;
-    padding: 100px 24px 80px;
+    padding: 100px 24px 0;
     text-align: center;
     position: relative;
   }
@@ -660,11 +660,12 @@ const landingPage = `<!DOCTYPE html>
   .hero-install .copy-btn.copied { color: var(--accent); opacity: 1; }
 
   /* ---- HERO RIGHT (terminal mockup) ---- */
-  .hero-right { position: relative; max-width: 600px; margin: 0 auto; }
+  .hero-right { position: relative; margin: 0 -24px; }
   .terminal {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
     overflow: hidden;
     font-family: "Geist Mono", ui-monospace, monospace;
     font-size: 0.75rem;
@@ -709,7 +710,7 @@ const landingPage = `<!DOCTYPE html>
   .terminal-row .source-vercel { color: var(--text-secondary); }
   .terminal-footer {
     padding: 8px 12px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-subtle);
     color: var(--text-dim);
     font-size: 0.65rem;
     text-align: left;
@@ -1037,10 +1038,17 @@ function toggleTheme() {
 
 (function() {
   var events = [
-    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
-    {time:'24m ago', src:'github', cls:'source-github', msg:'PR merged #139 → main'},
-    {time:'9m ago', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1'},
+    {time:'2h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
+    {time:'1h ago', src:'linear', cls:'source-linear', msg:'Issue ENG-481 moved to In Review'},
+    {time:'52m ago', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1'},
+    {time:'41m ago', src:'sentry', cls:'source-sentry', msg:'ReferenceError: db is not defined'},
+    {time:'33m ago', src:'github', cls:'source-github', msg:'PR merged #139 → main'},
+    {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'Deployment ready (prod)'},
+    {time:'18m ago', src:'stripe', cls:'source-stripe', msg:'Refund refund.created $19.00'},
+    {time:'9m ago', src:'github', cls:'source-github', msg:'Push to main (3 commits)'},
+    {time:'4m ago', src:'linear', cls:'source-linear', msg:'Issue ENG-482 created'},
     {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'Payment charge.succeeded $59.00'},
+    {time:'45s ago', src:'slack', cls:'source-slack', msg:'#alerts: CPU > 90% on prod-2'},
     {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read prop…'}
   ];
   var body = document.getElementById('terminal-body');
