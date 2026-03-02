@@ -190,7 +190,7 @@ const landingPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2334d399'/></svg>">
-<title>dread — webhooks in your terminal</title>
+<title>dread — webhooks → your team's desktop</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -602,7 +602,7 @@ const landingPage = `<!DOCTYPE html>
 <!-- HERO -->
 <div class="hero">
   <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
-  <h1>Webhooks in<br>your <span>terminal</span></h1>
+  <h1>Webhooks →<br>your team's <span>desktop</span></h1>
   <p class="hero-sub">Create channels, paste webhook URLs, get native desktop notifications. One command to share your entire workspace with your team.</p>
   <div class="hero-actions">
     <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>

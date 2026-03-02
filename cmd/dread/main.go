@@ -67,7 +67,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`dread — terminal webhook feed
+	fmt.Println(`dread — webhooks → your team's desktop
 
 Usage:
   dread                          launch the TUI
