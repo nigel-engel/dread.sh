@@ -287,12 +287,12 @@ const landingPage = `<!DOCTYPE html>
     display: flex; align-items: center; justify-content: space-between;
   }
   .nav-brand {
-    font-size: 1rem; font-weight: 600; color: var(--text);
+    font-size: 1.05rem; font-weight: 600; color: var(--text);
     text-decoration: none; letter-spacing: -0.02em;
   }
   .nav-links { display: flex; gap: 24px; align-items: center; }
   .nav-links a {
-    font-size: 0.8rem; color: var(--text-muted);
+    font-size: 0.85rem; color: var(--text-muted);
     text-decoration: none; transition: color 0.15s;
   }
   .nav-links a:hover { color: var(--text); }
@@ -314,7 +314,7 @@ const landingPage = `<!DOCTYPE html>
   }
   .badge {
     display: inline-flex; align-items: center; gap: 8px;
-    font-size: 0.75rem; color: var(--accent);
+    font-size: 0.8rem; color: var(--accent);
     border: 1px solid var(--accent-glow-strong);
     background: var(--accent-glow);
     padding: 4px 14px; border-radius: 20px;
@@ -331,19 +331,19 @@ const landingPage = `<!DOCTYPE html>
     50% { opacity: 0.4; }
   }
   h1 {
-    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-size: clamp(3rem, 7vw, 4.5rem);
     color: var(--text);
     font-weight: 700;
     letter-spacing: -0.03em;
-    line-height: 1.1;
-    margin-bottom: 20px;
+    line-height: 1.08;
+    margin-bottom: 24px;
     position: relative; z-index: 1;
   }
   h1 span { color: var(--accent); }
   .hero-sub {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     color: var(--text-muted);
-    max-width: 560px; margin: 0 auto 40px;
+    max-width: 600px; margin: 0 auto 44px;
     line-height: 1.7;
     position: relative; z-index: 1;
   }
@@ -358,8 +358,8 @@ const landingPage = `<!DOCTYPE html>
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px 20px;
-    font-size: 0.85rem; color: var(--text);
+    padding: 14px 24px;
+    font-size: 0.9rem; color: var(--text);
     font-family: "Geist Mono", ui-monospace, monospace;
     cursor: pointer; transition: border-color 0.15s;
     user-select: none;
@@ -375,24 +375,24 @@ const landingPage = `<!DOCTYPE html>
   }
   .section-inner {
     max-width: 1080px; margin: 0 auto;
-    padding: 80px 24px;
+    padding: 96px 24px;
     border-left: 1px solid var(--border-subtle);
     border-right: 1px solid var(--border-subtle);
   }
   .section-label {
-    font-size: 0.7rem; text-transform: uppercase;
+    font-size: 0.75rem; text-transform: uppercase;
     letter-spacing: 0.1em; color: var(--accent);
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
   .section-title {
-    font-size: 1.6rem; color: var(--text);
+    font-size: 2rem; color: var(--text);
     font-weight: 600; letter-spacing: -0.02em;
     margin-bottom: 16px;
   }
   .section-desc {
-    color: var(--text-muted); font-size: 0.9rem;
-    max-width: 600px; line-height: 1.7;
-    margin-bottom: 48px;
+    color: var(--text-muted); font-size: 1rem;
+    max-width: 620px; line-height: 1.7;
+    margin-bottom: 52px;
   }
 
   /* ---- STEPS (quick start) ---- */
@@ -422,7 +422,7 @@ const landingPage = `<!DOCTYPE html>
     flex-shrink: 0;
   }
   .step-label {
-    font-size: 0.8rem; color: var(--text-secondary);
+    font-size: 0.9rem; color: var(--text-secondary);
     padding-top: 3px;
   }
   .step-content {
@@ -434,7 +434,7 @@ const landingPage = `<!DOCTYPE html>
     border-radius: 8px;
     padding: 16px 20px;
     overflow-x: auto;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
   }
   .step-content code { color: var(--text); }
 
@@ -447,7 +447,7 @@ const landingPage = `<!DOCTYPE html>
   /* ---- WORKSPACE FLOW (2-col hero card) ---- */
   .flow-grid {
     display: grid; grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 28px;
   }
   @media (max-width: 720px) {
     .flow-grid { grid-template-columns: 1fr; }
@@ -462,19 +462,19 @@ const landingPage = `<!DOCTYPE html>
   }
   .flow-card:hover { border-color: var(--text-dim); }
   .flow-card-icon {
-    width: 36px; height: 36px;
+    width: 40px; height: 40px;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
   }
-  .flow-card-icon svg { width: 18px; height: 18px; }
+  .flow-card-icon svg { width: 20px; height: 20px; }
   .flow-card h3 {
-    font-size: 0.95rem; color: var(--text);
-    font-weight: 600; margin-bottom: 8px;
+    font-size: 1.05rem; color: var(--text);
+    font-weight: 600; margin-bottom: 10px;
   }
   .flow-card p {
-    font-size: 0.8rem; color: var(--text-muted);
-    line-height: 1.6; margin-bottom: 16px;
+    font-size: 0.9rem; color: var(--text-muted);
+    line-height: 1.6; margin-bottom: 18px;
   }
   .flow-card pre {
     background: var(--bg);
@@ -482,7 +482,7 @@ const landingPage = `<!DOCTYPE html>
     border-radius: 8px;
     padding: 14px 16px;
     overflow-x: auto;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
   .flow-card code { color: var(--text-secondary); }
   .flow-card-full { grid-column: 1 / -1; }
@@ -511,23 +511,23 @@ const landingPage = `<!DOCTYPE html>
   }
   .feat {
     background: var(--bg);
-    padding: 28px;
+    padding: 32px;
     transition: background 0.15s;
   }
   .feat:hover { background: var(--surface); }
   .feat-icon {
-    width: 32px; height: 32px;
+    width: 36px; height: 36px;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
-  .feat-icon svg { width: 16px; height: 16px; }
+  .feat-icon svg { width: 18px; height: 18px; }
   .feat h3 {
-    font-size: 0.85rem; color: var(--text);
-    font-weight: 500; margin-bottom: 6px;
+    font-size: 0.95rem; color: var(--text);
+    font-weight: 500; margin-bottom: 8px;
   }
   .feat p {
-    font-size: 0.75rem; color: var(--text-muted);
+    font-size: 0.85rem; color: var(--text-muted);
     line-height: 1.6;
   }
   .ic-green { background: oklch(65% 0.1 40 / 0.12); color: var(--accent); }
@@ -541,7 +541,7 @@ const landingPage = `<!DOCTYPE html>
   /* ---- COMMANDS ---- */
   .cmd-grid {
     display: grid; grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 28px;
   }
   @media (max-width: 640px) {
     .cmd-grid { grid-template-columns: 1fr; }
@@ -554,14 +554,14 @@ const landingPage = `<!DOCTYPE html>
   }
   .cmd-group-header {
     padding: 14px 20px;
-    font-size: 0.7rem; text-transform: uppercase;
+    font-size: 0.75rem; text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-muted);
     border-bottom: 1px solid var(--border);
   }
   .cmd-group pre {
     padding: 16px 20px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     overflow-x: auto;
     background: transparent;
   }
@@ -577,7 +577,7 @@ const landingPage = `<!DOCTYPE html>
   /* ---- WHY GRID ---- */
   .why-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 28px;
   }
   @media (max-width: 720px) {
     .why-grid { grid-template-columns: 1fr; }
@@ -586,24 +586,24 @@ const landingPage = `<!DOCTYPE html>
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 28px;
+    padding: 32px;
     transition: border-color 0.2s;
   }
   .why-card:hover { border-color: var(--text-dim); }
   .why-icon {
-    width: 36px; height: 36px;
+    width: 40px; height: 40px;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
     background: var(--accent-glow); color: var(--accent);
   }
-  .why-icon svg { width: 18px; height: 18px; }
+  .why-icon svg { width: 20px; height: 20px; }
   .why-card h3 {
-    font-size: 0.95rem; color: var(--text);
-    font-weight: 600; margin-bottom: 8px;
+    font-size: 1.05rem; color: var(--text);
+    font-weight: 600; margin-bottom: 10px;
   }
   .why-card p {
-    font-size: 0.8rem; color: var(--text-muted);
+    font-size: 0.9rem; color: var(--text-muted);
     line-height: 1.6;
   }
 
@@ -618,10 +618,10 @@ const landingPage = `<!DOCTYPE html>
     display: flex; justify-content: space-between;
     align-items: center;
   }
-  .footer-brand { font-size: 0.8rem; color: var(--text-dim); }
+  .footer-brand { font-size: 0.85rem; color: var(--text-dim); }
   .footer-links { display: flex; gap: 20px; }
   .footer-links a {
-    font-size: 0.75rem; color: var(--text-dim);
+    font-size: 0.8rem; color: var(--text-dim);
     text-decoration: none; transition: color 0.15s;
   }
   .footer-links a:hover { color: var(--text-secondary); }
@@ -1260,12 +1260,12 @@ const docsPage = `<!DOCTYPE html>
     display: flex; align-items: center; justify-content: space-between;
   }
   .nav-brand {
-    font-size: 1rem; font-weight: 600; color: var(--text);
+    font-size: 1.05rem; font-weight: 600; color: var(--text);
     text-decoration: none; letter-spacing: -0.02em;
   }
   .nav-links { display: flex; gap: 24px; align-items: center; }
   .nav-links a {
-    font-size: 0.8rem; color: var(--text-muted);
+    font-size: 0.85rem; color: var(--text-muted);
     text-decoration: none; transition: color 0.15s;
   }
   .nav-links a:hover { color: var(--text); }
