@@ -1,0 +1,11 @@
+bin/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.yaml
+.git/
+.gitignore
+.DS_Store
+.idea/
+.vscode/

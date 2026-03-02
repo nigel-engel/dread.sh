@@ -1,0 +1,4 @@
+server:
+  addr: ":8080"
+  db: "dread.db"
+  base_url: "http://localhost:8080"
