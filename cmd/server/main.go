@@ -552,6 +552,37 @@ const landingPage = `<!DOCTYPE html>
     text-decoration: none; transition: color 0.15s;
   }
   .footer-links a:hover { color: var(--text-secondary); }
+
+  /* ---- COPY BUTTON ---- */
+  .copy-wrap { position: relative; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--border);
+    border: 1px solid oklch(30% 0.003 256);
+    border-radius: 6px;
+    padding: 5px 6px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    opacity: 0; transition: opacity 0.15s, color 0.15s, background 0.15s;
+  }
+  .copy-wrap:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { color: var(--text); background: var(--surface-hover); }
+  .copy-btn svg { width: 14px; height: 14px; pointer-events: none; }
+  .copy-btn.copied { color: var(--accent); }
+
+  .hero-install { position: relative; }
+  .hero-install .copy-btn {
+    position: static;
+    opacity: 0.6;
+    background: transparent;
+    border: none;
+    padding: 2px;
+    margin-left: 4px;
+  }
+  .hero-install:hover .copy-btn { opacity: 1; }
+  .hero-install .copy-btn:hover { color: var(--text); background: transparent; }
+  .hero-install .copy-btn.copied { color: var(--accent); opacity: 1; }
 </style>
 </head>
 <body>
@@ -574,7 +605,7 @@ const landingPage = `<!DOCTYPE html>
   <h1>Webhooks in<br>your <span>terminal</span></h1>
   <p class="hero-sub">Create channels, paste webhook URLs, get native desktop notifications. One command to share your entire workspace with your team.</p>
   <div class="hero-actions">
-    <div class="hero-install"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh</div>
+    <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
   </div>
 </div>
 
@@ -589,24 +620,33 @@ const landingPage = `<!DOCTYPE html>
     <div class="step-row">
       <div class="step-num"><span class="step-n">1</span><span class="step-label">Install</span></div>
       <div class="step-content">
-        <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+        <div class="copy-wrap">
+          <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+          <button class="copy-btn" onclick="copyText('curl -sSL dread.sh/install | sh', this)" type="button"><i data-lucide="copy"></i></button>
+        </div>
       </div>
     </div>
     <div class="step-row">
       <div class="step-num"><span class="step-n">2</span><span class="step-label">Create a channel</span></div>
       <div class="step-content">
-        <pre><code><span class="kw">$</span> dread new "Stripe Prod"
+        <div class="copy-wrap">
+          <pre><code><span class="kw">$</span> dread new "Stripe Prod"
 
 <span class="o">Created channel: Stripe Prod (ch_stripe-prod_a1b2c3)
 Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c3</span></code></pre>
+          <button class="copy-btn" onclick="copyText('dread new &quot;Stripe Prod&quot;', this)" type="button"><i data-lucide="copy"></i></button>
+        </div>
       </div>
     </div>
     <div class="step-row">
       <div class="step-num"><span class="step-n">3</span><span class="step-label">Wire up the webhook</span></div>
       <div class="step-content">
-        <pre><code><span class="c"># paste the URL into Stripe, GitHub, Slack, Linear...</span>
+        <div class="copy-wrap">
+          <pre><code><span class="c"># paste the URL into Stripe, GitHub, Slack, Linear...</span>
 <span class="c"># notifications start automatically</span>
 <span class="kw">$</span> dread <span class="c"># open the TUI anytime</span></code></pre>
+          <button class="copy-btn" onclick="copyText('dread', this)" type="button"><i data-lucide="copy"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -623,26 +663,32 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
       <div class="flow-card-icon ic-green"><i data-lucide="plus"></i></div>
       <h3>Lead creates channels</h3>
       <p>Each <code>dread new</code> auto-publishes your workspace. No extra steps.</p>
-      <pre><code><span class="kw">$</span> dread new "Stripe Prod"
+      <div class="copy-wrap">
+        <pre><code><span class="kw">$</span> dread new "Stripe Prod"
 <span class="o">Webhook URL: </span><span class="h">https://dread.sh/wh/ch_stripe...</span>
 <span class="o">Workspace published</span>
 
 <span class="kw">$</span> dread new "GitHub Deploys"
 <span class="o">Webhook URL: </span><span class="h">https://dread.sh/wh/ch_github...</span>
 <span class="o">Workspace published</span></code></pre>
+        <button class="copy-btn" onclick="copyText('dread new &quot;Stripe Prod&quot;', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
     </div>
 
     <div class="flow-card">
       <div class="flow-card-icon ic-violet"><i data-lucide="share-2"></i></div>
       <h3>Share your workspace</h3>
       <p>One ID covers all your channels &mdash; current and future.</p>
-      <pre><code><span class="kw">$</span> dread share
+      <div class="copy-wrap">
+        <pre><code><span class="kw">$</span> dread share
 
 <span class="o">Share this with your team:</span>
   <span class="h">dread follow ws_a1b2c3d4e5f6</span>
 
 <span class="o">They'll get all your channels
 (and any you add later).</span></code></pre>
+        <button class="copy-btn" onclick="copyText('dread share', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
     </div>
 
     <div class="flow-card flow-card-full">
@@ -652,7 +698,8 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
           <h3>Teammates follow once</h3>
           <p>One command subscribes to every channel in the workspace. New channels sync automatically on reconnect &mdash; no manual adding.</p>
         </div>
-        <pre><code><span class="kw">$</span> curl -sSL dread.sh/install | sh
+        <div class="copy-wrap">
+          <pre><code><span class="kw">$</span> curl -sSL dread.sh/install | sh
 <span class="kw">$</span> dread follow <span class="ws">ws_a1b2c3d4e5f6</span>
 
 <span class="o">Following workspace ws_a1b2... (3 channels):</span>
@@ -661,6 +708,8 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
   <span class="o">Sentry Alerts      ch_sentry-alerts_g7h8i9</span>
 
 <span class="o">New channels will sync automatically.</span></code></pre>
+          <button class="copy-btn" onclick="copyText('dread follow ws_a1b2c3d4e5f6', this)" type="button"><i data-lucide="copy"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -784,7 +833,24 @@ dread replay &lt;event-id&gt;     <span class="c"># re-forward event</span></cod
   </div>
 </footer>
 
-<script>lucide.createIcons();</script>
+<script>
+lucide.createIcons();
+function copyText(text, el) {
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = el.classList.contains('copy-btn') ? el : el.querySelector('.copy-btn');
+    if (!btn) return;
+    btn.classList.add('copied');
+    var svg = btn.querySelector('svg');
+    if (svg) svg.setAttribute('data-lucide', 'check');
+    lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+    setTimeout(function() {
+      btn.classList.remove('copied');
+      if (svg) svg.setAttribute('data-lucide', 'copy');
+      lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+    }, 1500);
+  });
+}
+</script>
 </body>
 </html>`
 
