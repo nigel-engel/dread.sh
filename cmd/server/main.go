@@ -562,7 +562,6 @@ const landingPage = `<!DOCTYPE html>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#commands">Commands</a>
-      <a href="https://github.com/nigel-engel/dread.sh">GitHub</a>
       <a href="/install" class="nav-cta">Install</a>
     </div>
   </div>
@@ -570,7 +569,7 @@ const landingPage = `<!DOCTYPE html>
 
 <!-- HERO -->
 <div class="hero">
-  <div class="badge"><span class="badge-dot"></span> open source CLI tool</div>
+  <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
   <h1>Webhooks in<br>your <span>terminal</span></h1>
   <p class="hero-sub">Create channels, paste webhook URLs, get native desktop notifications. One command to share your entire workspace with your team.</p>
   <div class="hero-actions">
@@ -780,7 +779,6 @@ dread replay &lt;event-id&gt;     <span class="c"># re-forward event</span></cod
   <div class="footer-inner">
     <span class="footer-brand">dread.sh</span>
     <div class="footer-links">
-      <a href="https://github.com/nigel-engel/dread.sh">GitHub</a>
     </div>
   </div>
 </footer>
