@@ -25,6 +25,7 @@ brews:
     repository:
       owner: nigel-engel
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/nigel-engel/dread.sh
     description: Terminal webhook notifications
     license: MIT
