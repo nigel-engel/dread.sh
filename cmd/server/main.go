@@ -422,13 +422,16 @@ const landingPage = `<!DOCTYPE html>
     display: flex; align-items: flex-start; gap: 12px;
   }
   .step-n {
-    width: 24px; height: 24px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    width: 26px; height: 26px;
+    border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.7rem; color: var(--text-muted);
+    font-size: 0.7rem; font-weight: 600;
     flex-shrink: 0;
+    border: none;
   }
+  .step-n-1 { background: var(--accent-glow-strong); color: var(--accent); }
+  .step-n-2 { background: oklch(70.7% 0.165 254.62 / 0.2); color: var(--blue); }
+  .step-n-3 { background: oklch(70.2% 0.183 293.54 / 0.2); color: var(--violet); }
   .step-label {
     font-size: 0.9rem; color: var(--text-secondary);
     padding-top: 3px;
@@ -868,7 +871,7 @@ const landingPage = `<!DOCTYPE html>
 
   <div class="steps">
     <div class="step-row">
-      <div class="step-num"><span class="step-n">1</span><span class="step-label">Install</span></div>
+      <div class="step-num"><span class="step-n step-n-1">1</span><span class="step-label">Install</span></div>
       <div class="step-content">
         <div class="copy-wrap">
           <pre><code>curl -sSL dread.sh/install | sh</code></pre>
@@ -877,7 +880,7 @@ const landingPage = `<!DOCTYPE html>
       </div>
     </div>
     <div class="step-row">
-      <div class="step-num"><span class="step-n">2</span><span class="step-label">Create a channel</span></div>
+      <div class="step-num"><span class="step-n step-n-2">2</span><span class="step-label">Create a channel</span></div>
       <div class="step-content">
         <div class="copy-wrap">
           <pre><code><span class="kw">$</span> dread new "Stripe Prod"
@@ -889,7 +892,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
       </div>
     </div>
     <div class="step-row">
-      <div class="step-num"><span class="step-n">3</span><span class="step-label">Wire up the webhook</span></div>
+      <div class="step-num"><span class="step-n step-n-3">3</span><span class="step-label">Wire up the webhook</span></div>
       <div class="step-content">
         <div class="copy-wrap">
           <pre><code><span class="c"># paste the URL into Stripe, GitHub, Slack, Linear...</span>
