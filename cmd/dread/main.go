@@ -9,6 +9,7 @@ import (
 
 	"dread.sh/internal/auth"
 	"dread.sh/internal/tui"
+	"dread.sh/internal/watch"
 )
 
 func main() {
@@ -26,6 +27,8 @@ func main() {
 		cmdRemove(os.Args[2:])
 	case "list":
 		cmdList()
+	case "watch":
+		cmdWatch(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -48,10 +51,17 @@ Usage:
   dread add <channel-id>         subscribe to an existing channel
   dread remove <channel-id>      unsubscribe from a channel
   dread list                     list subscribed channels
+  dread watch                    headless mode — desktop notifications only
 
-Flags (TUI mode):
+Flags (TUI / watch mode):
   --server <url>                 dread server URL (default: https://dread-sh.fly.dev)
-  --forward <url>                forward webhooks to this URL`)
+
+Flags (TUI mode only):
+  --forward <url>                forward webhooks to this URL
+
+To run at login (macOS):
+  cp dev.dread.watch.plist ~/Library/LaunchAgents/
+  launchctl load ~/Library/LaunchAgents/dev.dread.watch.plist`)
 }
 
 func runTUI() {
@@ -78,6 +88,31 @@ func runTUI() {
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func cmdWatch(args []string) {
+	fs := flag.NewFlagSet("watch", flag.ExitOnError)
+	serverURL := fs.String("server", "https://dread-sh.fly.dev", "dread server URL")
+	fs.Parse(args)
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(cfg.Channels) == 0 {
+		fmt.Println("No channels configured. Create one first:")
+		fmt.Println()
+		fmt.Println("  dread new \"Stripe Prod\"")
+		fmt.Println()
+		os.Exit(0)
+	}
+
+	if err := watch.Run(*serverURL, cfg.Channels); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
