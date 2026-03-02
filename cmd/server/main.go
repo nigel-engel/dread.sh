@@ -673,10 +673,11 @@ const landingPage = `<!DOCTYPE html>
   .terminal-row .source-slack { color: #E01E5A; }
   .terminal-row .source-vercel { color: var(--text-secondary); }
   .terminal-footer {
-    padding: 10px 16px;
+    padding: 8px 12px;
     border-top: 1px solid var(--border);
     color: var(--text-dim);
     font-size: 0.65rem;
+    text-align: left;
   }
 </style>
 </head>
@@ -975,12 +976,8 @@ function toggleTheme() {
 (function() {
   var events = [
     {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
-    {time:'52m ago', src:'linear', cls:'source-linear', msg:'Issue ENG-481 moved to In Review'},
-    {time:'41m ago', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1'},
-    {time:'33m ago', src:'sentry', cls:'source-sentry', msg:'ReferenceError: db is not…'},
     {time:'24m ago', src:'github', cls:'source-github', msg:'PR merged #139 → main'},
-    {time:'18m ago', src:'vercel', cls:'source-vercel', msg:'Deployment ready (prod)'},
-    {time:'9m ago', src:'github', cls:'source-github', msg:'Push to main (3 commits)'},
+    {time:'9m ago', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1'},
     {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'Payment charge.succeeded $59.00'},
     {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read prop…'}
   ];
