@@ -574,6 +574,39 @@ const landingPage = `<!DOCTYPE html>
   .kw { color: var(--orange); }
   .ws { color: var(--violet); }
 
+  /* ---- WHY GRID ---- */
+  .why-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  @media (max-width: 720px) {
+    .why-grid { grid-template-columns: 1fr; }
+  }
+  .why-card {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    transition: border-color 0.2s;
+  }
+  .why-card:hover { border-color: var(--text-dim); }
+  .why-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+    background: var(--accent-glow); color: var(--accent);
+  }
+  .why-icon svg { width: 18px; height: 18px; }
+  .why-card h3 {
+    font-size: 0.95rem; color: var(--text);
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .why-card p {
+    font-size: 0.8rem; color: var(--text-muted);
+    line-height: 1.6;
+  }
+
   /* ---- FOOTER ---- */
   footer {
     border-top: 1px solid var(--border-subtle);
@@ -713,6 +746,33 @@ const landingPage = `<!DOCTYPE html>
       <div class="terminal-footer">q quit &nbsp; ↑↓ navigate &nbsp; enter detail</div>
     </div>
   </div>
+</div>
+
+<!-- WHY -->
+<div class="section">
+<div class="section-inner">
+  <div class="section-label">Why</div>
+  <div class="section-title">Know the second something happens</div>
+  <div class="section-desc">When a payment fails, a deploy breaks, or an error spikes &mdash; you find out from a desktop notification, not 20 minutes later when a customer complains.</div>
+
+  <div class="why-grid">
+    <div class="why-card">
+      <div class="why-icon"><i data-lucide="layout-dashboard"></i></div>
+      <h3>One feed, every service</h3>
+      <p>Stripe, GitHub, Sentry, Slack, Linear &mdash; all in one terminal. No more switching between five dashboards to check if a webhook fired.</p>
+    </div>
+    <div class="why-card">
+      <div class="why-icon"><i data-lucide="zap"></i></div>
+      <h3>Instant reaction time</h3>
+      <p>Desktop notifications the moment an event arrives. The faster you know something happened, the faster you fix it.</p>
+    </div>
+    <div class="why-card">
+      <div class="why-icon"><i data-lucide="users"></i></div>
+      <h3>Whole team, one command</h3>
+      <p>Set it up once. Teammates follow your workspace and get every channel &mdash; current and future. No per-person configuration.</p>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- QUICK START -->
