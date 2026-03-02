@@ -261,6 +261,8 @@ const landingPage = `<!DOCTYPE html>
 
   html, body { overscroll-behavior: none; }
 
+  html { font-size: 18px; }
+
   body {
     font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg);
