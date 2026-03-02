@@ -38,3 +38,58 @@ fi
 
 chmod +x "$INSTALL_DIR/$BINARY"
 echo "Installed dread to $INSTALL_DIR/$BINARY"
+
+# Set up background notifications
+if [ "$OS" = "darwin" ]; then
+  PLIST="$HOME/Library/LaunchAgents/dev.dread.watch.plist"
+  mkdir -p "$HOME/Library/LaunchAgents"
+  cat > "$PLIST" << 'PLISTEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>dev.dread.watch</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/dread</string>
+		<string>watch</string>
+	</array>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/dread-watch.log</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/dread-watch.log</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>
+PLISTEOF
+  launchctl bootout gui/$(id -u) "$PLIST" 2>/dev/null || true
+  launchctl bootstrap gui/$(id -u) "$PLIST"
+  echo "Background notifications enabled (launchd)"
+
+elif [ "$OS" = "linux" ]; then
+  UNIT_DIR="$HOME/.config/systemd/user"
+  mkdir -p "$UNIT_DIR"
+  cat > "$UNIT_DIR/dread-watch.service" << 'UNITEOF'
+[Unit]
+Description=dread webhook notifications
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/dread watch
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+UNITEOF
+  systemctl --user daemon-reload
+  systemctl --user enable --now dread-watch.service
+  echo "Background notifications enabled (systemd)"
+fi
+
+echo ""
+echo "Next: dread new \"My Channel\""

@@ -165,12 +165,12 @@ const landingPage = `<!DOCTYPE html>
   <p class="tagline">webhooks in your terminal</p>
 
   <div class="step">
-    <div class="step-label">install</div>
+    <div class="step-label">1. install</div>
     <pre><code>curl -sSL dread.sh/install | sh</code></pre>
   </div>
 
   <div class="step">
-    <div class="step-label">create a channel</div>
+    <div class="step-label">2. create a channel</div>
     <pre><code>$ dread new "Stripe Prod"
 
 <span class="output">Created channel: Stripe Prod (ch_stripe-prod_a1b2c3)
@@ -178,14 +178,15 @@ Webhook URL:     <span class="highlight">https://dread.sh/wh/ch_stripe-prod_a1b2
   </div>
 
   <div class="step">
-    <div class="step-label">paste the webhook URL into your service</div>
+    <div class="step-label">3. paste the webhook URL into your service</div>
     <pre><code><span class="comment"># Stripe, GitHub, Slack, Linear, anything that sends webhooks</span></code></pre>
   </div>
 
   <div class="step">
-    <div class="step-label">watch</div>
-    <pre><code>$ dread              <span class="comment"># TUI with live feed</span>
-$ dread watch        <span class="comment"># headless — desktop notifications only</span></code></pre>
+    <div class="step-label">done</div>
+    <pre><code><span class="comment"># desktop notifications are automatic — no terminal needed
+# or launch the TUI for a live feed:</span>
+$ dread</code></pre>
   </div>
 
   <p class="footer">
@@ -235,4 +236,59 @@ fi
 
 chmod +x "$INSTALL_DIR/$BINARY"
 echo "Installed dread to $INSTALL_DIR/$BINARY"
+
+# Set up background notifications
+if [ "$OS" = "darwin" ]; then
+  PLIST="$HOME/Library/LaunchAgents/dev.dread.watch.plist"
+  mkdir -p "$HOME/Library/LaunchAgents"
+  cat > "$PLIST" << 'PLISTEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>dev.dread.watch</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/dread</string>
+		<string>watch</string>
+	</array>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/dread-watch.log</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/dread-watch.log</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>
+PLISTEOF
+  launchctl bootout gui/$(id -u) "$PLIST" 2>/dev/null || true
+  launchctl bootstrap gui/$(id -u) "$PLIST"
+  echo "Background notifications enabled (launchd)"
+
+elif [ "$OS" = "linux" ]; then
+  UNIT_DIR="$HOME/.config/systemd/user"
+  mkdir -p "$UNIT_DIR"
+  cat > "$UNIT_DIR/dread-watch.service" << 'UNITEOF'
+[Unit]
+Description=dread webhook notifications
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/dread watch
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+UNITEOF
+  systemctl --user daemon-reload
+  systemctl --user enable --now dread-watch.service
+  echo "Background notifications enabled (systemd)"
+fi
+
+echo ""
+echo "Next: dread new \"My Channel\""
 `
