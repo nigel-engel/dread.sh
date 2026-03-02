@@ -1,0 +1,23 @@
+app = 'dread-sh'
+primary_region = 'ord'
+
+[build]
+
+[env]
+  DREAD_DB = '/data/dread.db'
+  DREAD_BASE_URL = 'https://dread-sh.fly.dev'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[mounts]
+  source = 'dread_data'
+  destination = '/data'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'
