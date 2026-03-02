@@ -137,7 +137,7 @@ const landingPage = `<!DOCTYPE html>
     padding: 60px 20px;
     line-height: 1.6;
   }
-  .container { max-width: 620px; width: 100%; }
+  .container { max-width: 640px; width: 100%; }
   h1 { font-size: 2rem; color: #fff; margin-bottom: 8px; }
   .tagline { color: #888; font-size: 1rem; margin-bottom: 48px; }
   .step { margin-bottom: 32px; }
@@ -150,11 +150,21 @@ const landingPage = `<!DOCTYPE html>
   .comment { color: #555; }
   .output { color: #888; }
   .highlight { color: #7ee787; }
-  .link {
-    color: #888; text-decoration: none; border-bottom: 1px solid #333;
+  .section { margin-top: 64px; margin-bottom: 32px; }
+  .section-title { color: #fff; font-size: 1.1rem; margin-bottom: 24px; }
+  .features { list-style: none; padding: 0; }
+  .features li {
+    padding: 12px 0;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex; gap: 16px;
   }
-  .link:hover { color: #fff; border-color: #666; }
-  .footer { margin-top: 48px; color: #444; font-size: 0.8rem; }
+  .features li:last-child { border-bottom: none; }
+  .feat-name { color: #e0e0e0; min-width: 200px; }
+  .feat-desc { color: #666; }
+  .commands { margin-top: 8px; }
+  .commands pre { margin-bottom: 12px; }
+  .cmd-label { color: #666; font-size: 0.8rem; margin-bottom: 4px; }
+  .footer { margin-top: 64px; color: #444; font-size: 0.8rem; }
   .footer a { color: #555; text-decoration: none; }
   .footer a:hover { color: #888; }
 </style>
@@ -185,8 +195,59 @@ Webhook URL:     <span class="highlight">https://dread.sh/wh/ch_stripe-prod_a1b2
   <div class="step">
     <div class="step-label">done</div>
     <pre><code><span class="comment"># desktop notifications are automatic — no terminal needed
-# or launch the TUI for a live feed:</span>
-$ dread</code></pre>
+# add more channels anytime:</span>
+$ dread new "GitHub Deploys"</code></pre>
+  </div>
+
+  <div class="section">
+    <div class="section-title">features</div>
+    <ul class="features">
+      <li>
+        <span class="feat-name">desktop notifications</span>
+        <span class="feat-desc">native macOS + Linux — works in the background, no terminal needed</span>
+      </li>
+      <li>
+        <span class="feat-name">terminal TUI</span>
+        <span class="feat-desc">live feed of all webhook events with full payload inspection</span>
+      </li>
+      <li>
+        <span class="feat-name">multiple channels</span>
+        <span class="feat-desc">separate channels per service — Stripe, GitHub, Slack, whatever</span>
+      </li>
+      <li>
+        <span class="feat-name">event history</span>
+        <span class="feat-desc">scroll back through past events, stored server-side</span>
+      </li>
+      <li>
+        <span class="feat-name">webhook forwarding</span>
+        <span class="feat-desc">forward events to localhost or any URL for local development</span>
+      </li>
+      <li>
+        <span class="feat-name">auto-reconnect</span>
+        <span class="feat-desc">drops connection? reconnects in 3 seconds, picks up new channels</span>
+      </li>
+      <li>
+        <span class="feat-name">runs at login</span>
+        <span class="feat-desc">installs as a launchd/systemd service — starts automatically</span>
+      </li>
+      <li>
+        <span class="feat-name">works with everything</span>
+        <span class="feat-desc">any service that sends webhooks — just paste the URL</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-title">commands</div>
+    <div class="commands">
+      <pre><code>dread                       <span class="comment"># launch TUI with live feed</span>
+dread new "Stripe Prod"     <span class="comment"># create a channel</span>
+dread watch                 <span class="comment"># headless desktop notifications</span>
+dread list                  <span class="comment"># show all channels + webhook URLs</span>
+dread add &lt;id&gt; "Name"       <span class="comment"># subscribe to a shared channel</span>
+dread remove &lt;id&gt;           <span class="comment"># unsubscribe from a channel</span>
+dread --forward http://...  <span class="comment"># forward webhooks to localhost</span></code></pre>
+    </div>
   </div>
 
   <p class="footer">
