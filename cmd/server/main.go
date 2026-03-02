@@ -733,7 +733,7 @@ const landingPage = `<!DOCTYPE html>
   .terminal-body { padding: 0; }
   .terminal-row {
     display: grid;
-    grid-template-columns: 80px 90px 1fr;
+    grid-template-columns: 100px 90px 1fr;
     gap: 0;
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border-subtle);
@@ -1127,14 +1127,14 @@ function toggleTheme() {
 
 (function() {
   var events = [
-    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'charge.succeeded $120.00 Visa ending 4242'},
-    {time:'41m ago', src:'github', cls:'source-github', msg:'pull_request.merged #139 → main'},
-    {time:'33m ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read properties of undefined'},
-    {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'deployment.ready dread-sh-a1b2.vercel.app'},
-    {time:'12m ago', src:'supabase', cls:'source-supabase', msg:'db-webhook: INSERT on profiles (row id 4a8f)'},
-    {time:'6m ago', src:'shopify', cls:'source-shopify', msg:'orders/create Order #1042 $89.00'},
-    {time:'2m ago', src:'linear', cls:'source-linear', msg:'Issue.update DRD-42 → In Review'},
-    {time:'5s ago', src:'aws', cls:'source-aws', msg:'SNS CloudWatch alarm CPUUtilization > 90%'}
+    {time:'1h 12m ago', src:'stripe', cls:'source-stripe', msg:'charge.succeeded $120.00 on Visa ending 4242 — customer cus_NffrFeUfNV2Hib'},
+    {time:'41m ago', src:'github', cls:'source-github', msg:'pull_request.merged #139 "Add webhook retry logic" → main by nigel'},
+    {time:'33m ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read properties of undefined (reading \'map\') in /api/webhooks/ingest'},
+    {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'deployment.ready dread-sh-git-main-a1b2c3.vercel.app promoted to production'},
+    {time:'12m ago', src:'supabase', cls:'source-supabase', msg:'db-webhook INSERT on public.profiles row id 4a8f — triggered by auth.users update'},
+    {time:'6m ago', src:'shopify', cls:'source-shopify', msg:'orders/create Order #1042 — 3 items, $89.00 USD, shipping to San Francisco, CA'},
+    {time:'2m ago', src:'linear', cls:'source-linear', msg:'Issue.update DRD-42 "Webhook retries not working" status changed to In Review'},
+    {time:'5s ago', src:'aws', cls:'source-aws', msg:'SNS CloudWatch alarm CPUUtilization > 90% on i-0a1b2c3d4e prod-api-2'}
   ];
   var body = document.getElementById('terminal-body');
   var title = document.getElementById('terminal-title');
