@@ -625,24 +625,29 @@ const landingPage = `<!DOCTYPE html>
     border-radius: 12px; overflow: hidden;
   }
   .use-card {
-    display: flex; align-items: center; gap: 24px;
-    background: var(--bg); padding: 24px 28px;
+    display: grid; grid-template-columns: 40px 180px 1fr;
+    align-items: center; gap: 24px;
+    background: var(--bg); padding: 22px 28px;
     transition: background 0.15s;
   }
   .use-card:hover { background: var(--surface); }
   .use-icon {
-    width: 40px; height: 40px; min-width: 40px;
+    width: 40px; height: 40px;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
   }
   .use-icon svg { width: 20px; height: 20px; }
   .use-card h3 {
     font-size: 1rem; color: var(--text);
-    font-weight: 600; margin-bottom: 4px;
+    font-weight: 600; margin: 0;
   }
   .use-card p {
     font-size: 0.85rem; color: var(--text-muted);
     line-height: 1.5;
+  }
+  @media (max-width: 720px) {
+    .use-card { grid-template-columns: 40px 1fr; }
+    .use-card p { grid-column: 1 / -1; }
   }
   .use-card code {
     font-size: 0.75rem; background: var(--surface);
