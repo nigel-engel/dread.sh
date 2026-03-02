@@ -615,6 +615,45 @@ const landingPage = `<!DOCTYPE html>
     line-height: 1.6;
   }
 
+  /* ---- USE CASES ---- */
+  .use-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  @media (max-width: 720px) {
+    .use-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .use-grid { grid-template-columns: 1fr; }
+  }
+  .use-card {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    transition: border-color 0.2s;
+  }
+  .use-card:hover { border-color: var(--text-dim); }
+  .use-icon {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px;
+  }
+  .use-icon svg { width: 20px; height: 20px; }
+  .use-card h3 {
+    font-size: 1.05rem; color: var(--text);
+    font-weight: 600; margin-bottom: 10px;
+  }
+  .use-card p {
+    font-size: 0.9rem; color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .use-card code {
+    font-size: 0.8rem; background: var(--surface);
+    padding: 2px 6px; border-radius: 4px; color: var(--accent);
+  }
+
   /* ---- FOOTER ---- */
   footer {
     border-top: 1px solid var(--border-subtle);
@@ -712,8 +751,10 @@ const landingPage = `<!DOCTYPE html>
   .terminal-row .source-github { color: #238636; }
   .terminal-row .source-sentry { color: #F57C00; }
   .terminal-row .source-linear { color: #5E6AD2; }
-  .terminal-row .source-slack { color: #E01E5A; }
+  .terminal-row .source-shopify { color: #96BF48; }
+  .terminal-row .source-supabase { color: #3ECF8E; }
   .terminal-row .source-vercel { color: var(--text-secondary); }
+  .terminal-row .source-aws { color: #FF9900; }
   .terminal-footer {
     padding: 8px 12px;
     border-top: 1px solid var(--border-subtle);
@@ -779,6 +820,48 @@ const landingPage = `<!DOCTYPE html>
       <div class="why-icon"><i data-lucide="users"></i></div>
       <h3>Whole team, one command</h3>
       <p>Set it up once. Teammates follow your workspace and get every channel &mdash; current and future. No per-person configuration.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- USE CASES -->
+<div class="section section-tint-2">
+<div class="section-inner">
+  <div class="section-label">Use Cases</div>
+  <div class="section-title">How teams actually use it</div>
+  <div class="section-desc"></div>
+
+  <div class="use-grid">
+    <div class="use-card">
+      <div class="use-icon ic-rose"><i data-lucide="alarm-clock"></i></div>
+      <h3>Incident response</h3>
+      <p>A Sentry error spikes at 2am. You get a desktop notification the second it fires &mdash; not 15 minutes later from a PagerDuty escalation. Open the TUI, inspect the payload, forward it to localhost, start debugging.</p>
+    </div>
+    <div class="use-card">
+      <div class="use-icon ic-violet"><i data-lucide="credit-card"></i></div>
+      <h3>Payment monitoring</h3>
+      <p>Stripe sends <code>charge.failed</code> on a high-value B2B invoice. You see it immediately instead of discovering it in the dashboard the next morning. Catch failed payments before customers churn.</p>
+    </div>
+    <div class="use-card">
+      <div class="use-icon ic-blue"><i data-lucide="rocket"></i></div>
+      <h3>Deploy pipeline</h3>
+      <p>GitHub push → Vercel <code>deployment.ready</code> or <code>deployment.error</code>. The whole team sees deploys in real time without watching GitHub Actions or the Vercel dashboard.</p>
+    </div>
+    <div class="use-card">
+      <div class="use-icon ic-green"><i data-lucide="code"></i></div>
+      <h3>Local development</h3>
+      <p>Building a webhook handler? <code>dread --forward http://localhost:3000/webhook</code> sends every real event to your local server. No ngrok, no tunnel config. Replay past events with one command.</p>
+    </div>
+    <div class="use-card">
+      <div class="use-icon ic-amber"><i data-lucide="building-2"></i></div>
+      <h3>Startups with no observability</h3>
+      <p>No Datadog, no Grafana, no PagerDuty budget yet. Get webhook-driven awareness across every service for free with a single binary.</p>
+    </div>
+    <div class="use-card">
+      <div class="use-icon ic-cyan"><i data-lucide="test-tube-2"></i></div>
+      <h3>QA &amp; staging verification</h3>
+      <p>Someone pushes to staging. QA follows the team workspace and sees the GitHub push, the Vercel deploy, and any Sentry errors &mdash; all in one terminal.</p>
     </div>
   </div>
 </div>
@@ -1045,13 +1128,13 @@ function toggleTheme() {
 (function() {
   var events = [
     {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'charge.succeeded $120.00 Visa ending 4242'},
-    {time:'41m ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read properties of undefined'},
-    {time:'33m ago', src:'github', cls:'source-github', msg:'pull_request.merged #139 → main'},
+    {time:'41m ago', src:'github', cls:'source-github', msg:'pull_request.merged #139 → main'},
+    {time:'33m ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read properties of undefined'},
     {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'deployment.ready dread-sh-a1b2.vercel.app'},
-    {time:'9m ago', src:'github', cls:'source-github', msg:'push 3 commits to main'},
-    {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'invoice.paid $49.00 acme@company.com'},
-    {time:'45s ago', src:'linear', cls:'source-linear', msg:'Issue.update DRD-42 → In Review'},
-    {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'Unhandled Promise Rejection in /api/webhooks'}
+    {time:'12m ago', src:'supabase', cls:'source-supabase', msg:'db-webhook: INSERT on profiles (row id 4a8f)'},
+    {time:'6m ago', src:'shopify', cls:'source-shopify', msg:'orders/create Order #1042 $89.00'},
+    {time:'2m ago', src:'linear', cls:'source-linear', msg:'Issue.update DRD-42 → In Review'},
+    {time:'5s ago', src:'aws', cls:'source-aws', msg:'SNS CloudWatch alarm CPUUtilization > 90%'}
   ];
   var body = document.getElementById('terminal-body');
   var title = document.getElementById('terminal-title');
