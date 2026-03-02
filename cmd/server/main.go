@@ -190,6 +190,8 @@ const landingPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2334d399'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
 <title>dread — webhooks to desktop notifications</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
@@ -219,11 +221,15 @@ const landingPage = `<!DOCTYPE html>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg);
     color: var(--text-secondary);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, kbd {
+    font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   }
 
   /* ---- NAV ---- */
@@ -319,7 +325,7 @@ const landingPage = `<!DOCTYPE html>
     border-radius: 8px;
     padding: 12px 20px;
     font-size: 0.85rem; color: var(--text);
-    font-family: inherit;
+    font-family: "Geist Mono", ui-monospace, monospace;
     cursor: pointer; transition: border-color 0.15s;
     user-select: none;
   }
