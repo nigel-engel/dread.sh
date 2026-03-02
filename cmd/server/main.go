@@ -617,40 +617,32 @@ const landingPage = `<!DOCTYPE html>
 
   /* ---- USE CASES ---- */
   .use-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 28px;
-  }
-  @media (max-width: 720px) {
-    .use-grid { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 480px) {
-    .use-grid { grid-template-columns: 1fr; }
+    display: flex; flex-direction: column; gap: 1px;
+    background: var(--border); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
   }
   .use-card {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 32px;
-    transition: border-color 0.2s;
+    display: flex; align-items: center; gap: 24px;
+    background: var(--bg); padding: 24px 28px;
+    transition: background 0.15s;
   }
-  .use-card:hover { border-color: var(--text-dim); }
+  .use-card:hover { background: var(--surface); }
   .use-icon {
-    width: 40px; height: 40px;
+    width: 40px; height: 40px; min-width: 40px;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 18px;
   }
   .use-icon svg { width: 20px; height: 20px; }
   .use-card h3 {
-    font-size: 1.05rem; color: var(--text);
-    font-weight: 600; margin-bottom: 10px;
+    font-size: 1rem; color: var(--text);
+    font-weight: 600; margin-bottom: 4px;
   }
   .use-card p {
-    font-size: 0.9rem; color: var(--text-muted);
-    line-height: 1.6;
+    font-size: 0.85rem; color: var(--text-muted);
+    line-height: 1.5;
   }
   .use-card code {
-    font-size: 0.8rem; background: var(--surface);
+    font-size: 0.75rem; background: var(--surface);
     padding: 2px 6px; border-radius: 4px; color: var(--accent);
   }
 
