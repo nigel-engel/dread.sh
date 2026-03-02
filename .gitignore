@@ -30,6 +30,13 @@ vendor/
 .DS_Store
 Thumbs.db
 
+# GoReleaser
+dist/
+
+# Built binaries
+/dread
+/server
+
 # Project
 dread.yaml
 *.db

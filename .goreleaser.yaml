@@ -1,0 +1,40 @@
+version: 2
+
+builds:
+  - id: dread
+    main: ./cmd/dread
+    binary: dread
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: dread
+    builds:
+      - dread
+    format: tar.gz
+    name_template: "dread_{{ .Os }}_{{ .Arch }}"
+
+brews:
+  - name: dread
+    repository:
+      owner: nigel-engel
+      name: homebrew-tap
+    homepage: https://github.com/nigel-engel/dread.sh
+    description: Terminal webhook notifications
+    license: MIT
+    install: |
+      bin.install "dread"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: nigel-engel
+    name: dread.sh
