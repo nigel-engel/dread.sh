@@ -191,6 +191,7 @@ const landingPage = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2334d399'/></svg>">
 <title>dread — webhooks in your terminal</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
     --bg: oklch(10% 0.003 256);
@@ -425,8 +426,8 @@ const landingPage = `<!DOCTYPE html>
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 16px;
-    font-size: 0.9rem;
   }
+  .flow-card-icon svg { width: 18px; height: 18px; }
   .flow-card h3 {
     font-size: 0.95rem; color: var(--text);
     font-weight: 600; margin-bottom: 8px;
@@ -479,8 +480,8 @@ const landingPage = `<!DOCTYPE html>
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 14px;
-    font-size: 0.85rem;
   }
+  .feat-icon svg { width: 16px; height: 16px; }
   .feat h3 {
     font-size: 0.85rem; color: var(--text);
     font-weight: 500; margin-bottom: 6px;
@@ -619,7 +620,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
 
   <div class="flow-grid">
     <div class="flow-card">
-      <div class="flow-card-icon ic-green">+</div>
+      <div class="flow-card-icon ic-green"><i data-lucide="plus"></i></div>
       <h3>Lead creates channels</h3>
       <p>Each <code>dread new</code> auto-publishes your workspace. No extra steps.</p>
       <pre><code><span class="kw">$</span> dread new "Stripe Prod"
@@ -632,7 +633,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     </div>
 
     <div class="flow-card">
-      <div class="flow-card-icon ic-violet">~</div>
+      <div class="flow-card-icon ic-violet"><i data-lucide="share-2"></i></div>
       <h3>Share your workspace</h3>
       <p>One ID covers all your channels &mdash; current and future.</p>
       <pre><code><span class="kw">$</span> dread share
@@ -647,7 +648,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     <div class="flow-card flow-card-full">
       <div class="flow-inner">
         <div>
-          <div class="flow-card-icon ic-blue">&gt;</div>
+          <div class="flow-card-icon ic-blue"><i data-lucide="user-plus"></i></div>
           <h3>Teammates follow once</h3>
           <p>One command subscribes to every channel in the workspace. New channels sync automatically on reconnect &mdash; no manual adding.</p>
         </div>
@@ -673,62 +674,62 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
 
   <div class="feat-grid">
     <div class="feat">
-      <div class="feat-icon ic-green">&#9673;</div>
+      <div class="feat-icon ic-green"><i data-lucide="bell"></i></div>
       <h3>Desktop notifications</h3>
       <p>Native macOS + Linux. Works in the background, no terminal needed.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-blue">&#9618;</div>
+      <div class="feat-icon ic-blue"><i data-lucide="terminal"></i></div>
       <h3>Terminal TUI</h3>
       <p>Live feed of all webhook events with full payload inspection.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-violet">&#8644;</div>
+      <div class="feat-icon ic-violet"><i data-lucide="users"></i></div>
       <h3>Team workspaces</h3>
       <p>Follow a workspace once. New channels auto-sync on reconnect.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-orange">&#9783;</div>
+      <div class="feat-icon ic-orange"><i data-lucide="layers"></i></div>
       <h3>Multiple channels</h3>
       <p>Separate channels per service &mdash; Stripe, GitHub, Slack, whatever.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-amber">&#8981;</div>
+      <div class="feat-icon ic-amber"><i data-lucide="filter"></i></div>
       <h3>Event filtering</h3>
       <p>Filter by source, type, or content in the TUI and watch mode.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-cyan">&#8634;</div>
+      <div class="feat-icon ic-cyan"><i data-lucide="history"></i></div>
       <h3>Event history</h3>
       <p>Scroll back through past events, stored server-side.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-rose">&#8618;</div>
+      <div class="feat-icon ic-rose"><i data-lucide="arrow-right-to-line"></i></div>
       <h3>Webhook forwarding</h3>
       <p>Forward events to localhost or any URL for local development.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-green">&#8635;</div>
+      <div class="feat-icon ic-green"><i data-lucide="rotate-ccw"></i></div>
       <h3>Event replay</h3>
       <p>Re-forward any past event to a URL for debugging.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-blue">&#8645;</div>
+      <div class="feat-icon ic-blue"><i data-lucide="refresh-cw"></i></div>
       <h3>Auto-reconnect</h3>
       <p>Drops connection? Reconnects in 3s, picks up new channels.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-orange">&#9211;</div>
+      <div class="feat-icon ic-orange"><i data-lucide="power"></i></div>
       <h3>Runs at login</h3>
       <p>Installs as a launchd/systemd service. Starts automatically.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-violet">&#9881;</div>
+      <div class="feat-icon ic-violet"><i data-lucide="plug"></i></div>
       <h3>Works with everything</h3>
       <p>Any service that sends webhooks &mdash; just paste the URL.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-amber">&#9671;</div>
+      <div class="feat-icon ic-amber"><i data-lucide="zap"></i></div>
       <h3>Zero config</h3>
       <p>No accounts, no YAML, no environment variables. Just works.</p>
     </div>
@@ -783,6 +784,7 @@ dread replay &lt;event-id&gt;     <span class="c"># re-forward event</span></cod
   </div>
 </footer>
 
+<script>lucide.createIcons();</script>
 </body>
 </html>`
 
