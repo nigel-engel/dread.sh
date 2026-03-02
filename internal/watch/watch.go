@@ -18,27 +18,48 @@ import (
 )
 
 // Run connects to the server via WebSocket and sends desktop notifications
-// for incoming events. It reconnects automatically on disconnect and shuts
-// down cleanly on SIGINT/SIGTERM.
-func Run(serverURL string, channels []auth.Channel) error {
+// for incoming events. It reloads the config on each reconnect so new
+// channels are picked up automatically. Shuts down on SIGINT/SIGTERM.
+func Run(serverURL string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	ids := make([]string, len(channels))
-	nameByID := make(map[string]string, len(channels))
-	for i, ch := range channels {
-		ids[i] = ch.ID
-		nameByID[ch.ID] = ch.Name
-	}
-
 	wsURL := strings.Replace(serverURL, "http://", "ws://", 1)
 	wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
-	endpoint := wsURL + "/ws?channels=" + strings.Join(ids, ",")
-
-	fmt.Printf("watching %d channel(s)...\n", len(channels))
 
 	for {
-		err := listen(ctx, endpoint, nameByID)
+		cfg, err := auth.Load()
+		if err != nil {
+			log.Printf("config error: %v — retrying in 3s", err)
+			select {
+			case <-time.After(3 * time.Second):
+				continue
+			case <-ctx.Done():
+				return nil
+			}
+		}
+
+		if len(cfg.Channels) == 0 {
+			log.Printf("no channels configured — retrying in 10s")
+			select {
+			case <-time.After(10 * time.Second):
+				continue
+			case <-ctx.Done():
+				return nil
+			}
+		}
+
+		ids := make([]string, len(cfg.Channels))
+		nameByID := make(map[string]string, len(cfg.Channels))
+		for i, ch := range cfg.Channels {
+			ids[i] = ch.ID
+			nameByID[ch.ID] = ch.Name
+		}
+
+		endpoint := wsURL + "/ws?channels=" + strings.Join(ids, ",")
+		fmt.Printf("watching %d channel(s)...\n", len(cfg.Channels))
+
+		err = listen(ctx, endpoint, nameByID)
 		if ctx.Err() != nil {
 			fmt.Println("\nshutting down")
 			return nil

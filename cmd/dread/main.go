@@ -98,21 +98,7 @@ func cmdWatch(args []string) {
 	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
 	fs.Parse(args)
 
-	cfg, err := auth.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading config: %v\n", err)
-		os.Exit(1)
-	}
-
-	if len(cfg.Channels) == 0 {
-		fmt.Println("No channels configured. Create one first:")
-		fmt.Println()
-		fmt.Println("  dread new \"Stripe Prod\"")
-		fmt.Println()
-		os.Exit(0)
-	}
-
-	if err := watch.Run(*serverURL, cfg.Channels); err != nil {
+	if err := watch.Run(*serverURL); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
