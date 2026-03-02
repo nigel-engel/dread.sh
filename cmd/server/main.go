@@ -345,7 +345,7 @@ const landingPage = `<!DOCTYPE html>
   .hero-sub {
     font-size: 1.25rem;
     color: var(--text-muted);
-    max-width: 600px; margin: 0 auto 44px;
+    max-width: 720px; margin: 0 auto 44px;
     line-height: 1.7;
     position: relative; z-index: 1;
   }
@@ -694,7 +694,7 @@ const landingPage = `<!DOCTYPE html>
   .terminal-body { padding: 0; }
   .terminal-row {
     display: grid;
-    grid-template-columns: 80px 70px 1fr;
+    grid-template-columns: 80px 90px 1fr;
     gap: 0;
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border-subtle);
@@ -1044,15 +1044,11 @@ function toggleTheme() {
 
 (function() {
   var events = [
-    {time:'2h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
-    {time:'1h ago', src:'linear', cls:'source-linear', msg:'Issue ENG-481 moved to In Review'},
-    {time:'52m ago', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1'},
+    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
     {time:'41m ago', src:'sentry', cls:'source-sentry', msg:'ReferenceError: db is not defined'},
     {time:'33m ago', src:'github', cls:'source-github', msg:'PR merged #139 → main'},
     {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'Deployment ready (prod)'},
-    {time:'18m ago', src:'stripe', cls:'source-stripe', msg:'Refund refund.created $19.00'},
     {time:'9m ago', src:'github', cls:'source-github', msg:'Push to main (3 commits)'},
-    {time:'4m ago', src:'linear', cls:'source-linear', msg:'Issue ENG-482 created'},
     {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'Payment charge.succeeded $59.00'},
     {time:'45s ago', src:'slack', cls:'source-slack', msg:'#alerts: CPU > 90% on prod-2'},
     {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read prop…'}
