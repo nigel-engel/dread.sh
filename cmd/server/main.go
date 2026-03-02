@@ -375,6 +375,12 @@ const landingPage = `<!DOCTYPE html>
     border-top: 1px solid var(--border-subtle);
     border-bottom: 1px solid var(--border-subtle);
   }
+  .section-tint-1 { background: oklch(12% 0.003 256); }
+  .section-tint-2 { background: oklch(13% 0.004 240); }
+  .section-tint-3 { background: oklch(11.5% 0.003 270); }
+  :root.light .section-tint-1 { background: oklch(96% 0.003 256); }
+  :root.light .section-tint-2 { background: oklch(95% 0.004 240); }
+  :root.light .section-tint-3 { background: oklch(96.5% 0.003 270); }
   .section-inner {
     max-width: 1080px; margin: 0 auto;
     padding: 96px 24px;
@@ -752,7 +758,7 @@ const landingPage = `<!DOCTYPE html>
 </div>
 
 <!-- WHY -->
-<div class="section">
+<div class="section section-tint-1">
 <div class="section-inner">
   <div class="section-label">Why</div>
   <div class="section-title">Know the second something happens</div>
@@ -823,7 +829,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
 </div>
 
 <!-- WORKSPACE FLOW -->
-<div class="section" id="workspace">
+<div class="section section-tint-2" id="workspace">
 <div class="section-inner">
   <div class="section-label">Team Workspaces</div>
   <div class="section-title">Share once, sync forever</div>
@@ -960,7 +966,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
 </div>
 
 <!-- COMMANDS -->
-<div class="section" id="commands">
+<div class="section section-tint-3" id="commands">
 <div class="section-inner">
   <div class="section-label">Reference</div>
   <div class="section-title">Commands</div>
