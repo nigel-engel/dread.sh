@@ -1122,7 +1122,7 @@ function toggleTheme() {
 
 (function() {
   var events = [
-    {time:'1h 12m ago', src:'stripe', cls:'source-stripe', msg:'charge.succeeded $120.00 on Visa ending 4242 — customer cus_NffrFeUfNV2Hib'},
+    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'charge.succeeded $120.00 on Visa ending 4242 — customer cus_NffrFeUfNV2Hib'},
     {time:'41m ago', src:'github', cls:'source-github', msg:'pull_request.merged #139 "Add webhook retry logic" → main by nigel'},
     {time:'33m ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read properties of undefined (reading \'map\') in /api/webhooks/ingest'},
     {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'deployment.ready dread-sh-git-main-a1b2c3.vercel.app promoted to production'},
