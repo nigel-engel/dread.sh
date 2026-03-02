@@ -60,7 +60,7 @@ type Model struct {
 	now time.Time
 }
 
-func New(serverURL string, channels []auth.Channel, forwardURL string) Model {
+func New(serverURL string, channels []auth.Channel, forwardURL string, filter string) Model {
 	vp := viewport.New()
 	dvp := viewport.New()
 	ids := make([]string, len(channels))
@@ -73,6 +73,7 @@ func New(serverURL string, channels []auth.Channel, forwardURL string) Model {
 		serverURL:    serverURL,
 		channelIDs:   ids,
 		channelNames: names,
+		filterText:   filter,
 		viewport:     vp,
 		detailVP:     dvp,
 		now:          time.Now(),

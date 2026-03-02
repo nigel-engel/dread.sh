@@ -13,4 +13,9 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS idx_events_channel_timestamp ON events (channel, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_events_source ON events (source);
+
+CREATE TABLE IF NOT EXISTS stats (
+    key   TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0
+);
 `

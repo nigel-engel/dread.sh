@@ -89,6 +89,46 @@ func (s *Store) List(channels []string, before time.Time, limit int) ([]event.Ev
 	return events, rows.Err()
 }
 
+// GetByID returns a single event by its ID.
+func (s *Store) GetByID(id string) (*event.Event, error) {
+	var e event.Event
+	err := s.db.QueryRow(
+		`SELECT id, channel, source, type, summary, raw_json, timestamp FROM events WHERE id = ?`,
+		id,
+	).Scan(&e.ID, &e.Channel, &e.Source, &e.Type, &e.Summary, &e.RawJSON, &e.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+// Increment atomically increments a stats counter by 1.
+func (s *Store) Increment(key string) {
+	s.db.Exec(
+		`INSERT INTO stats (key, count) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET count = count + 1`,
+		key,
+	)
+}
+
+// GetStats returns all stats counters as a map.
+func (s *Store) GetStats() map[string]int64 {
+	rows, err := s.db.Query(`SELECT key, count FROM stats`)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	stats := make(map[string]int64)
+	for rows.Next() {
+		var key string
+		var count int64
+		if err := rows.Scan(&key, &count); err == nil {
+			stats[key] = count
+		}
+	}
+	return stats
+}
+
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()

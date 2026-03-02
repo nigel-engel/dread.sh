@@ -87,11 +87,36 @@ func main() {
 		})
 	})
 
+	// Single event lookup
+	mux.HandleFunc("GET /api/events/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		ev, err := db.GetByID(id)
+		if err != nil {
+			http.Error(w, "event not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ev)
+	})
+
 	// WebSocket — supports multiple channels
 	mux.HandleFunc("GET /ws", h.HandleWS(cfg.Server.BaseURL))
 
+	// Install tracking — phone-home from install script
+	mux.HandleFunc("POST /api/installed", func(w http.ResponseWriter, r *http.Request) {
+		db.Increment("installs")
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Install stats
+	mux.HandleFunc("GET /api/stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(db.GetStats())
+	})
+
 	// Install script
 	mux.HandleFunc("GET /install", func(w http.ResponseWriter, r *http.Request) {
+		db.Increment("install_downloads")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte(installScript))
 	})
@@ -137,7 +162,7 @@ const landingPage = `<!DOCTYPE html>
     padding: 60px 20px;
     line-height: 1.6;
   }
-  .container { max-width: 640px; width: 100%; }
+  .container { max-width: 680px; width: 100%; }
   h1 { font-size: 2rem; color: #fff; margin-bottom: 8px; }
   .tagline { color: #888; font-size: 1rem; margin-bottom: 48px; }
   .step { margin-bottom: 32px; }
@@ -152,6 +177,7 @@ const landingPage = `<!DOCTYPE html>
   .highlight { color: #7ee787; }
   .section { margin-top: 64px; margin-bottom: 32px; }
   .section-title { color: #fff; font-size: 1.1rem; margin-bottom: 24px; }
+  .section-desc { color: #888; font-size: 0.9rem; margin-bottom: 24px; line-height: 1.7; }
   .features { list-style: none; padding: 0; }
   .features li {
     padding: 12px 0;
@@ -164,6 +190,7 @@ const landingPage = `<!DOCTYPE html>
   .commands { margin-top: 8px; }
   .commands pre { margin-bottom: 12px; }
   .cmd-label { color: #666; font-size: 0.8rem; margin-bottom: 4px; }
+  .divider { border: none; border-top: 1px solid #1a1a1a; margin: 64px 0; }
   .footer { margin-top: 64px; color: #444; font-size: 0.8rem; }
   .footer a { color: #555; text-decoration: none; }
   .footer a:hover { color: #888; }
@@ -195,9 +222,67 @@ Webhook URL:     <span class="highlight">https://dread.sh/wh/ch_stripe-prod_a1b2
   <div class="step">
     <div class="step-label">done</div>
     <pre><code><span class="comment"># desktop notifications are automatic — no terminal needed
-# add more channels anytime:</span>
-$ dread new "GitHub Deploys"</code></pre>
+# open the TUI anytime to see the live feed:</span>
+$ dread</code></pre>
   </div>
+
+  <hr class="divider">
+
+  <div class="section">
+    <div class="section-title">set up a workspace for your team</div>
+    <p class="section-desc">A workspace is just a set of channels — one per service you care about.
+One person creates the channels and wires up the webhooks.
+Everyone else subscribes with a single command and starts getting notifications.</p>
+
+    <div class="step">
+      <div class="step-label">1. create channels for each service</div>
+      <pre><code>$ dread new "Stripe Prod"
+<span class="output">Webhook URL: <span class="highlight">https://dread.sh/wh/ch_stripe-prod_a1b2c3</span></span>
+
+$ dread new "GitHub Deploys"
+<span class="output">Webhook URL: <span class="highlight">https://dread.sh/wh/ch_github-deploys_d4e5f6</span></span>
+
+$ dread new "Sentry Alerts"
+<span class="output">Webhook URL: <span class="highlight">https://dread.sh/wh/ch_sentry-alerts_g7h8i9</span></span></code></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-label">2. paste each webhook URL into the corresponding service</div>
+      <pre><code><span class="comment"># go to Stripe → Developers → Webhooks → Add endpoint
+# go to GitHub → Settings → Webhooks → Add webhook
+# go to Sentry → Settings → Integrations → Webhooks</span></code></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-label">3. share channels with your team</div>
+      <pre><code>$ dread share ch_stripe-prod_a1b2c3
+
+<span class="output">Share this with your team:
+  dread add ch_stripe-prod_a1b2c3 "Stripe Prod"</span>
+
+<span class="comment"># send that command to your team over Slack, email, wherever</span></code></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-label">4. teammates install and subscribe</div>
+      <pre><code><span class="comment"># each teammate runs:</span>
+$ curl -sSL dread.sh/install | sh
+$ dread add ch_stripe-prod_a1b2c3 "Stripe Prod"
+$ dread add ch_github-deploys_d4e5f6 "GitHub Deploys"
+$ dread add ch_sentry-alerts_g7h8i9 "Sentry Alerts"
+
+<span class="comment"># notifications start immediately — nothing else to configure</span></code></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-label">that's it</div>
+      <pre><code><span class="comment"># everyone on the team now gets desktop notifications
+# for every webhook event across all subscribed channels
+# no accounts, no dashboards, no browser tabs</span></code></pre>
+    </div>
+  </div>
+
+  <hr class="divider">
 
   <div class="section">
     <div class="section-title">features</div>
@@ -211,8 +296,16 @@ $ dread new "GitHub Deploys"</code></pre>
         <span class="feat-desc">live feed of all webhook events with full payload inspection</span>
       </li>
       <li>
+        <span class="feat-name">team sharing</span>
+        <span class="feat-desc">one person sets up the webhooks, shares channel IDs — everyone gets notifications</span>
+      </li>
+      <li>
         <span class="feat-name">multiple channels</span>
         <span class="feat-desc">separate channels per service — Stripe, GitHub, Slack, whatever</span>
+      </li>
+      <li>
+        <span class="feat-name">event filtering</span>
+        <span class="feat-desc">filter by source, type, or content — in the TUI and in watch mode</span>
       </li>
       <li>
         <span class="feat-name">event history</span>
@@ -221,6 +314,10 @@ $ dread new "GitHub Deploys"</code></pre>
       <li>
         <span class="feat-name">webhook forwarding</span>
         <span class="feat-desc">forward events to localhost or any URL for local development</span>
+      </li>
+      <li>
+        <span class="feat-name">event replay</span>
+        <span class="feat-desc">re-forward any past event to a URL for debugging</span>
       </li>
       <li>
         <span class="feat-name">auto-reconnect</span>
@@ -240,13 +337,27 @@ $ dread new "GitHub Deploys"</code></pre>
   <div class="section">
     <div class="section-title">commands</div>
     <div class="commands">
+      <div class="cmd-label">basics</div>
       <pre><code>dread                       <span class="comment"># launch TUI with live feed</span>
 dread new "Stripe Prod"     <span class="comment"># create a channel</span>
-dread watch                 <span class="comment"># headless desktop notifications</span>
 dread list                  <span class="comment"># show all channels + webhook URLs</span>
+dread logs                  <span class="comment"># print recent events to stdout</span>
+dread status                <span class="comment"># show channels, last events, service status</span></code></pre>
+
+      <div class="cmd-label">team</div>
+      <pre><code>dread share &lt;id&gt;            <span class="comment"># print a command to share with teammates</span>
 dread add &lt;id&gt; "Name"       <span class="comment"># subscribe to a shared channel</span>
-dread remove &lt;id&gt;           <span class="comment"># unsubscribe from a channel</span>
-dread --forward http://...  <span class="comment"># forward webhooks to localhost</span></code></pre>
+dread remove &lt;id&gt;           <span class="comment"># unsubscribe from a channel</span></code></pre>
+
+      <div class="cmd-label">notifications</div>
+      <pre><code>dread watch                 <span class="comment"># headless desktop notifications</span>
+dread watch --filter stripe <span class="comment"># only notify on matching events</span></code></pre>
+
+      <div class="cmd-label">development</div>
+      <pre><code>dread --forward http://...  <span class="comment"># forward webhooks to localhost</span>
+dread --filter payment      <span class="comment"># TUI filtered to matching events</span>
+dread test &lt;id&gt;             <span class="comment"># send a test webhook event</span>
+dread replay &lt;event-id&gt;     <span class="comment"># re-forward a past event</span></code></pre>
     </div>
   </div>
 
@@ -349,6 +460,9 @@ UNITEOF
   systemctl --user enable --now dread-watch.service
   echo "Background notifications enabled (systemd)"
 fi
+
+# Report successful install (non-blocking, silent)
+curl -sS -X POST https://dread.sh/api/installed >/dev/null 2>&1 &
 
 echo ""
 echo "Next: dread new \"My Channel\""

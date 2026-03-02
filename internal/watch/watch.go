@@ -20,7 +20,9 @@ import (
 // Run connects to the server via WebSocket and sends desktop notifications
 // for incoming events. It reloads the config on each reconnect so new
 // channels are picked up automatically. Shuts down on SIGINT/SIGTERM.
-func Run(serverURL string) error {
+// If filter is non-empty, only events matching the substring (in source,
+// type, or summary) will trigger notifications.
+func Run(serverURL string, filter string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -59,7 +61,7 @@ func Run(serverURL string) error {
 		endpoint := wsURL + "/ws?channels=" + strings.Join(ids, ",")
 		fmt.Printf("watching %d channel(s)...\n", len(cfg.Channels))
 
-		err = listen(ctx, endpoint, nameByID)
+		err = listen(ctx, endpoint, nameByID, filter)
 		if ctx.Err() != nil {
 			fmt.Println("\nshutting down")
 			return nil
@@ -74,7 +76,17 @@ func Run(serverURL string) error {
 	}
 }
 
-func listen(ctx context.Context, endpoint string, names map[string]string) error {
+func matchesFilter(filter, source, typ, summary string) bool {
+	if filter == "" {
+		return true
+	}
+	lower := strings.ToLower(filter)
+	return strings.Contains(strings.ToLower(source), lower) ||
+		strings.Contains(strings.ToLower(typ), lower) ||
+		strings.Contains(strings.ToLower(summary), lower)
+}
+
+func listen(ctx context.Context, endpoint string, names map[string]string, filter string) error {
 	conn, _, err := websocket.Dial(ctx, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -101,6 +113,9 @@ func listen(ctx context.Context, endpoint string, names map[string]string) error
 		}
 
 		if msg.Type == hub.MsgTypeEvent && msg.Event != nil {
+			if !matchesFilter(filter, msg.Event.Source, msg.Event.Type, msg.Event.Summary) {
+				continue
+			}
 			title := names[msg.Event.Channel]
 			if title == "" {
 				title = msg.Event.Channel
