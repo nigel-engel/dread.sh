@@ -259,6 +259,8 @@ const landingPage = `<!DOCTYPE html>
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  html, body { overscroll-behavior: none; }
+
   body {
     font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg);
@@ -1172,6 +1174,8 @@ const docsPage = `<!DOCTYPE html>
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { overscroll-behavior: none; }
 
   body {
     font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
