@@ -647,27 +647,23 @@ const landingPage = `<!DOCTYPE html>
   .terminal-dots .dot-red { background: #FF5F57; }
   .terminal-dots .dot-yellow { background: #FEBC2E; }
   .terminal-dots .dot-green { background: #28C840; }
-  .terminal-body { padding: 16px; }
+  .terminal-body { padding: 0; }
   .terminal-row {
     display: grid;
-    grid-template-columns: 60px 70px 1fr;
-    gap: 8px;
+    grid-template-columns: 80px 70px 1fr;
+    gap: 0;
     color: var(--text-secondary);
-    opacity: 0;
-    transform: translateY(6px);
-    animation: rowIn 0.3s ease forwards;
+    border-bottom: 1px solid var(--border-subtle);
+    text-align: left;
   }
-  @keyframes rowIn {
-    to { opacity: 1; transform: translateY(0); }
+  .terminal-row:last-child { border-bottom: none; }
+  .terminal-row span {
+    padding: 6px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .terminal-row.highlight {
-    animation: rowIn 0.3s ease forwards, rowFlash 0.6s ease 0.3s;
-  }
-  @keyframes rowFlash {
-    0% { background: var(--accent-glow); }
-    100% { background: transparent; }
-  }
-  .terminal-row .time { color: var(--text-dim); }
+  .terminal-row .time { color: var(--text-dim); text-align: left; }
   .terminal-row .source-stripe { color: #635BFF; }
   .terminal-row .source-github { color: #238636; }
   .terminal-row .source-sentry { color: #F57C00; }
@@ -679,46 +675,6 @@ const landingPage = `<!DOCTYPE html>
     border-top: 1px solid var(--border);
     color: var(--text-dim);
     font-size: 0.65rem;
-  }
-  .toast-container {
-    position: absolute;
-    top: -8px; right: -8px;
-    z-index: 10;
-    display: flex; flex-direction: column; gap: 8px;
-    pointer-events: none;
-  }
-  .toast {
-    background: var(--notif-bg);
-    color: var(--notif-text);
-    border-radius: 10px;
-    padding: 10px 16px;
-    box-shadow: 0 8px 32px var(--notif-shadow);
-    font-size: 0.75rem;
-    line-height: 1.4;
-    opacity: 0;
-    transform: translateX(20px);
-    animation: toastIn 0.35s ease forwards, toastOut 0.35s ease 2.5s forwards;
-    font-family: "Geist", -apple-system, sans-serif;
-    white-space: nowrap;
-  }
-  @keyframes toastIn {
-    to { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes toastOut {
-    to { opacity: 0; transform: translateX(20px); }
-  }
-  .toast strong {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-  .toast span {
-    font-size: 0.7rem;
-    color: var(--notif-sub);
-  }
-
-  @media (max-width: 768px) {
-    .toast-container { right: 4px; top: -4px; }
   }
 </style>
 </head>
@@ -745,7 +701,6 @@ const landingPage = `<!DOCTYPE html>
     <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
   </div>
   <div class="hero-right">
-    <div class="toast-container" id="toast-container"></div>
     <div class="terminal">
       <div class="terminal-bar">
         <div class="terminal-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
@@ -1017,81 +972,25 @@ function toggleTheme() {
 
 (function() {
   var events = [
-    {time:'41m', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00', toast:'Stripe: invoice.paid $249.00'},
-    {time:'35m', src:'linear', cls:'source-linear', msg:'Issue ENG-481 moved to In Review', toast:'Linear: ENG-481 In Review'},
-    {time:'28m', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1', toast:'Slack: deploy v2.4.1'},
-    {time:'21m', src:'sentry', cls:'source-sentry', msg:'ReferenceError: db is not…', toast:'Sentry: ReferenceError'},
-    {time:'14m', src:'github', cls:'source-github', msg:'PR merged #139 → main', toast:'GitHub: PR #139 merged'},
-    {time:'9m', src:'vercel', cls:'source-vercel', msg:'Deployment ready (prod)', toast:'Vercel: deployment ready'},
-    {time:'5m', src:'github', cls:'source-github', msg:'Push to main (3 commits)', toast:'GitHub: push to main'},
-    {time:'2m', src:'stripe', cls:'source-stripe', msg:'Payment charge.succeeded $59.00', toast:'Stripe: charge $59.00'},
-    {time:'now', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read prop…', toast:'Sentry: TypeError'}
+    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
+    {time:'52m ago', src:'linear', cls:'source-linear', msg:'Issue ENG-481 moved to In Review'},
+    {time:'41m ago', src:'slack', cls:'source-slack', msg:'#deploys: Production deploy v2.4.1'},
+    {time:'33m ago', src:'sentry', cls:'source-sentry', msg:'ReferenceError: db is not…'},
+    {time:'24m ago', src:'github', cls:'source-github', msg:'PR merged #139 → main'},
+    {time:'18m ago', src:'vercel', cls:'source-vercel', msg:'Deployment ready (prod)'},
+    {time:'9m ago', src:'github', cls:'source-github', msg:'Push to main (3 commits)'},
+    {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'Payment charge.succeeded $59.00'},
+    {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read prop…'}
   ];
   var body = document.getElementById('terminal-body');
   var title = document.getElementById('terminal-title');
-  var toasts = document.getElementById('toast-container');
-  var i = 0;
-
-  function addRow() {
-    if (i >= events.length) return;
-    var e = events[i];
+  title.textContent = 'dread.sh - ' + events.length + ' events';
+  events.forEach(function(e) {
     var row = document.createElement('div');
-    row.className = 'terminal-row highlight';
+    row.className = 'terminal-row';
     row.innerHTML = '<span class="time">' + e.time + '</span><span class="' + e.cls + '">' + e.src + '</span><span>' + e.msg + '</span>';
     body.appendChild(row);
-    i++;
-    title.textContent = 'dread.sh - ' + i + ' event' + (i === 1 ? '' : 's');
-    showToast(e.toast, e.src);
-    if (i < events.length) {
-      setTimeout(addRow, 800 + Math.random() * 1200);
-    } else {
-      setTimeout(loopNew, 4000);
-    }
-  }
-
-  var extras = [
-    {src:'stripe', cls:'source-stripe', msg:'Refund refund.created $19.00', toast:'Stripe: refund $19.00'},
-    {src:'github', cls:'source-github', msg:'Issue closed #138', toast:'GitHub: issue #138 closed'},
-    {src:'slack', cls:'source-slack', msg:'#alerts: CPU > 90% on prod-2', toast:'Slack: CPU alert'},
-    {src:'linear', cls:'source-linear', msg:'Issue ENG-482 created', toast:'Linear: ENG-482 created'},
-    {src:'sentry', cls:'source-sentry', msg:'Unhandled rejection in /api/pay', toast:'Sentry: unhandled rejection'},
-    {src:'vercel', cls:'source-vercel', msg:'Build failed (staging)', toast:'Vercel: build failed'},
-    {src:'stripe', cls:'source-stripe', msg:'Subscription sub.updated $99/mo', toast:'Stripe: sub updated $99/mo'},
-    {src:'github', cls:'source-github', msg:'Release v2.5.0 published', toast:'GitHub: release v2.5.0'},
-  ];
-  var ei = 0;
-
-  function loopNew() {
-    var e = extras[ei % extras.length];
-    ei++;
-    var rows = body.querySelectorAll('.terminal-row');
-    if (rows.length > 0) {
-      rows[0].style.transition = 'opacity 0.2s';
-      rows[0].style.opacity = '0';
-      setTimeout(function(){ rows[0].remove(); }, 200);
-    }
-    setTimeout(function() {
-      var row = document.createElement('div');
-      row.className = 'terminal-row highlight';
-      row.innerHTML = '<span class="time">now</span><span class="' + e.cls + '">' + e.src + '</span><span>' + e.msg + '</span>';
-      body.appendChild(row);
-      var count = body.querySelectorAll('.terminal-row').length;
-      title.textContent = 'dread.sh - ' + count + ' events';
-      showToast(e.toast, e.src);
-    }, 250);
-    setTimeout(loopNew, 3000 + Math.random() * 2000);
-  }
-
-  function showToast(text, src) {
-    var t = document.createElement('div');
-    t.className = 'toast';
-    var parts = text.split(': ');
-    t.innerHTML = '<strong>' + parts[0] + '</strong><span>' + parts.slice(1).join(': ') + '</span>';
-    toasts.appendChild(t);
-    setTimeout(function(){ t.remove(); }, 3000);
-  }
-
-  setTimeout(addRow, 600);
+  });
 })();
 
 function copyText(text, el) {
