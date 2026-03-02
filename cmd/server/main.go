@@ -321,7 +321,7 @@ const landingPage = `<!DOCTYPE html>
     font-size: 0.85rem; color: var(--text);
     font-family: inherit;
     cursor: pointer; transition: border-color 0.15s;
-    user-select: all;
+    user-select: none;
   }
   .hero-install:hover { border-color: var(--text-muted); }
   .hero-install .prompt { color: var(--text-dim); }
