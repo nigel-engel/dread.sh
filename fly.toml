@@ -5,7 +5,7 @@ primary_region = 'ord'
 
 [env]
   DREAD_DB = '/data/dread.db'
-  DREAD_BASE_URL = 'https://dread-sh.fly.dev'
+  DREAD_BASE_URL = 'https://dread.sh'
 
 [http_service]
   internal_port = 8080

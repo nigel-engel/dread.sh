@@ -54,7 +54,7 @@ Usage:
   dread watch                    headless mode — desktop notifications only
 
 Flags (TUI / watch mode):
-  --server <url>                 dread server URL (default: https://dread-sh.fly.dev)
+  --server <url>                 dread server URL (default: https://dread.sh)
 
 Flags (TUI mode only):
   --forward <url>                forward webhooks to this URL
@@ -66,7 +66,7 @@ To run at login (macOS):
 
 func runTUI() {
 	fs := flag.NewFlagSet("dread", flag.ExitOnError)
-	serverURL := fs.String("server", "https://dread-sh.fly.dev", "dread server URL")
+	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
 	forwardURL := fs.String("forward", "", "forward webhooks to this URL")
 	fs.Parse(os.Args[1:])
 
@@ -95,7 +95,7 @@ func runTUI() {
 
 func cmdWatch(args []string) {
 	fs := flag.NewFlagSet("watch", flag.ExitOnError)
-	serverURL := fs.String("server", "https://dread-sh.fly.dev", "dread server URL")
+	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
 	fs.Parse(args)
 
 	cfg, err := auth.Load()
@@ -140,7 +140,7 @@ func cmdNew(args []string) {
 	}
 
 	fmt.Printf("Created channel: %s (%s)\n", name, ch)
-	fmt.Printf("Webhook URL:     https://dread-sh.fly.dev/wh/%s\n", ch)
+	fmt.Printf("Webhook URL:     https://dread.sh/wh/%s\n", ch)
 	fmt.Println()
 	fmt.Println("Paste the webhook URL into your service (Stripe, GitHub, etc.)")
 	fmt.Println("Then run: dread")
@@ -172,7 +172,7 @@ func cmdAdd(args []string) {
 	}
 
 	fmt.Printf("Subscribed to: %s (%s)\n", name, ch)
-	fmt.Printf("Webhook URL: https://dread-sh.fly.dev/wh/%s\n", ch)
+	fmt.Printf("Webhook URL: https://dread.sh/wh/%s\n", ch)
 }
 
 func cmdRemove(args []string) {
@@ -216,6 +216,6 @@ func cmdList() {
 	fmt.Println("Subscribed channels:")
 	for _, ch := range cfg.Channels {
 		fmt.Printf("  %-20s  %s\n", ch.Name, ch.ID)
-		fmt.Printf("  %-20s  https://dread-sh.fly.dev/wh/%s\n", "", ch.ID)
+		fmt.Printf("  %-20s  https://dread.sh/wh/%s\n", "", ch.ID)
 	}
 }
