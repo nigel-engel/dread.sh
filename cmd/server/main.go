@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -114,6 +115,42 @@ func main() {
 		json.NewEncoder(w).Encode(db.GetStats())
 	})
 
+	// Workspace API — save workspace
+	mux.HandleFunc("PUT /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		// Validate it's valid JSON with a channels array
+		var payload struct {
+			Channels json.RawMessage `json:"channels"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil || payload.Channels == nil {
+			http.Error(w, "invalid payload: requires {\"channels\":[...]}", http.StatusBadRequest)
+			return
+		}
+		if err := db.SaveWorkspace(id, string(payload.Channels)); err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			log.Printf("save workspace: %v", err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Workspace API — get workspace
+	mux.HandleFunc("GET /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		channelsJSON, err := db.GetWorkspace(id)
+		if err != nil {
+			http.Error(w, "workspace not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"channels":` + channelsJSON + `}`))
+	})
+
 	// Install script
 	mux.HandleFunc("GET /install", func(w http.ResponseWriter, r *http.Request) {
 		db.Increment("install_downloads")
@@ -154,217 +191,599 @@ const landingPage = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dread — webhooks in your terminal</title>
 <style>
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --border-subtle: oklch(18% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(76.5% 0.177 163.22);
+    --accent-dim: oklch(50.8% 0.118 165.61);
+    --accent-glow: oklch(69.6% 0.17 162.48 / 0.15);
+    --accent-glow-strong: oklch(69.6% 0.17 162.48 / 0.3);
+    --orange: oklch(75% 0.18 55);
+    --orange-dim: oklch(52% 0.16 55);
+    --blue: oklch(70.7% 0.165 254.62);
+    --violet: oklch(70.2% 0.183 293.54);
+    --amber: oklch(82.8% 0.189 84.43);
+    --rose: oklch(71.2% 0.194 13.43);
+    --cyan: oklch(78.9% 0.154 211.53);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
-    background: #0a0a0a; color: #e0e0e0;
-    display: flex; justify-content: center;
-    padding: 60px 20px;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    background: var(--bg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- NAV ---- */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--border);
+    background: oklch(10% 0.003 256 / 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .nav-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 24px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 1rem; font-weight: 600; color: var(--text);
+    text-decoration: none; letter-spacing: -0.02em;
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a {
+    font-size: 0.8rem; color: var(--text-muted);
+    text-decoration: none; transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    font-size: 0.75rem; color: var(--bg) !important;
+    background: var(--accent); padding: 6px 14px;
+    border-radius: 6px; font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  .nav-cta:hover { opacity: 0.85; }
+
+  /* ---- HERO ---- */
+  .hero {
+    max-width: 1080px; margin: 0 auto;
+    padding: 100px 24px 80px;
+    text-align: center;
+    position: relative;
+  }
+  .hero::before {
+    content: "";
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.75rem; color: var(--accent);
+    border: 1px solid oklch(50.8% 0.118 165.61 / 0.3);
+    background: oklch(50.8% 0.118 165.61 / 0.08);
+    padding: 4px 14px; border-radius: 20px;
+    margin-bottom: 24px;
+    position: relative; z-index: 1;
+  }
+  .badge-dot {
+    width: 6px; height: 6px;
+    background: var(--accent); border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    position: relative; z-index: 1;
+  }
+  h1 span { color: var(--accent); }
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    max-width: 560px; margin: 0 auto 40px;
+    line-height: 1.7;
+    position: relative; z-index: 1;
+  }
+  .hero-actions {
+    display: flex; gap: 12px;
+    justify-content: center;
+    position: relative; z-index: 1;
+  }
+  .hero-install {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 0.85rem; color: var(--text);
+    font-family: inherit;
+    cursor: pointer; transition: border-color 0.15s;
+    user-select: all;
+  }
+  .hero-install:hover { border-color: var(--text-muted); }
+  .hero-install .prompt { color: var(--text-dim); }
+  .hero-install .pipe { color: var(--text-dim); }
+
+  /* ---- CONTAINER ---- */
+  .container {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---- SECTION ---- */
+  .section {
+    padding: 80px 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .section-label {
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 1.6rem; color: var(--text);
+    font-weight: 600; letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .section-desc {
+    color: var(--text-muted); font-size: 0.9rem;
+    max-width: 600px; line-height: 1.7;
+    margin-bottom: 48px;
+  }
+
+  /* ---- STEPS (quick start) ---- */
+  .steps {
+    display: grid; gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .step-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    background: var(--bg);
+  }
+  .step-num {
+    padding: 24px;
+    border-right: 1px solid var(--border-subtle);
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .step-n {
+    width: 24px; height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .step-label {
+    font-size: 0.8rem; color: var(--text-secondary);
+    padding-top: 3px;
+  }
+  .step-content {
+    padding: 24px;
+  }
+  .step-content pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-size: 0.8rem;
+  }
+  .step-content code { color: var(--text); }
+
+  @media (max-width: 640px) {
+    .step-row { grid-template-columns: 1fr; }
+    .step-num { border-right: none; border-bottom: 1px solid var(--border-subtle); padding: 16px 20px; }
+    .step-content { padding: 20px; }
+  }
+
+  /* ---- WORKSPACE FLOW (2-col hero card) ---- */
+  .flow-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 720px) {
+    .flow-grid { grid-template-columns: 1fr; }
+  }
+  .flow-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .flow-card:hover { border-color: oklch(32% 0.003 256); }
+  .flow-card-icon {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+  }
+  .flow-card h3 {
+    font-size: 0.95rem; color: var(--text);
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .flow-card p {
+    font-size: 0.8rem; color: var(--text-muted);
+    line-height: 1.6; margin-bottom: 16px;
+  }
+  .flow-card pre {
+    background: var(--bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 0.75rem;
+  }
+  .flow-card code { color: var(--text-secondary); }
+  .flow-card-full { grid-column: 1 / -1; }
+  .flow-card-full .flow-inner {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    align-items: center;
+  }
+  @media (max-width: 720px) {
+    .flow-card-full .flow-inner { grid-template-columns: 1fr; }
+  }
+
+  /* ---- FEATURE GRID ---- */
+  .feat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  @media (max-width: 720px) {
+    .feat-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .feat-grid { grid-template-columns: 1fr; }
+  }
+  .feat {
+    background: var(--bg);
+    padding: 28px;
+    transition: background 0.15s;
+  }
+  .feat:hover { background: var(--surface); }
+  .feat-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+    font-size: 0.85rem;
+  }
+  .feat h3 {
+    font-size: 0.85rem; color: var(--text);
+    font-weight: 500; margin-bottom: 6px;
+  }
+  .feat p {
+    font-size: 0.75rem; color: var(--text-muted);
     line-height: 1.6;
   }
-  .container { max-width: 680px; width: 100%; }
-  h1 { font-size: 2rem; color: #fff; margin-bottom: 8px; }
-  .tagline { color: #888; font-size: 1rem; margin-bottom: 48px; }
-  .step { margin-bottom: 32px; }
-  .step-label { color: #888; font-size: 0.8rem; margin-bottom: 6px; }
-  pre {
-    background: #161616; border: 1px solid #282828; border-radius: 8px;
-    padding: 16px 20px; overflow-x: auto; font-size: 0.9rem;
+  .ic-green { background: oklch(69.6% 0.17 162.48 / 0.12); color: var(--accent); }
+  .ic-blue { background: oklch(70.7% 0.165 254.62 / 0.12); color: var(--blue); }
+  .ic-orange { background: oklch(75% 0.18 55 / 0.12); color: var(--orange); }
+  .ic-violet { background: oklch(70.2% 0.183 293.54 / 0.12); color: var(--violet); }
+  .ic-amber { background: oklch(82.8% 0.189 84.43 / 0.12); color: var(--amber); }
+  .ic-rose { background: oklch(71.2% 0.194 13.43 / 0.12); color: var(--rose); }
+  .ic-cyan { background: oklch(78.9% 0.154 211.53 / 0.12); color: var(--cyan); }
+
+  /* ---- COMMANDS ---- */
+  .cmd-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px;
   }
-  code { color: #f0f0f0; }
-  .comment { color: #555; }
-  .output { color: #888; }
-  .highlight { color: #7ee787; }
-  .section { margin-top: 64px; margin-bottom: 32px; }
-  .section-title { color: #fff; font-size: 1.1rem; margin-bottom: 24px; }
-  .section-desc { color: #888; font-size: 0.9rem; margin-bottom: 24px; line-height: 1.7; }
-  .features { list-style: none; padding: 0; }
-  .features li {
-    padding: 12px 0;
-    border-bottom: 1px solid #1a1a1a;
-    display: flex; gap: 16px;
+  @media (max-width: 640px) {
+    .cmd-grid { grid-template-columns: 1fr; }
   }
-  .features li:last-child { border-bottom: none; }
-  .feat-name { color: #e0e0e0; min-width: 200px; }
-  .feat-desc { color: #666; }
-  .commands { margin-top: 8px; }
-  .commands pre { margin-bottom: 12px; }
-  .cmd-label { color: #666; font-size: 0.8rem; margin-bottom: 4px; }
-  .divider { border: none; border-top: 1px solid #1a1a1a; margin: 64px 0; }
-  .footer { margin-top: 64px; color: #444; font-size: 0.8rem; }
-  .footer a { color: #555; text-decoration: none; }
-  .footer a:hover { color: #888; }
+  .cmd-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .cmd-group-header {
+    padding: 14px 20px;
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .cmd-group pre {
+    padding: 16px 20px;
+    font-size: 0.75rem;
+    overflow-x: auto;
+    background: transparent;
+  }
+  .cmd-group code { color: var(--text-secondary); }
+
+  /* ---- CODE COLORS ---- */
+  .c { color: var(--text-dim); }
+  .o { color: var(--text-muted); }
+  .h { color: var(--accent); }
+  .kw { color: var(--orange); }
+  .ws { color: var(--violet); }
+
+  /* ---- FOOTER ---- */
+  footer {
+    border-top: 1px solid var(--border-subtle);
+    padding: 40px 0;
+    margin-top: 0;
+  }
+  .footer-inner {
+    max-width: 1080px; margin: 0 auto; padding: 0 24px;
+    display: flex; justify-content: space-between;
+    align-items: center;
+  }
+  .footer-brand { font-size: 0.8rem; color: var(--text-dim); }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-links a {
+    font-size: 0.75rem; color: var(--text-dim);
+    text-decoration: none; transition: color 0.15s;
+  }
+  .footer-links a:hover { color: var(--text-secondary); }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>dread</h1>
-  <p class="tagline">webhooks in your terminal</p>
 
-  <div class="step">
-    <div class="step-label">1. install</div>
-    <pre><code>curl -sSL dread.sh/install | sh</code></pre>
-  </div>
-
-  <div class="step">
-    <div class="step-label">2. create a channel</div>
-    <pre><code>$ dread new "Stripe Prod"
-
-<span class="output">Created channel: Stripe Prod (ch_stripe-prod_a1b2c3)
-Webhook URL:     <span class="highlight">https://dread.sh/wh/ch_stripe-prod_a1b2c3</span></span></code></pre>
-  </div>
-
-  <div class="step">
-    <div class="step-label">3. paste the webhook URL into your service</div>
-    <pre><code><span class="comment"># Stripe, GitHub, Slack, Linear, anything that sends webhooks</span></code></pre>
-  </div>
-
-  <div class="step">
-    <div class="step-label">done</div>
-    <pre><code><span class="comment"># desktop notifications are automatic — no terminal needed
-# open the TUI anytime to see the live feed:</span>
-$ dread</code></pre>
-  </div>
-
-  <hr class="divider">
-
-  <div class="section">
-    <div class="section-title">set up a workspace for your team</div>
-    <p class="section-desc">A workspace is just a set of channels — one per service you care about.
-One person creates the channels and wires up the webhooks.
-Everyone else subscribes with a single command and starts getting notifications.</p>
-
-    <div class="step">
-      <div class="step-label">1. create channels for each service</div>
-      <pre><code>$ dread new "Stripe Prod"
-<span class="output">Webhook URL: <span class="highlight">https://dread.sh/wh/ch_stripe-prod_a1b2c3</span></span>
-
-$ dread new "GitHub Deploys"
-<span class="output">Webhook URL: <span class="highlight">https://dread.sh/wh/ch_github-deploys_d4e5f6</span></span>
-
-$ dread new "Sentry Alerts"
-<span class="output">Webhook URL: <span class="highlight">https://dread.sh/wh/ch_sentry-alerts_g7h8i9</span></span></code></pre>
-    </div>
-
-    <div class="step">
-      <div class="step-label">2. paste each webhook URL into the corresponding service</div>
-      <pre><code><span class="comment"># go to Stripe → Developers → Webhooks → Add endpoint
-# go to GitHub → Settings → Webhooks → Add webhook
-# go to Sentry → Settings → Integrations → Webhooks</span></code></pre>
-    </div>
-
-    <div class="step">
-      <div class="step-label">3. share channels with your team</div>
-      <pre><code>$ dread share ch_stripe-prod_a1b2c3
-
-<span class="output">Share this with your team:
-  dread add ch_stripe-prod_a1b2c3 "Stripe Prod"</span>
-
-<span class="comment"># send that command to your team over Slack, email, wherever</span></code></pre>
-    </div>
-
-    <div class="step">
-      <div class="step-label">4. teammates install and subscribe</div>
-      <pre><code><span class="comment"># each teammate runs:</span>
-$ curl -sSL dread.sh/install | sh
-$ dread add ch_stripe-prod_a1b2c3 "Stripe Prod"
-$ dread add ch_github-deploys_d4e5f6 "GitHub Deploys"
-$ dread add ch_sentry-alerts_g7h8i9 "Sentry Alerts"
-
-<span class="comment"># notifications start immediately — nothing else to configure</span></code></pre>
-    </div>
-
-    <div class="step">
-      <div class="step-label">that's it</div>
-      <pre><code><span class="comment"># everyone on the team now gets desktop notifications
-# for every webhook event across all subscribed channels
-# no accounts, no dashboards, no browser tabs</span></code></pre>
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">dread.sh</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#commands">Commands</a>
+      <a href="https://github.com/nigel-engel/dread.sh">GitHub</a>
+      <a href="/install" class="nav-cta">Install</a>
     </div>
   </div>
+</nav>
 
-  <hr class="divider">
-
-  <div class="section">
-    <div class="section-title">features</div>
-    <ul class="features">
-      <li>
-        <span class="feat-name">desktop notifications</span>
-        <span class="feat-desc">native macOS + Linux — works in the background, no terminal needed</span>
-      </li>
-      <li>
-        <span class="feat-name">terminal TUI</span>
-        <span class="feat-desc">live feed of all webhook events with full payload inspection</span>
-      </li>
-      <li>
-        <span class="feat-name">team sharing</span>
-        <span class="feat-desc">one person sets up the webhooks, shares channel IDs — everyone gets notifications</span>
-      </li>
-      <li>
-        <span class="feat-name">multiple channels</span>
-        <span class="feat-desc">separate channels per service — Stripe, GitHub, Slack, whatever</span>
-      </li>
-      <li>
-        <span class="feat-name">event filtering</span>
-        <span class="feat-desc">filter by source, type, or content — in the TUI and in watch mode</span>
-      </li>
-      <li>
-        <span class="feat-name">event history</span>
-        <span class="feat-desc">scroll back through past events, stored server-side</span>
-      </li>
-      <li>
-        <span class="feat-name">webhook forwarding</span>
-        <span class="feat-desc">forward events to localhost or any URL for local development</span>
-      </li>
-      <li>
-        <span class="feat-name">event replay</span>
-        <span class="feat-desc">re-forward any past event to a URL for debugging</span>
-      </li>
-      <li>
-        <span class="feat-name">auto-reconnect</span>
-        <span class="feat-desc">drops connection? reconnects in 3 seconds, picks up new channels</span>
-      </li>
-      <li>
-        <span class="feat-name">runs at login</span>
-        <span class="feat-desc">installs as a launchd/systemd service — starts automatically</span>
-      </li>
-      <li>
-        <span class="feat-name">works with everything</span>
-        <span class="feat-desc">any service that sends webhooks — just paste the URL</span>
-      </li>
-    </ul>
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="badge-dot"></span> open source CLI tool</div>
+  <h1>Webhooks in<br>your <span>terminal</span></h1>
+  <p class="hero-sub">Create channels, paste webhook URLs, get native desktop notifications. One command to share your entire workspace with your team.</p>
+  <div class="hero-actions">
+    <div class="hero-install"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh</div>
   </div>
-
-  <div class="section">
-    <div class="section-title">commands</div>
-    <div class="commands">
-      <div class="cmd-label">basics</div>
-      <pre><code>dread                       <span class="comment"># launch TUI with live feed</span>
-dread new "Stripe Prod"     <span class="comment"># create a channel</span>
-dread list                  <span class="comment"># show all channels + webhook URLs</span>
-dread logs                  <span class="comment"># print recent events to stdout</span>
-dread status                <span class="comment"># show channels, last events, service status</span></code></pre>
-
-      <div class="cmd-label">team</div>
-      <pre><code>dread share &lt;id&gt;            <span class="comment"># print a command to share with teammates</span>
-dread add &lt;id&gt; "Name"       <span class="comment"># subscribe to a shared channel</span>
-dread remove &lt;id&gt;           <span class="comment"># unsubscribe from a channel</span></code></pre>
-
-      <div class="cmd-label">notifications</div>
-      <pre><code>dread watch                 <span class="comment"># headless desktop notifications</span>
-dread watch --filter stripe <span class="comment"># only notify on matching events</span></code></pre>
-
-      <div class="cmd-label">development</div>
-      <pre><code>dread --forward http://...  <span class="comment"># forward webhooks to localhost</span>
-dread --filter payment      <span class="comment"># TUI filtered to matching events</span>
-dread test &lt;id&gt;             <span class="comment"># send a test webhook event</span>
-dread replay &lt;event-id&gt;     <span class="comment"># re-forward a past event</span></code></pre>
-    </div>
-  </div>
-
-  <p class="footer">
-    <a href="https://github.com/nigel-engel/dread.sh">github</a>
-  </p>
 </div>
+
+<!-- QUICK START -->
+<div class="container">
+<div class="section">
+  <div class="section-label">Quick Start</div>
+  <div class="section-title">Three commands. That's it.</div>
+  <div class="section-desc">Install, create a channel, paste the webhook URL into Stripe / GitHub / Sentry / anything. Desktop notifications start immediately.</div>
+
+  <div class="steps">
+    <div class="step-row">
+      <div class="step-num"><span class="step-n">1</span><span class="step-label">Install</span></div>
+      <div class="step-content">
+        <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num"><span class="step-n">2</span><span class="step-label">Create a channel</span></div>
+      <div class="step-content">
+        <pre><code><span class="kw">$</span> dread new "Stripe Prod"
+
+<span class="o">Created channel: Stripe Prod (ch_stripe-prod_a1b2c3)
+Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c3</span></code></pre>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num"><span class="step-n">3</span><span class="step-label">Wire up the webhook</span></div>
+      <div class="step-content">
+        <pre><code><span class="c"># paste the URL into Stripe, GitHub, Slack, Linear...</span>
+<span class="c"># notifications start automatically</span>
+<span class="kw">$</span> dread <span class="c"># open the TUI anytime</span></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WORKSPACE FLOW -->
+<div class="section" id="workspace">
+  <div class="section-label">Team Workspaces</div>
+  <div class="section-title">Share once, sync forever</div>
+  <div class="section-desc">A workspace is your set of channels. Teammates follow it with one command. Every channel you add later auto-propagates on their next reconnect.</div>
+
+  <div class="flow-grid">
+    <div class="flow-card">
+      <div class="flow-card-icon ic-green">+</div>
+      <h3>Lead creates channels</h3>
+      <p>Each <code>dread new</code> auto-publishes your workspace. No extra steps.</p>
+      <pre><code><span class="kw">$</span> dread new "Stripe Prod"
+<span class="o">Webhook URL: </span><span class="h">https://dread.sh/wh/ch_stripe...</span>
+<span class="o">Workspace published</span>
+
+<span class="kw">$</span> dread new "GitHub Deploys"
+<span class="o">Webhook URL: </span><span class="h">https://dread.sh/wh/ch_github...</span>
+<span class="o">Workspace published</span></code></pre>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-icon ic-violet">~</div>
+      <h3>Share your workspace</h3>
+      <p>One ID covers all your channels &mdash; current and future.</p>
+      <pre><code><span class="kw">$</span> dread share
+
+<span class="o">Share this with your team:</span>
+  <span class="h">dread follow ws_a1b2c3d4e5f6</span>
+
+<span class="o">They'll get all your channels
+(and any you add later).</span></code></pre>
+    </div>
+
+    <div class="flow-card flow-card-full">
+      <div class="flow-inner">
+        <div>
+          <div class="flow-card-icon ic-blue">&gt;</div>
+          <h3>Teammates follow once</h3>
+          <p>One command subscribes to every channel in the workspace. New channels sync automatically on reconnect &mdash; no manual adding.</p>
+        </div>
+        <pre><code><span class="kw">$</span> curl -sSL dread.sh/install | sh
+<span class="kw">$</span> dread follow <span class="ws">ws_a1b2c3d4e5f6</span>
+
+<span class="o">Following workspace ws_a1b2... (3 channels):</span>
+  <span class="o">Stripe Prod        ch_stripe-prod_a1b2c3</span>
+  <span class="o">GitHub Deploys     ch_github-deploys_d4e5f6</span>
+  <span class="o">Sentry Alerts      ch_sentry-alerts_g7h8i9</span>
+
+<span class="o">New channels will sync automatically.</span></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="section" id="features">
+  <div class="section-label">Features</div>
+  <div class="section-title">Everything you need, nothing you don't</div>
+  <div class="section-desc">No accounts, no dashboards, no browser tabs. A single binary that does one thing well.</div>
+
+  <div class="feat-grid">
+    <div class="feat">
+      <div class="feat-icon ic-green">&#9673;</div>
+      <h3>Desktop notifications</h3>
+      <p>Native macOS + Linux. Works in the background, no terminal needed.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-blue">&#9618;</div>
+      <h3>Terminal TUI</h3>
+      <p>Live feed of all webhook events with full payload inspection.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-violet">&#8644;</div>
+      <h3>Team workspaces</h3>
+      <p>Follow a workspace once. New channels auto-sync on reconnect.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-orange">&#9783;</div>
+      <h3>Multiple channels</h3>
+      <p>Separate channels per service &mdash; Stripe, GitHub, Slack, whatever.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-amber">&#8981;</div>
+      <h3>Event filtering</h3>
+      <p>Filter by source, type, or content in the TUI and watch mode.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-cyan">&#8634;</div>
+      <h3>Event history</h3>
+      <p>Scroll back through past events, stored server-side.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-rose">&#8618;</div>
+      <h3>Webhook forwarding</h3>
+      <p>Forward events to localhost or any URL for local development.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-green">&#8635;</div>
+      <h3>Event replay</h3>
+      <p>Re-forward any past event to a URL for debugging.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-blue">&#8645;</div>
+      <h3>Auto-reconnect</h3>
+      <p>Drops connection? Reconnects in 3s, picks up new channels.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-orange">&#9211;</div>
+      <h3>Runs at login</h3>
+      <p>Installs as a launchd/systemd service. Starts automatically.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-violet">&#9881;</div>
+      <h3>Works with everything</h3>
+      <p>Any service that sends webhooks &mdash; just paste the URL.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-amber">&#9671;</div>
+      <h3>Zero config</h3>
+      <p>No accounts, no YAML, no environment variables. Just works.</p>
+    </div>
+  </div>
+</div>
+
+<!-- COMMANDS -->
+<div class="section" id="commands">
+  <div class="section-label">Reference</div>
+  <div class="section-title">Commands</div>
+  <div class="section-desc"></div>
+
+  <div class="cmd-grid">
+    <div class="cmd-group">
+      <div class="cmd-group-header">Basics</div>
+      <pre><code>dread                       <span class="c"># launch TUI</span>
+dread new "Stripe Prod"     <span class="c"># create a channel</span>
+dread list                  <span class="c"># show channels + URLs</span>
+dread logs                  <span class="c"># print recent events</span>
+dread status                <span class="c"># channels + service info</span></code></pre>
+    </div>
+    <div class="cmd-group">
+      <div class="cmd-group-header">Team</div>
+      <pre><code>dread share                 <span class="c"># print workspace ID</span>
+dread follow &lt;ws-id&gt;        <span class="c"># follow a workspace</span>
+dread unfollow &lt;ws-id&gt;      <span class="c"># unfollow</span>
+dread add &lt;id&gt; "Name"       <span class="c"># add single channel</span>
+dread remove &lt;id&gt;           <span class="c"># remove a channel</span></code></pre>
+    </div>
+    <div class="cmd-group">
+      <div class="cmd-group-header">Notifications</div>
+      <pre><code>dread watch                 <span class="c"># headless mode</span>
+dread watch --filter stripe <span class="c"># filtered</span></code></pre>
+    </div>
+    <div class="cmd-group">
+      <div class="cmd-group-header">Development</div>
+      <pre><code>dread --forward http://...  <span class="c"># forward to local</span>
+dread --filter payment      <span class="c"># filter TUI</span>
+dread test &lt;id&gt;             <span class="c"># send test event</span>
+dread replay &lt;event-id&gt;     <span class="c"># re-forward event</span></code></pre>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">dread.sh</span>
+    <div class="footer-links">
+      <a href="https://github.com/nigel-engel/dread.sh">GitHub</a>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>`
 

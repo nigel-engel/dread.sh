@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -22,7 +23,7 @@ import (
 // channels are picked up automatically. Shuts down on SIGINT/SIGTERM.
 // If filter is non-empty, only events matching the substring (in source,
 // type, or summary) will trigger notifications.
-func Run(serverURL string, filter string) error {
+func Run(serverURL string, filter string, follows []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -41,7 +42,17 @@ func Run(serverURL string, filter string) error {
 			}
 		}
 
-		if len(cfg.Channels) == 0 {
+		channels := cfg.Channels
+		for _, wsID := range cfg.Follows {
+			remote, err := resolveWorkspace(serverURL, wsID)
+			if err != nil {
+				log.Printf("workspace %s: %v", wsID, err)
+				continue
+			}
+			channels = mergeChannels(channels, remote)
+		}
+
+		if len(channels) == 0 {
 			log.Printf("no channels configured — retrying in 10s")
 			select {
 			case <-time.After(10 * time.Second):
@@ -51,15 +62,15 @@ func Run(serverURL string, filter string) error {
 			}
 		}
 
-		ids := make([]string, len(cfg.Channels))
-		nameByID := make(map[string]string, len(cfg.Channels))
-		for i, ch := range cfg.Channels {
+		ids := make([]string, len(channels))
+		nameByID := make(map[string]string, len(channels))
+		for i, ch := range channels {
 			ids[i] = ch.ID
 			nameByID[ch.ID] = ch.Name
 		}
 
 		endpoint := wsURL + "/ws?channels=" + strings.Join(ids, ",")
-		fmt.Printf("watching %d channel(s)...\n", len(cfg.Channels))
+		fmt.Printf("watching %d channel(s)...\n", len(channels))
 
 		err = listen(ctx, endpoint, nameByID, filter)
 		if ctx.Err() != nil {
@@ -124,4 +135,41 @@ func listen(ctx context.Context, endpoint string, names map[string]string, filte
 			log.Printf("[%s] %s", title, msg.Event.Summary)
 		}
 	}
+}
+
+// resolveWorkspace fetches a workspace's channels from the server.
+func resolveWorkspace(serverURL, wsID string) ([]auth.Channel, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(serverURL + "/api/workspaces/" + wsID)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var payload struct {
+		Channels []auth.Channel `json:"channels"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Channels, nil
+}
+
+// mergeChannels merges remote channels into local, deduplicating by ID.
+func mergeChannels(local, remote []auth.Channel) []auth.Channel {
+	seen := make(map[string]bool, len(local))
+	for _, ch := range local {
+		seen[ch.ID] = true
+	}
+	merged := make([]auth.Channel, len(local))
+	copy(merged, local)
+	for _, ch := range remote {
+		if !seen[ch.ID] {
+			merged = append(merged, ch)
+			seen[ch.ID] = true
+		}
+	}
+	return merged
 }

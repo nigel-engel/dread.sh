@@ -129,6 +129,26 @@ func (s *Store) GetStats() map[string]int64 {
 	return stats
 }
 
+// SaveWorkspace upserts a workspace with the given channels JSON.
+func (s *Store) SaveWorkspace(id string, channelsJSON string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO workspaces (id, channels, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET channels = excluded.channels, updated_at = excluded.updated_at`,
+		id, channelsJSON, time.Now().UTC(),
+	)
+	return err
+}
+
+// GetWorkspace returns the channels JSON for a workspace.
+func (s *Store) GetWorkspace(id string) (string, error) {
+	var channels string
+	err := s.db.QueryRow(`SELECT channels FROM workspaces WHERE id = ?`, id).Scan(&channels)
+	if err != nil {
+		return "", err
+	}
+	return channels, nil
+}
+
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()

@@ -18,9 +18,11 @@ type Channel struct {
 
 // UserConfig holds the user's local dread configuration.
 type UserConfig struct {
-	Token    string    `json:"token"`
-	Channels []Channel `json:"channels"`
-	path     string
+	Token       string    `json:"token"`
+	Channels    []Channel `json:"channels"`
+	WorkspaceID string    `json:"workspace_id,omitempty"`
+	Follows     []string  `json:"follows,omitempty"`
+	path        string
 }
 
 // ChannelIDs returns just the IDs for passing to the server.
@@ -40,6 +42,13 @@ func (c *UserConfig) ChannelName(id string) string {
 		}
 	}
 	return id
+}
+
+// GenerateWorkspace creates a new workspace ID like "ws_" + 12 random hex chars.
+func GenerateWorkspace() string {
+	b := make([]byte, 6)
+	rand.Read(b)
+	return "ws_" + hex.EncodeToString(b)
 }
 
 // GenerateToken creates a new user token like "dk_" + 20 random hex chars.

@@ -41,6 +41,10 @@ func main() {
 		cmdWatch(os.Args[2:])
 	case "share":
 		cmdShare(os.Args[2:])
+	case "follow":
+		cmdFollow(os.Args[2:])
+	case "unfollow":
+		cmdUnfollow(os.Args[2:])
 	case "replay":
 		cmdReplay(os.Args[2:])
 	case "logs":
@@ -72,7 +76,9 @@ Usage:
   dread remove <channel-id>      unsubscribe from a channel
   dread list                     list subscribed channels
   dread watch                    headless mode — desktop notifications only
-  dread share <channel-id>       print a command to share a channel with teammates
+  dread share                    print your workspace ID to share with teammates
+  dread follow <workspace-id>    subscribe to a teammate's workspace
+  dread unfollow <workspace-id>  unsubscribe from a workspace
   dread replay <event-id>        re-forward a past event to a URL
   dread logs                     print recent events to stdout
   dread status                   show channels, last events, and service status
@@ -99,7 +105,17 @@ func runTUI() {
 		os.Exit(1)
 	}
 
-	if len(cfg.Channels) == 0 {
+	channels := cfg.Channels
+	for _, wsID := range cfg.Follows {
+		remote, err := resolveWorkspace(*serverURL, wsID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: workspace %s: %v\n", wsID, err)
+			continue
+		}
+		channels = mergeChannels(channels, remote)
+	}
+
+	if len(channels) == 0 {
 		fmt.Println("No channels configured. Create one first:")
 		fmt.Println()
 		fmt.Println("  dread new \"Stripe Prod\"")
@@ -107,7 +123,7 @@ func runTUI() {
 		os.Exit(0)
 	}
 
-	m := tui.New(*serverURL, cfg.Channels, *forwardURL, *filter)
+	m := tui.New(*serverURL, channels, *forwardURL, *filter)
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
@@ -122,7 +138,13 @@ func cmdWatch(args []string) {
 	filter := fs.String("filter", "", "filter events by substring match")
 	fs.Parse(args)
 
-	if err := watch.Run(*serverURL, *filter); err != nil {
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := watch.Run(*serverURL, *filter, cfg.Follows); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -144,6 +166,11 @@ func cmdNew(args []string) {
 
 	ch := auth.GenerateChannel(name)
 	cfg.AddChannel(ch, name)
+
+	if cfg.WorkspaceID == "" {
+		cfg.WorkspaceID = auth.GenerateWorkspace()
+	}
+
 	if err := cfg.Save(); err != nil {
 		fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
 		os.Exit(1)
@@ -151,6 +178,13 @@ func cmdNew(args []string) {
 
 	fmt.Printf("Created channel: %s (%s)\n", name, ch)
 	fmt.Printf("Webhook URL:     https://dread.sh/wh/%s\n", ch)
+
+	if err := publishWorkspace("https://dread.sh", cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to publish workspace: %v\n", err)
+	} else {
+		fmt.Println("Workspace published — followers will pick this up automatically")
+	}
+
 	fmt.Println()
 	fmt.Println("Paste the webhook URL into your service (Stripe, GitHub, etc.)")
 	fmt.Println("Then run: dread")
@@ -209,6 +243,12 @@ func cmdRemove(args []string) {
 	}
 
 	fmt.Printf("Unsubscribed from: %s\n", ch)
+
+	if cfg.WorkspaceID != "" {
+		if err := publishWorkspace("https://dread.sh", cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to update workspace: %v\n", err)
+		}
+	}
 }
 
 func cmdList() {
@@ -218,35 +258,63 @@ func cmdList() {
 		os.Exit(1)
 	}
 
-	if len(cfg.Channels) == 0 {
+	if len(cfg.Channels) == 0 && len(cfg.Follows) == 0 {
 		fmt.Println("No channels. Create one with: dread new <name>")
 		return
 	}
 
-	fmt.Println("Subscribed channels:")
-	for _, ch := range cfg.Channels {
-		fmt.Printf("  %-20s  %s\n", ch.Name, ch.ID)
-		fmt.Printf("  %-20s  https://dread.sh/wh/%s\n", "", ch.ID)
+	if len(cfg.Channels) > 0 {
+		fmt.Println("Your channels:")
+		for _, ch := range cfg.Channels {
+			fmt.Printf("  %-20s  %s\n", ch.Name, ch.ID)
+			fmt.Printf("  %-20s  https://dread.sh/wh/%s\n", "", ch.ID)
+		}
+	}
+
+	if cfg.WorkspaceID != "" {
+		fmt.Printf("\nWorkspace: %s\n", cfg.WorkspaceID)
+	}
+
+	for _, wsID := range cfg.Follows {
+		remote, err := resolveWorkspace("https://dread.sh", wsID)
+		if err != nil {
+			fmt.Printf("\nFollowing %s (error: %v)\n", wsID, err)
+			continue
+		}
+		fmt.Printf("\nFollowing %s (%d channels):\n", wsID, len(remote))
+		for _, ch := range remote {
+			fmt.Printf("  %-20s  %s\n", ch.Name, ch.ID)
+		}
 	}
 }
 
 func cmdShare(args []string) {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: dread share <channel-id>")
-		os.Exit(1)
-	}
-	channelID := args[0]
-
 	cfg, err := auth.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
-	name := cfg.ChannelName(channelID)
+	if cfg.WorkspaceID == "" {
+		if len(cfg.Channels) == 0 {
+			fmt.Println("No channels yet. Create one first:")
+			fmt.Println("  dread new \"Stripe Prod\"")
+			return
+		}
+		cfg.WorkspaceID = auth.GenerateWorkspace()
+		if err := cfg.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+			os.Exit(1)
+		}
+		if err := publishWorkspace("https://dread.sh", cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to publish workspace: %v\n", err)
+		}
+	}
 
 	fmt.Println("Share this with your team:")
-	fmt.Printf("  dread add %s %q\n", channelID, name)
+	fmt.Printf("  dread follow %s\n", cfg.WorkspaceID)
+	fmt.Println()
+	fmt.Println("They'll get all your channels (and any you add later).")
 }
 
 func cmdReplay(args []string) {
@@ -301,12 +369,24 @@ func cmdLogs(args []string) {
 		os.Exit(1)
 	}
 
-	if len(cfg.Channels) == 0 {
+	channels := cfg.Channels
+	for _, wsID := range cfg.Follows {
+		remote, err := resolveWorkspace(*serverURL, wsID)
+		if err != nil {
+			continue
+		}
+		channels = mergeChannels(channels, remote)
+	}
+
+	if len(channels) == 0 {
 		fmt.Println("No channels. Create one with: dread new <name>")
 		return
 	}
 
-	ids := cfg.ChannelIDs()
+	ids := make([]string, len(channels))
+	for i, ch := range channels {
+		ids[i] = ch.ID
+	}
 	url := fmt.Sprintf("%s/api/events?channels=%s&limit=%d", *serverURL, strings.Join(ids, ","), *limit)
 
 	resp, err := http.Get(url)
@@ -327,10 +407,18 @@ func cmdLogs(args []string) {
 		return
 	}
 
+	nameByID := make(map[string]string, len(channels))
+	for _, ch := range channels {
+		nameByID[ch.ID] = ch.Name
+	}
+
 	// Events come in reverse chronological order, print oldest first
 	for i := len(msg.Events) - 1; i >= 0; i-- {
 		e := msg.Events[i]
-		name := cfg.ChannelName(e.Channel)
+		name := nameByID[e.Channel]
+		if name == "" {
+			name = e.Channel
+		}
 		ts := e.Timestamp.Local().Format("15:04:05")
 		fmt.Printf("[%s] [%s] %s\n", ts, name, e.Summary)
 	}
@@ -348,16 +436,37 @@ func cmdStatus(args []string) {
 	}
 
 	// Channels
-	if len(cfg.Channels) == 0 {
+	if len(cfg.Channels) == 0 && len(cfg.Follows) == 0 {
 		fmt.Println("No channels configured.")
 	} else {
-		fmt.Printf("Channels (%d):\n", len(cfg.Channels))
-		for _, ch := range cfg.Channels {
-			lastEvent := fetchLastEvent(*serverURL, ch.ID)
-			if lastEvent != "" {
-				fmt.Printf("  %-20s  %s  (last: %s)\n", ch.Name, ch.ID, lastEvent)
-			} else {
-				fmt.Printf("  %-20s  %s  (no events)\n", ch.Name, ch.ID)
+		if len(cfg.Channels) > 0 {
+			fmt.Printf("Your channels (%d):\n", len(cfg.Channels))
+			for _, ch := range cfg.Channels {
+				lastEvent := fetchLastEvent(*serverURL, ch.ID)
+				if lastEvent != "" {
+					fmt.Printf("  %-20s  %s  (last: %s)\n", ch.Name, ch.ID, lastEvent)
+				} else {
+					fmt.Printf("  %-20s  %s  (no events)\n", ch.Name, ch.ID)
+				}
+			}
+		}
+		if cfg.WorkspaceID != "" {
+			fmt.Printf("\nWorkspace: %s\n", cfg.WorkspaceID)
+		}
+		for _, wsID := range cfg.Follows {
+			remote, err := resolveWorkspace(*serverURL, wsID)
+			if err != nil {
+				fmt.Printf("\nFollowing %s (error: %v)\n", wsID, err)
+				continue
+			}
+			fmt.Printf("\nFollowing %s (%d channels):\n", wsID, len(remote))
+			for _, ch := range remote {
+				lastEvent := fetchLastEvent(*serverURL, ch.ID)
+				if lastEvent != "" {
+					fmt.Printf("  %-20s  %s  (last: %s)\n", ch.Name, ch.ID, lastEvent)
+				} else {
+					fmt.Printf("  %-20s  %s  (no events)\n", ch.Name, ch.ID)
+				}
 			}
 		}
 	}
@@ -411,6 +520,140 @@ func fetchLastEvent(serverURL, channelID string) string {
 		return ""
 	}
 	return msg.Events[0].Timestamp.Local().Format("2006-01-02 15:04:05")
+}
+
+func cmdFollow(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: dread follow <workspace-id>")
+		fmt.Fprintln(os.Stderr, "  e.g. dread follow ws_a1b2c3d4e5f6")
+		os.Exit(1)
+	}
+	wsID := args[0]
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, existing := range cfg.Follows {
+		if existing == wsID {
+			fmt.Printf("Already following %s\n", wsID)
+			return
+		}
+	}
+
+	// Verify workspace exists
+	channels, err := resolveWorkspace("https://dread.sh", wsID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: could not fetch workspace %s: %v\n", wsID, err)
+		os.Exit(1)
+	}
+
+	cfg.Follows = append(cfg.Follows, wsID)
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Following workspace %s (%d channels):\n", wsID, len(channels))
+	for _, ch := range channels {
+		fmt.Printf("  %-20s  %s\n", ch.Name, ch.ID)
+	}
+	fmt.Println()
+	fmt.Println("New channels will sync automatically on reconnect.")
+}
+
+func cmdUnfollow(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: dread unfollow <workspace-id>")
+		os.Exit(1)
+	}
+	wsID := args[0]
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	found := false
+	for i, existing := range cfg.Follows {
+		if existing == wsID {
+			cfg.Follows = append(cfg.Follows[:i], cfg.Follows[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		fmt.Printf("Not following %s\n", wsID)
+		return
+	}
+
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Unfollowed workspace %s\n", wsID)
+}
+
+func publishWorkspace(serverURL string, cfg *auth.UserConfig) error {
+	channelsJSON, err := json.Marshal(cfg.Channels)
+	if err != nil {
+		return err
+	}
+	body := fmt.Sprintf(`{"channels":%s}`, channelsJSON)
+	req, err := http.NewRequest("PUT", serverURL+"/api/workspaces/"+cfg.WorkspaceID, bytes.NewBufferString(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func resolveWorkspace(serverURL, wsID string) ([]auth.Channel, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(serverURL + "/api/workspaces/" + wsID)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("not found (status %d)", resp.StatusCode)
+	}
+	var payload struct {
+		Channels []auth.Channel `json:"channels"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Channels, nil
+}
+
+func mergeChannels(local, remote []auth.Channel) []auth.Channel {
+	seen := make(map[string]bool, len(local))
+	for _, ch := range local {
+		seen[ch.ID] = true
+	}
+	merged := make([]auth.Channel, len(local))
+	copy(merged, local)
+	for _, ch := range remote {
+		if !seen[ch.ID] {
+			merged = append(merged, ch)
+			seen[ch.ID] = true
+		}
+	}
+	return merged
 }
 
 func cmdTest(args []string) {

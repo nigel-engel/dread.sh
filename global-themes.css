@@ -1,0 +1,671 @@
+/* ============================================= */
+/* OKLCH Colour Palette                          */
+/* 22-Color System (sorted by hue angle)         */
+/* ============================================= */
+
+:root {
+  /* ============================================= */
+  /* ROSE (~12° hue) - Warm pink-red              */
+  /* ============================================= */
+  --rose-100: oklch(94.1% 0.03 12.58);
+  --rose-200: oklch(89.2% 0.058 10);
+  --rose-300: oklch(81% 0.117 11.64);
+  --rose-400: oklch(71.2% 0.194 13.43);
+  --rose-500: oklch(64.5% 0.246 16.44);
+  --rose-600: oklch(58.6% 0.253 17.59);
+  --rose-700: oklch(51.4% 0.222 16.94);
+  --rose-800: oklch(45.5% 0.188 13.57);
+  --rose-900: oklch(41% 0.159 10.27);
+  --rose-950: oklch(27.1% 0.105 12.09);
+
+  /* ============================================= */
+  /* RED (~25° hue) - Cancelled, Error, Destructive */
+  /* ============================================= */
+  --red-100: oklch(93.6% 0.032 17.72);
+  --red-200: oklch(88.5% 0.062 18.33);
+  --red-300: oklch(80.8% 0.114 19.57);
+  --red-400: oklch(70.4% 0.191 22.22);
+  --red-500: oklch(63.7% 0.237 25.33);
+  --red-600: oklch(57.7% 0.245 27.33);
+  --red-700: oklch(50.5% 0.213 27.52);
+  --red-800: oklch(44.4% 0.177 26.9);
+  --red-900: oklch(39.6% 0.141 25.72);
+  --red-950: oklch(25.8% 0.092 26.04);
+
+  /* ============================================= */
+  /* BROWN (~35° hue) - Custom statuses           */
+  /* ============================================= */
+  --brown-100: oklch(94% 0.025 50);
+  --brown-200: oklch(87% 0.05 45);
+  --brown-300: oklch(77% 0.08 42);
+  --brown-400: oklch(65% 0.1 40);
+  --brown-500: oklch(55% 0.1 38);
+  --brown-600: oklch(47% 0.09 36);
+  --brown-700: oklch(40% 0.08 35);
+  --brown-800: oklch(34% 0.065 34);
+  --brown-900: oklch(28% 0.05 33);
+  --brown-950: oklch(20% 0.035 32);
+
+  /* ============================================= */
+  /* ORANGE (~55° hue) - Caution, Major severity   */
+  /* ============================================= */
+  --orange-100: oklch(95% 0.04 55);
+  --orange-200: oklch(90% 0.08 55);
+  --orange-300: oklch(83% 0.135 55);
+  --orange-400: oklch(75% 0.18 55);
+  --orange-500: oklch(68% 0.195 55);
+  --orange-600: oklch(60% 0.2 55);
+  --orange-700: oklch(52% 0.16 55);
+  --orange-800: oklch(45% 0.13 55);
+  --orange-900: oklch(38.5% 0.1 55);
+  --orange-950: oklch(27% 0.065 55);
+
+  /* ============================================= */
+  /* AMBER (~70° hue) - Golden, warm highlight     */
+  /* ============================================= */
+  --amber-100: oklch(96.2% 0.059 95.62);
+  --amber-200: oklch(92.4% 0.12 95.95);
+  --amber-300: oklch(87.9% 0.169 91.61);
+  --amber-400: oklch(82.8% 0.189 84.43);
+  --amber-500: oklch(76.9% 0.188 70.08);
+  --amber-600: oklch(66.6% 0.179 58.32);
+  --amber-700: oklch(55.5% 0.163 49);
+  --amber-800: oklch(47.3% 0.137 46.2);
+  --amber-900: oklch(41.4% 0.112 45.9);
+  --amber-950: oklch(27.9% 0.077 45.64);
+
+  /* ============================================= */
+  /* YELLOW (~85° hue) - Pending, Checked In, Warning */
+  /* ============================================= */
+  --yellow-100: oklch(97.3% 0.071 103.19);
+  --yellow-200: oklch(94.5% 0.129 101.54);
+  --yellow-300: oklch(90.5% 0.182 98.11);
+  --yellow-400: oklch(85.2% 0.199 91.94);
+  --yellow-500: oklch(79.5% 0.184 86.05);
+  --yellow-600: oklch(68.1% 0.162 75.83);
+  --yellow-700: oklch(55.4% 0.14 66.44);
+  --yellow-800: oklch(47.6% 0.114 61.91);
+  --yellow-900: oklch(42.1% 0.095 57.71);
+  --yellow-950: oklch(28.6% 0.066 53.81);
+
+  /* ============================================= */
+  /* LIME (~131° hue) - Bright yellow-green        */
+  /* ============================================= */
+  --lime-100: oklch(96.7% 0.067 122.33);
+  --lime-200: oklch(93.8% 0.127 124.32);
+  --lime-300: oklch(89.7% 0.196 126.67);
+  --lime-400: oklch(84.1% 0.238 128.85);
+  --lime-500: oklch(76.8% 0.233 130.85);
+  --lime-600: oklch(64.8% 0.2 131.68);
+  --lime-700: oklch(53.2% 0.157 131.59);
+  --lime-800: oklch(45.3% 0.124 130.93);
+  --lime-900: oklch(40.5% 0.101 131.06);
+  --lime-950: oklch(27.4% 0.072 132.11);
+
+  /* ============================================= */
+  /* GREEN (~150° hue) - Completed, Success       */
+  /* ============================================= */
+  --green-100: oklch(96.2% 0.044 156.74);
+  --green-200: oklch(92.5% 0.084 155.99);
+  --green-300: oklch(87.1% 0.15 154.45);
+  --green-400: oklch(79.2% 0.209 151.71);
+  --green-500: oklch(72.3% 0.219 149.58);
+  --green-600: oklch(62.7% 0.194 149.21);
+  --green-700: oklch(52.7% 0.154 150.07);
+  --green-800: oklch(44.8% 0.119 151.33);
+  --green-900: oklch(39.3% 0.095 152.53);
+  --green-950: oklch(26.6% 0.065 152.93);
+
+  /* ============================================= */
+  /* EMERALD (~164° hue) - Jewel green             */
+  /* ============================================= */
+  --emerald-100: oklch(95% 0.052 163.05);
+  --emerald-200: oklch(90.5% 0.093 164.15);
+  --emerald-300: oklch(84.5% 0.143 164.98);
+  --emerald-400: oklch(76.5% 0.177 163.22);
+  --emerald-500: oklch(69.6% 0.17 162.48);
+  --emerald-600: oklch(59.6% 0.145 163.23);
+  --emerald-700: oklch(50.8% 0.118 165.61);
+  --emerald-800: oklch(43.2% 0.095 166.91);
+  --emerald-900: oklch(37.8% 0.077 168.94);
+  --emerald-950: oklch(26.2% 0.051 172.55);
+
+  /* ============================================= */
+  /* TEAL (~185° hue) - Confirmed, Info            */
+  /* ============================================= */
+  --teal-100: oklch(95% 0.05 200);
+  --teal-200: oklch(90% 0.09 200);
+  --teal-300: oklch(83% 0.14 200);
+  --teal-400: oklch(75% 0.16 200);
+  --teal-500: oklch(68% 0.15 200);
+  --teal-600: oklch(58% 0.13 200);
+  --teal-700: oklch(50% 0.11 200);
+  --teal-800: oklch(43% 0.09 200);
+  --teal-900: oklch(37% 0.07 200);
+  --teal-950: oklch(27% 0.05 200);
+
+  /* ============================================= */
+  /* CYAN (~210° hue) - Blue-cyan                  */
+  /* ============================================= */
+  --cyan-100: oklch(95.6% 0.045 203.39);
+  --cyan-200: oklch(91.7% 0.08 205.04);
+  --cyan-300: oklch(86.5% 0.127 207.08);
+  --cyan-400: oklch(78.9% 0.154 211.53);
+  --cyan-500: oklch(71.5% 0.143 215.22);
+  --cyan-600: oklch(60.9% 0.126 221.72);
+  --cyan-700: oklch(52% 0.105 223.13);
+  --cyan-800: oklch(45% 0.085 224.28);
+  --cyan-900: oklch(39.8% 0.07 227.39);
+  --cyan-950: oklch(30.2% 0.056 229.7);
+
+  /* ============================================= */
+  /* SKY (~235° hue) - Light blue                  */
+  /* ============================================= */
+  --sky-100: oklch(95.1% 0.026 236.82);
+  --sky-200: oklch(90.1% 0.058 230.9);
+  --sky-300: oklch(82.8% 0.111 230.32);
+  --sky-400: oklch(74.6% 0.16 232.66);
+  --sky-500: oklch(68.5% 0.169 237.32);
+  --sky-600: oklch(58.8% 0.158 241.97);
+  --sky-700: oklch(50% 0.134 242.75);
+  --sky-800: oklch(44.3% 0.11 240.79);
+  --sky-900: oklch(39.1% 0.09 240.88);
+  --sky-950: oklch(29.3% 0.066 243.16);
+
+  /* ============================================= */
+  /* BLUE (~250° hue) - True blue                  */
+  /* ============================================= */
+  --blue-100: oklch(93.2% 0.032 255.59);
+  --blue-200: oklch(88.2% 0.059 254.13);
+  --blue-300: oklch(80.9% 0.105 251.81);
+  --blue-400: oklch(70.7% 0.165 254.62);
+  --blue-500: oklch(62.3% 0.214 259.82);
+  --blue-600: oklch(54.6% 0.245 262.88);
+  --blue-700: oklch(48.8% 0.243 264.38);
+  --blue-800: oklch(42.4% 0.199 265.64);
+  --blue-900: oklch(37.9% 0.146 265.52);
+  --blue-950: oklch(28.2% 0.091 267.94);
+
+  /* ============================================= */
+  /* SAPPHIRE (~256° hue) - Primary, Brand, In Progress */
+  /* ============================================= */
+  --sapphire-100: oklch(93.5% 0.035 256);
+  --sapphire-200: oklch(88.5% 0.065 256);
+  --sapphire-300: oklch(81% 0.11 256);
+  --sapphire-400: oklch(71% 0.17 256);
+  --sapphire-500: oklch(62% 0.22 256);
+  --sapphire-600: oklch(54% 0.24 256);
+  --sapphire-700: oklch(48% 0.22 256);
+  --sapphire-800: oklch(42% 0.18 256);
+  --sapphire-900: oklch(37% 0.14 256);
+  --sapphire-950: oklch(27% 0.09 256);
+
+  /* ============================================= */
+  /* INDIGO (~277° hue) - Deep blue-violet         */
+  /* ============================================= */
+  --indigo-100: oklch(93% 0.034 272.77);
+  --indigo-200: oklch(87% 0.065 274.04);
+  --indigo-300: oklch(78.5% 0.115 274.71);
+  --indigo-400: oklch(67.3% 0.191 276.94);
+  --indigo-500: oklch(58.5% 0.233 277.12);
+  --indigo-600: oklch(51.1% 0.262 276.97);
+  --indigo-700: oklch(45.7% 0.24 277.02);
+  --indigo-800: oklch(39.8% 0.195 277.37);
+  --indigo-900: oklch(35.9% 0.144 278.7);
+  --indigo-950: oklch(25.7% 0.09 281.29);
+
+  /* ============================================= */
+  /* VIOLET (~293° hue) - Custom statuses         */
+  /* ============================================= */
+  --violet-100: oklch(94.3% 0.036 294.59);
+  --violet-200: oklch(89.4% 0.068 293.54);
+  --violet-300: oklch(81.1% 0.111 293.57);
+  --violet-400: oklch(70.2% 0.183 293.54);
+  --violet-500: oklch(60.6% 0.25 292.72);
+  --violet-600: oklch(54.1% 0.281 293.01);
+  --violet-700: oklch(49.1% 0.27 292.58);
+  --violet-800: oklch(43.2% 0.232 292.76);
+  --violet-900: oklch(38% 0.189 293.75);
+  --violet-950: oklch(28.3% 0.141 291.09);
+
+  /* ============================================= */
+  /* PURPLE (~304° hue) - Rich purple              */
+  /* ============================================= */
+  --purple-100: oklch(94.6% 0.033 307.17);
+  --purple-200: oklch(90.2% 0.063 306.7);
+  --purple-300: oklch(82.7% 0.119 306.38);
+  --purple-400: oklch(71.4% 0.203 305.5);
+  --purple-500: oklch(62.7% 0.265 303.9);
+  --purple-600: oklch(55.8% 0.288 302.32);
+  --purple-700: oklch(49.6% 0.265 301.92);
+  --purple-800: oklch(43.8% 0.218 303.72);
+  --purple-900: oklch(38.1% 0.176 304.99);
+  --purple-950: oklch(29.1% 0.149 302.72);
+
+  /* ============================================= */
+  /* FUCHSIA (~322° hue) - Hot pink-magenta        */
+  /* ============================================= */
+  --fuchsia-100: oklch(95.2% 0.037 318.85);
+  --fuchsia-200: oklch(90.3% 0.076 319.62);
+  --fuchsia-300: oklch(83.3% 0.145 321.43);
+  --fuchsia-400: oklch(74% 0.238 322.16);
+  --fuchsia-500: oklch(66.7% 0.295 322.15);
+  --fuchsia-600: oklch(59.1% 0.293 322.9);
+  --fuchsia-700: oklch(51.8% 0.253 323.95);
+  --fuchsia-800: oklch(45.2% 0.211 324.59);
+  --fuchsia-900: oklch(40.1% 0.17 325.61);
+  --fuchsia-950: oklch(29.3% 0.136 325.66);
+
+  /* ============================================= */
+  /* PINK (~350° hue) - Custom statuses            */
+  /* ============================================= */
+  --pink-100: oklch(94.8% 0.028 342.26);
+  --pink-200: oklch(89.9% 0.061 343.23);
+  --pink-300: oklch(82.3% 0.116 346.01);
+  --pink-400: oklch(71.8% 0.202 349.76);
+  --pink-500: oklch(65.6% 0.241 354.31);
+  --pink-600: oklch(59.2% 0.249 0.58);
+  --pink-700: oklch(52.5% 0.223 3.96);
+  --pink-800: oklch(45.9% 0.187 3.81);
+  --pink-900: oklch(40.8% 0.153 2.43);
+  --pink-950: oklch(28.4% 0.109 3.91);
+
+  /* ============================================= */
+  /* ZINC (neutral) - Blocked, Secondary, Neutral */
+  /* Chroma 0.003 = near-true gray, minimal cool   */
+  /* ============================================= */
+  --zinc-50: oklch(98.5% 0.003 256);
+  --zinc-100: oklch(96.7% 0.003 256);
+  --zinc-200: oklch(92% 0.003 256);
+  --zinc-300: oklch(87.1% 0.003 256);
+  --zinc-400: oklch(70.5% 0.003 256);
+  --zinc-500: oklch(55.2% 0.003 256);
+  --zinc-600: oklch(40% 0.003 256);
+  --zinc-700: oklch(32% 0.003 256);
+  --zinc-800: oklch(23% 0.003 256);
+  --zinc-900: oklch(16% 0.003 256);
+  --zinc-950: oklch(10% 0.003 256);
+
+  /* ============================================= */
+  /* SLATE (cool gray) - Cool-tinted neutral       */
+  /* Slight blue undertone                         */
+  /* ============================================= */
+  --slate-100: oklch(96.8% 0.007 247.9);
+  --slate-200: oklch(92.9% 0.011 248);
+  --slate-300: oklch(86.9% 0.014 249.45);
+  --slate-400: oklch(70.4% 0.016 252);
+  --slate-500: oklch(55.4% 0.016 253);
+  --slate-600: oklch(44.6% 0.016 254);
+  --slate-700: oklch(37.2% 0.016 255.7);
+  --slate-800: oklch(27.9% 0.014 257);
+  --slate-900: oklch(20.8% 0.012 258.3);
+  --slate-950: oklch(12.9% 0.01 261);
+
+  /* ============================================= */
+  /* STONE (warm gray) - Warm-tinted neutral       */
+  /* Slight brown/yellow undertone                 */
+  /* ============================================= */
+  --stone-100: oklch(97% 0.004 75);
+  --stone-200: oklch(92.3% 0.006 73);
+  --stone-300: oklch(86.9% 0.007 70);
+  --stone-400: oklch(70.6% 0.01 68);
+  --stone-500: oklch(55.3% 0.013 58);
+  --stone-600: oklch(44.4% 0.013 56);
+  --stone-700: oklch(37.4% 0.012 53);
+  --stone-800: oklch(26.8% 0.01 50);
+  --stone-900: oklch(21.6% 0.008 48);
+  --stone-950: oklch(14.7% 0.005 42);
+
+  /* ============================================= */
+  /* Shadcn Semantic Theme Variables (Light)      */
+  /* background: zinc-100, card/popover: zinc-50  */
+  /* Cards are elevated above background          */
+  /* ============================================= */
+  --background: var(--zinc-100);
+  --foreground: var(--zinc-950);
+  --card: var(--zinc-50);
+  --card-foreground: var(--zinc-950);
+  --card-hover: var(--zinc-200);
+  --popover: var(--zinc-50);
+  --popover-foreground: var(--zinc-950);
+  --primary: var(--sapphire-600);
+  --primary-foreground: var(--zinc-50);
+  --secondary: var(--zinc-100);
+  --secondary-foreground: var(--zinc-900);
+  --muted: var(--zinc-100);
+  --muted-foreground: var(--zinc-500);
+  --accent: var(--zinc-200);
+  --accent-foreground: var(--zinc-900);
+  --destructive: var(--red-600);
+  --destructive-foreground: var(--zinc-50);
+  --border: var(--zinc-300);
+  --input: var(--zinc-300);
+  --ring: var(--sapphire-500);
+
+  /* Chart colors */
+  --chart-1: var(--sapphire-500);
+  --chart-2: var(--teal-500);
+  --chart-3: var(--green-500);
+  --chart-4: var(--yellow-500);
+  --chart-5: var(--violet-500);
+
+  /* Border radius */
+  --radius: 0.75rem;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-input: 12px;
+  --radius-button: 12px;
+  --radius-card: 16px;
+
+  /* ============================================= */
+  /* Badge Color System (Light Mode)              */
+  /* Solid: 600 shade + white text                */
+  /* Subtle: 200 bg + 800 text                    */
+  /* ============================================= */
+
+  /* Solid badge backgrounds */
+  --badge-rose: var(--rose-600);
+  --badge-red: var(--red-600);
+  --badge-brown: var(--brown-600);
+  --badge-orange: var(--orange-600);
+  --badge-amber: var(--amber-600);
+  --badge-yellow: var(--yellow-600);
+  --badge-lime: var(--lime-600);
+  --badge-green: var(--green-600);
+  --badge-emerald: var(--emerald-600);
+  --badge-teal: var(--teal-600);
+  --badge-cyan: var(--cyan-600);
+  --badge-sky: var(--sky-600);
+  --badge-blue: var(--blue-600);
+  --badge-sapphire: var(--sapphire-600);
+  --badge-indigo: var(--indigo-600);
+  --badge-violet: var(--violet-600);
+  --badge-purple: var(--purple-600);
+  --badge-fuchsia: var(--fuchsia-600);
+  --badge-pink: var(--pink-600);
+  --badge-zinc: var(--zinc-500);
+  --badge-slate: var(--slate-500);
+  --badge-stone: var(--stone-500);
+
+  /* Subtle badge backgrounds */
+  --badge-rose-subtle-bg: var(--rose-200);
+  --badge-red-subtle-bg: var(--red-200);
+  --badge-brown-subtle-bg: var(--brown-200);
+  --badge-orange-subtle-bg: var(--orange-200);
+  --badge-amber-subtle-bg: var(--amber-200);
+  --badge-yellow-subtle-bg: var(--yellow-200);
+  --badge-lime-subtle-bg: var(--lime-200);
+  --badge-green-subtle-bg: var(--green-200);
+  --badge-emerald-subtle-bg: var(--emerald-200);
+  --badge-teal-subtle-bg: var(--teal-200);
+  --badge-cyan-subtle-bg: var(--cyan-200);
+  --badge-sky-subtle-bg: var(--sky-200);
+  --badge-blue-subtle-bg: var(--blue-200);
+  --badge-sapphire-subtle-bg: var(--sapphire-200);
+  --badge-indigo-subtle-bg: var(--indigo-200);
+  --badge-violet-subtle-bg: var(--violet-200);
+  --badge-purple-subtle-bg: var(--purple-200);
+  --badge-fuchsia-subtle-bg: var(--fuchsia-200);
+  --badge-pink-subtle-bg: var(--pink-200);
+  --badge-zinc-subtle-bg: var(--zinc-200);
+  --badge-slate-subtle-bg: var(--slate-200);
+  --badge-stone-subtle-bg: var(--stone-200);
+
+  /* Subtle badge text colors */
+  --badge-rose-subtle-text: var(--rose-800);
+  --badge-red-subtle-text: var(--red-800);
+  --badge-brown-subtle-text: var(--brown-800);
+  --badge-orange-subtle-text: var(--orange-800);
+  --badge-amber-subtle-text: var(--amber-800);
+  --badge-yellow-subtle-text: var(--yellow-800);
+  --badge-lime-subtle-text: var(--lime-800);
+  --badge-green-subtle-text: var(--green-800);
+  --badge-emerald-subtle-text: var(--emerald-800);
+  --badge-teal-subtle-text: var(--teal-800);
+  --badge-cyan-subtle-text: var(--cyan-800);
+  --badge-sky-subtle-text: var(--sky-800);
+  --badge-blue-subtle-text: var(--blue-800);
+  --badge-sapphire-subtle-text: var(--sapphire-800);
+  --badge-indigo-subtle-text: var(--indigo-800);
+  --badge-violet-subtle-text: var(--violet-800);
+  --badge-purple-subtle-text: var(--purple-800);
+  --badge-fuchsia-subtle-text: var(--fuchsia-800);
+  --badge-pink-subtle-text: var(--pink-800);
+  --badge-zinc-subtle-text: var(--zinc-800);
+  --badge-slate-subtle-text: var(--slate-800);
+  --badge-stone-subtle-text: var(--stone-800);
+
+  /* Sidebar */
+  --sidebar: var(--zinc-50);
+  --sidebar-foreground: var(--zinc-900);
+  --sidebar-primary: var(--sapphire-500);
+  --sidebar-primary-foreground: var(--zinc-50);
+  --sidebar-accent: var(--zinc-100);
+  --sidebar-accent-foreground: var(--zinc-900);
+  --sidebar-border: var(--zinc-200);
+  --sidebar-ring: var(--sapphire-500);
+}
+
+/* ============================================= */
+/* Dark Mode                                     */
+/* ============================================= */
+.dark {
+  --background: var(--zinc-950);
+  --foreground: var(--zinc-50);
+  --card: var(--zinc-900);
+  --card-foreground: var(--zinc-50);
+  --card-hover: var(--zinc-800);
+  --popover: var(--zinc-900);
+  --popover-foreground: var(--zinc-50);
+  --primary: var(--sapphire-700);
+  --primary-foreground: var(--zinc-50);
+  --secondary: var(--zinc-800);
+  --secondary-foreground: var(--zinc-50);
+  --muted: var(--zinc-800);
+  --muted-foreground: var(--zinc-400);
+  --accent: var(--zinc-600);
+  --accent-foreground: var(--zinc-50);
+  --destructive: var(--red-700);
+  --destructive-foreground: var(--zinc-50);
+  --border: var(--zinc-800);
+  --input: var(--zinc-800);
+  --ring: var(--sapphire-400);
+
+  /* Chart colors (dark) */
+  --chart-1: var(--sapphire-400);
+  --chart-2: var(--teal-400);
+  --chart-3: var(--green-400);
+  --chart-4: var(--yellow-400);
+  --chart-5: var(--violet-400);
+
+  /* Badge Color System (Dark Mode) */
+  /* Solid: 700 shade + white text */
+  --badge-rose: var(--rose-700);
+  --badge-red: var(--red-700);
+  --badge-brown: var(--brown-700);
+  --badge-orange: var(--orange-700);
+  --badge-amber: var(--amber-700);
+  --badge-yellow: var(--yellow-700);
+  --badge-lime: var(--lime-700);
+  --badge-green: var(--green-700);
+  --badge-emerald: var(--emerald-700);
+  --badge-teal: var(--teal-700);
+  --badge-cyan: var(--cyan-700);
+  --badge-sky: var(--sky-700);
+  --badge-blue: var(--blue-700);
+  --badge-sapphire: var(--sapphire-700);
+  --badge-indigo: var(--indigo-700);
+  --badge-violet: var(--violet-700);
+  --badge-purple: var(--purple-700);
+  --badge-fuchsia: var(--fuchsia-700);
+  --badge-pink: var(--pink-700);
+  --badge-zinc: var(--zinc-600);
+  --badge-slate: var(--slate-600);
+  --badge-stone: var(--stone-600);
+
+  /* Subtle badge backgrounds (900 shade in dark) */
+  --badge-rose-subtle-bg: var(--rose-900);
+  --badge-red-subtle-bg: var(--red-900);
+  --badge-brown-subtle-bg: var(--brown-900);
+  --badge-orange-subtle-bg: var(--orange-900);
+  --badge-amber-subtle-bg: var(--amber-900);
+  --badge-yellow-subtle-bg: var(--yellow-900);
+  --badge-lime-subtle-bg: var(--lime-900);
+  --badge-green-subtle-bg: var(--green-900);
+  --badge-emerald-subtle-bg: var(--emerald-900);
+  --badge-teal-subtle-bg: var(--teal-900);
+  --badge-cyan-subtle-bg: var(--cyan-900);
+  --badge-sky-subtle-bg: var(--sky-900);
+  --badge-blue-subtle-bg: var(--blue-900);
+  --badge-sapphire-subtle-bg: var(--sapphire-900);
+  --badge-indigo-subtle-bg: var(--indigo-900);
+  --badge-violet-subtle-bg: var(--violet-900);
+  --badge-purple-subtle-bg: var(--purple-900);
+  --badge-fuchsia-subtle-bg: var(--fuchsia-900);
+  --badge-pink-subtle-bg: var(--pink-900);
+  --badge-zinc-subtle-bg: var(--zinc-800);
+  --badge-slate-subtle-bg: var(--slate-800);
+  --badge-stone-subtle-bg: var(--stone-800);
+
+  /* Subtle badge text colors (300 shade in dark) */
+  --badge-rose-subtle-text: var(--rose-300);
+  --badge-red-subtle-text: var(--red-300);
+  --badge-brown-subtle-text: var(--brown-300);
+  --badge-orange-subtle-text: var(--orange-300);
+  --badge-amber-subtle-text: var(--amber-300);
+  --badge-yellow-subtle-text: var(--yellow-300);
+  --badge-lime-subtle-text: var(--lime-300);
+  --badge-green-subtle-text: var(--green-300);
+  --badge-emerald-subtle-text: var(--emerald-300);
+  --badge-teal-subtle-text: var(--teal-300);
+  --badge-cyan-subtle-text: var(--cyan-300);
+  --badge-sky-subtle-text: var(--sky-300);
+  --badge-blue-subtle-text: var(--blue-300);
+  --badge-sapphire-subtle-text: var(--sapphire-300);
+  --badge-indigo-subtle-text: var(--indigo-300);
+  --badge-violet-subtle-text: var(--violet-300);
+  --badge-purple-subtle-text: var(--purple-300);
+  --badge-fuchsia-subtle-text: var(--fuchsia-300);
+  --badge-pink-subtle-text: var(--pink-300);
+  --badge-zinc-subtle-text: var(--zinc-300);
+  --badge-slate-subtle-text: var(--slate-300);
+  --badge-stone-subtle-text: var(--stone-300);
+
+  /* Sidebar */
+  --sidebar: var(--zinc-950);
+  --sidebar-foreground: var(--zinc-50);
+  --sidebar-primary: var(--sapphire-400);
+  --sidebar-primary-foreground: var(--zinc-50);
+  --sidebar-accent: var(--zinc-800);
+  --sidebar-accent-foreground: var(--zinc-50);
+  --sidebar-border: var(--zinc-800);
+  --sidebar-ring: var(--sapphire-400);
+}
+
+/* ============================================= */
+/* ZINC THEME (Primary Theme)                   */
+/* ============================================= */
+
+.theme-zinc {
+  --background: var(--zinc-100);
+  --foreground: var(--zinc-950);
+  --card: var(--zinc-50);
+  --card-foreground: var(--zinc-950);
+  --card-hover: var(--zinc-200);
+  --popover: var(--zinc-50);
+  --popover-foreground: var(--zinc-950);
+  --primary: var(--sapphire-600);
+  --primary-foreground: var(--zinc-50);
+  --secondary: var(--zinc-100);
+  --secondary-foreground: var(--zinc-900);
+  --muted: var(--zinc-100);
+  --muted-foreground: var(--zinc-500);
+  --accent: var(--zinc-200);
+  --accent-foreground: var(--zinc-900);
+  --destructive: var(--red-600);
+  --destructive-foreground: var(--zinc-50);
+  --border: var(--zinc-300);
+  --input: var(--zinc-300);
+  --ring: var(--sapphire-500);
+}
+
+.theme-zinc.dark {
+  --background: var(--zinc-950);
+  --foreground: var(--zinc-50);
+  --card: var(--zinc-900);
+  --card-foreground: var(--zinc-50);
+  --card-hover: var(--zinc-800);
+  --popover: var(--zinc-900);
+  --popover-foreground: var(--zinc-50);
+  --primary: var(--sapphire-700);
+  --primary-foreground: var(--zinc-50);
+  --secondary: var(--zinc-800);
+  --secondary-foreground: var(--zinc-50);
+  --muted: var(--zinc-800);
+  --muted-foreground: var(--zinc-400);
+  --accent: var(--zinc-600);
+  --accent-foreground: var(--zinc-50);
+  --destructive: var(--red-700);
+  --destructive-foreground: var(--zinc-50);
+  --border: var(--zinc-800);
+  --input: var(--zinc-800);
+  --ring: var(--sapphire-400);
+}
+
+/* ============================================= */
+/* CUSTOMER PORTAL THEME OVERRIDES              */
+/* These classes force a specific theme mode    */
+/* regardless of the app's theme setting        */
+/* ============================================= */
+
+.portal-light {
+  --background: var(--zinc-100);
+  --foreground: var(--zinc-950);
+  --card: var(--zinc-50);
+  --card-foreground: var(--zinc-950);
+  --card-hover: var(--zinc-200);
+  --popover: var(--zinc-50);
+  --popover-foreground: var(--zinc-950);
+  --primary: var(--portal-primary, var(--sapphire-600));
+  --primary-foreground: var(--portal-primary-foreground, var(--zinc-50));
+  --secondary: var(--zinc-100);
+  --secondary-foreground: var(--zinc-900);
+  --muted: var(--zinc-100);
+  --muted-foreground: var(--zinc-500);
+  --accent: var(--zinc-200);
+  --accent-foreground: var(--zinc-900);
+  --destructive: var(--red-600);
+  --destructive-foreground: var(--zinc-50);
+  --border: var(--zinc-300);
+  --input: var(--zinc-300);
+  --ring: var(--portal-primary, var(--sapphire-500));
+  color-scheme: light;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.portal-dark {
+  --background: var(--zinc-950);
+  --foreground: var(--zinc-50);
+  --card: var(--zinc-900);
+  --card-foreground: var(--zinc-50);
+  --card-hover: var(--zinc-800);
+  --popover: var(--zinc-900);
+  --popover-foreground: var(--zinc-50);
+  --primary: var(--portal-primary, var(--sapphire-700));
+  --primary-foreground: var(--portal-primary-foreground, var(--zinc-50));
+  --secondary: var(--zinc-800);
+  --secondary-foreground: var(--zinc-50);
+  --muted: var(--zinc-800);
+  --muted-foreground: var(--zinc-400);
+  --accent: var(--zinc-600);
+  --accent-foreground: var(--zinc-50);
+  --destructive: var(--red-700);
+  --destructive-foreground: var(--zinc-50);
+  --border: var(--zinc-800);
+  --input: var(--zinc-800);
+  --ring: var(--portal-primary, var(--sapphire-400));
+  color-scheme: dark;
+  background-color: var(--background);
+  color: var(--foreground);
+}
