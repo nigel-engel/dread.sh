@@ -1044,14 +1044,14 @@ function toggleTheme() {
 
 (function() {
   var events = [
-    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'Invoice invoice.paid $249.00'},
-    {time:'41m ago', src:'sentry', cls:'source-sentry', msg:'ReferenceError: db is not defined'},
-    {time:'33m ago', src:'github', cls:'source-github', msg:'PR merged #139 → main'},
-    {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'Deployment ready (prod)'},
-    {time:'9m ago', src:'github', cls:'source-github', msg:'Push to main (3 commits)'},
-    {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'Payment charge.succeeded $59.00'},
-    {time:'45s ago', src:'slack', cls:'source-slack', msg:'#alerts: CPU > 90% on prod-2'},
-    {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read prop…'}
+    {time:'1h ago', src:'stripe', cls:'source-stripe', msg:'charge.succeeded $120.00 Visa ending 4242'},
+    {time:'41m ago', src:'sentry', cls:'source-sentry', msg:'TypeError: Cannot read properties of undefined'},
+    {time:'33m ago', src:'github', cls:'source-github', msg:'pull_request.merged #139 → main'},
+    {time:'24m ago', src:'vercel', cls:'source-vercel', msg:'deployment.ready dread-sh-a1b2.vercel.app'},
+    {time:'9m ago', src:'github', cls:'source-github', msg:'push 3 commits to main'},
+    {time:'2m ago', src:'stripe', cls:'source-stripe', msg:'invoice.paid $49.00 acme@company.com'},
+    {time:'45s ago', src:'linear', cls:'source-linear', msg:'Issue.update DRD-42 → In Review'},
+    {time:'5s ago', src:'sentry', cls:'source-sentry', msg:'Unhandled Promise Rejection in /api/webhooks'}
   ];
   var body = document.getElementById('terminal-body');
   var title = document.getElementById('terminal-title');
@@ -1733,16 +1733,16 @@ const docsPage = `<!DOCTYPE html>
       <p>dread auto-detects the following webhook sources and extracts structured event data:</p>
       <table>
         <tr><th>Source</th><th>Detection Header</th><th>Example Summary</th></tr>
-        <tr><td>Stripe</td><td><code>Stripe-Signature</code></td><td>invoice.paid $249.00</td></tr>
-        <tr><td>GitHub</td><td><code>X-GitHub-Event</code></td><td>PR merged #139 → main</td></tr>
-        <tr><td>Shopify</td><td><code>X-Shopify-Topic</code></td><td>orders/create #1042</td></tr>
-        <tr><td>Twilio</td><td><code>X-Twilio-Signature</code></td><td>SMS from +1234567890</td></tr>
-        <tr><td>SendGrid</td><td><code>X-Twilio-Email-Event-Webhook-Signature</code></td><td>email.delivered</td></tr>
-        <tr><td>Slack</td><td><code>X-Slack-Signature</code></td><td>#deploys: Production v2.4</td></tr>
-        <tr><td>Discord</td><td><code>X-Signature-Ed25519</code></td><td>interaction.create</td></tr>
-        <tr><td>Linear</td><td><code>Linear-Delivery</code></td><td>Issue ENG-481 → In Review</td></tr>
-        <tr><td>Svix</td><td><code>Svix-Id</code></td><td>message.created</td></tr>
-        <tr><td>Paddle</td><td><code>Paddle-Signature</code></td><td>subscription.activated</td></tr>
+        <tr><td>Stripe</td><td><code>Stripe-Signature</code></td><td>charge.succeeded $120.00 Visa ending 4242</td></tr>
+        <tr><td>GitHub</td><td><code>X-GitHub-Event</code></td><td>pull_request.merged #139 → main</td></tr>
+        <tr><td>Shopify</td><td><code>X-Shopify-Topic</code></td><td>orders/create Order #1042</td></tr>
+        <tr><td>Twilio</td><td><code>X-Twilio-Signature</code></td><td>SMS received from +1234567890</td></tr>
+        <tr><td>SendGrid</td><td><code>X-Twilio-Email-Event-Webhook-Signature</code></td><td>email.delivered to user@example.com</td></tr>
+        <tr><td>Slack</td><td><code>X-Slack-Signature</code></td><td>message in #deployments by nigel</td></tr>
+        <tr><td>Discord</td><td><code>X-Signature-Ed25519</code></td><td>INTERACTION_CREATE slash command</td></tr>
+        <tr><td>Linear</td><td><code>Linear-Delivery</code></td><td>Issue.update DRD-42 → In Review</td></tr>
+        <tr><td>Svix</td><td><code>Svix-Id</code></td><td>message.attempt.completed</td></tr>
+        <tr><td>Paddle</td><td><code>Paddle-Signature</code></td><td>subscription.activated sub_01h...</td></tr>
       </table>
       <p>Any unrecognized source is labeled "webhook" with the raw event type if available.</p>
     </section>
