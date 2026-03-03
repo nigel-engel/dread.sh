@@ -158,6 +158,12 @@ func main() {
 		w.Write([]byte(installScript))
 	})
 
+	// Dashboard page
+	mux.HandleFunc("GET /dashboard", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(dashboardPage))
+	})
+
 	// Changelog page
 	mux.HandleFunc("GET /changelog", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -779,6 +785,7 @@ const landingPage = `<!DOCTYPE html>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
       <a href="/changelog">Changelog</a>
+      <a href="/dashboard">Dashboard</a>
       <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
     </div>
@@ -988,7 +995,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
 <div class="section-inner">
   <div class="section-label">Features</div>
   <div class="section-title">Everything you need, nothing you don't</div>
-  <div class="section-desc">No accounts, no dashboards, no browser tabs. A single binary that does one thing well.</div>
+  <div class="section-desc">No accounts, no config files, no environment variables. CLI or browser &mdash; your choice.</div>
 
   <div class="feat-grid">
     <div class="feat">
@@ -1047,9 +1054,9 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
       <p>Any service that sends webhooks &mdash; just paste the URL.</p>
     </div>
     <div class="feat">
-      <div class="feat-icon ic-amber"><i data-lucide="zap"></i></div>
-      <h3>Zero config</h3>
-      <p>No accounts, no YAML, no environment variables. Just works.</p>
+      <div class="feat-icon ic-amber"><i data-lucide="layout-dashboard"></i></div>
+      <h3>Web dashboard</h3>
+      <p>View live events in the <a href="/dashboard" style="color:var(--amber)">browser</a> &mdash; no install needed.</p>
     </div>
   </div>
 </div>
@@ -1566,6 +1573,7 @@ const docsPage = `<!DOCTYPE html>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
       <a href="/changelog">Changelog</a>
+      <a href="/dashboard">Dashboard</a>
       <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
     </div>
@@ -1617,6 +1625,12 @@ const docsPage = `<!DOCTYPE html>
       <div class="docs-sidebar-label">Forwarding &amp; Replay</div>
       <a href="#forward">Forward to Localhost</a>
       <a href="#replay">Replay Past Events</a>
+    </div>
+    <div class="docs-sidebar-group">
+      <div class="docs-sidebar-label">Web Dashboard</div>
+      <a href="#dashboard-overview">Overview</a>
+      <a href="#dashboard-connect">Connecting</a>
+      <a href="#dashboard-features">Features</a>
     </div>
   </aside>
 
@@ -2007,6 +2021,43 @@ const docsPage = `<!DOCTYPE html>
       <p>The event is fetched from the server and POSTed to the target with the same <code>X-Dread-*</code> headers. You can find event IDs in the TUI detail view or from <code>dread logs</code>.</p>
     </section>
 
+    <!-- WEB DASHBOARD -->
+    <section class="docs-section" id="dashboard-overview">
+      <h2>Web Dashboard</h2>
+      <h3>Overview</h3>
+      <p>The web dashboard at <a href="/dashboard">/dashboard</a> lets you view your live event feed in the browser without installing the CLI. It uses the same APIs as the CLI &mdash; no extra backend required.</p>
+      <p>The workspace ID in the URL is the access key, same as the rest of the app. Anyone with the workspace ID can view the dashboard.</p>
+    </section>
+
+    <section class="docs-section" id="dashboard-connect">
+      <h3>Connecting</h3>
+      <p>Visit <a href="/dashboard">/dashboard</a> and enter your workspace ID (e.g. <code>ws_230a2bc06cb0</code>). Find your workspace ID by running:</p>
+      <div class="copy-wrap">
+        <pre><code><span class="kw">$</span> dread share</code></pre>
+        <button class="copy-btn" onclick="copyText('dread share', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
+      <p>The dashboard remembers your last workspace ID in localStorage. You can also share direct links:</p>
+      <div class="copy-wrap">
+        <pre><code>https://dread.sh/dashboard?ws=ws_230a2bc06cb0</code></pre>
+        <button class="copy-btn" onclick="copyText('https://dread.sh/dashboard?ws=ws_230a2bc06cb0', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
+    </section>
+
+    <section class="docs-section" id="dashboard-features">
+      <h3>Features</h3>
+      <ul>
+        <li><strong>Channel sidebar</strong> &mdash; lists all channels with their webhook URLs and copy buttons</li>
+        <li><strong>Live event feed</strong> &mdash; events stream in real-time via WebSocket, with channel name, source, type, and summary</li>
+        <li><strong>JSON payload viewer</strong> &mdash; click any event row to expand and see the full payload with syntax highlighting</li>
+        <li><strong>Filter</strong> &mdash; search events by source, type, channel, or summary text</li>
+        <li><strong>Pause/resume</strong> &mdash; pause the live stream to inspect events; buffered events flush on resume</li>
+        <li><strong>Load more</strong> &mdash; scroll to the bottom and load older events with pagination</li>
+        <li><strong>Tab notifications</strong> &mdash; unread event count appears in the browser tab title when the tab is in the background</li>
+        <li><strong>Theme toggle</strong> &mdash; dark/light theme, same as the rest of the site</li>
+        <li><strong>Mobile responsive</strong> &mdash; sidebar collapses to a hamburger menu on small screens</li>
+      </ul>
+    </section>
+
   </main>
 </div>
 
@@ -2250,6 +2301,7 @@ const changelogPage = `<!DOCTYPE html>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
       <a href="/changelog">Changelog</a>
+      <a href="/dashboard">Dashboard</a>
       <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
     </div>
@@ -2259,6 +2311,24 @@ const changelogPage = `<!DOCTYPE html>
 <div class="changelog">
   <h1>Changelog</h1>
   <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">Web dashboard</div>
+    <ul>
+      <li>Added browser-based dashboard at <a href="/dashboard">dread.sh/dashboard</a> — view live events without installing the CLI</li>
+      <li>Enter your workspace ID to see channels, webhook URLs, and a real-time event feed</li>
+      <li>Click any event row to expand and see the full JSON payload with syntax highlighting</li>
+      <li>Filter events by source, type, channel, or summary</li>
+      <li>Pause/resume the live stream to inspect events without new ones pushing the list</li>
+      <li>Deep linking support — share <code>/dashboard?ws=your_id</code> URLs with your team</li>
+      <li>Unread event count shown in the browser tab title when the tab is in the background</li>
+      <li>Load older events with pagination</li>
+      <li>Live relative timestamps that update automatically</li>
+      <li>Channel name shown on each event row for multi-channel workspaces</li>
+      <li>Mobile responsive with collapsible sidebar</li>
+    </ul>
+  </div>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>
@@ -2350,6 +2420,935 @@ function toggleTheme() {
   lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
 
 })();
+</script>
+</body>
+</html>`
+
+const dashboardPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>Dashboard | dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --border-subtle: oklch(18% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(65% 0.1 40);
+    --accent-dim: oklch(47% 0.09 36);
+    --accent-glow: oklch(55% 0.1 38 / 0.15);
+    --accent-glow-strong: oklch(55% 0.1 38 / 0.3);
+    --orange: oklch(75% 0.18 55);
+    --orange-dim: oklch(52% 0.16 55);
+    --blue: oklch(70.7% 0.165 254.62);
+    --violet: oklch(70.2% 0.183 293.54);
+    --amber: oklch(82.8% 0.189 84.43);
+    --rose: oklch(71.2% 0.194 13.43);
+    --cyan: oklch(78.9% 0.154 211.53);
+    --nav-bg: oklch(10% 0.003 256 / 0.85);
+    --green: oklch(72% 0.17 142);
+  }
+
+  :root.light {
+    --bg: oklch(98% 0.003 256);
+    --surface: oklch(97% 0.003 256);
+    --surface-hover: oklch(94% 0.003 256);
+    --border: oklch(85% 0.003 256);
+    --border-subtle: oklch(90% 0.003 256);
+    --text: oklch(15% 0.003 256);
+    --text-secondary: oklch(35% 0.003 256);
+    --text-muted: oklch(50% 0.003 256);
+    --text-dim: oklch(65% 0.003 256);
+    --accent: oklch(50% 0.12 40);
+    --accent-dim: oklch(40% 0.1 36);
+    --accent-glow: oklch(50% 0.12 40 / 0.1);
+    --accent-glow-strong: oklch(50% 0.12 40 / 0.2);
+    --orange: oklch(55% 0.18 55);
+    --orange-dim: oklch(45% 0.16 55);
+    --blue: oklch(50% 0.165 254.62);
+    --violet: oklch(50% 0.183 293.54);
+    --amber: oklch(55% 0.189 84.43);
+    --rose: oklch(55% 0.194 13.43);
+    --cyan: oklch(50% 0.154 211.53);
+    --nav-bg: oklch(98% 0.003 256 / 0.85);
+    --green: oklch(45% 0.17 142);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overscroll-behavior: none; }
+  html { font-size: 18px; }
+
+  body {
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, kbd {
+    font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--border);
+    background: var(--nav-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .nav-inner {
+    max-width: 1280px; margin: 0 auto;
+    padding: 0 24px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 1.05rem; font-weight: 600; color: var(--text);
+    text-decoration: none; letter-spacing: -0.02em;
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a {
+    font-size: 0.85rem; color: var(--text-muted);
+    text-decoration: none; transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); display: flex; align-items: center;
+    justify-content: center; padding: 6px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--surface); }
+  .nav-btn svg { width: 18px; height: 18px; }
+
+  /* CONNECT SCREEN */
+  .connect-screen {
+    max-width: 440px; margin: 120px auto;
+    padding: 0 24px; text-align: center;
+  }
+  .connect-screen h1 {
+    font-size: 1.8rem; color: var(--text);
+    font-weight: 600; letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .connect-screen p {
+    color: var(--text-muted); font-size: 0.9rem;
+    margin-bottom: 32px;
+  }
+  .connect-form {
+    display: flex; gap: 8px;
+  }
+  .connect-form input {
+    flex: 1; padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: "Geist Mono", monospace; font-size: 0.85rem;
+    outline: none; transition: border-color 0.15s;
+  }
+  .connect-form input::placeholder { color: var(--text-dim); }
+  .connect-form input:focus { border-color: var(--accent); }
+  .connect-form button {
+    padding: 12px 24px; background: var(--accent);
+    border: none; border-radius: 8px; color: white;
+    font-family: "Geist", sans-serif; font-size: 0.85rem;
+    font-weight: 500; cursor: pointer; transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .connect-form button:hover { opacity: 0.9; }
+  .connect-error {
+    margin-top: 16px; color: var(--rose); font-size: 0.8rem;
+    display: none;
+  }
+
+  /* DASHBOARD LAYOUT */
+  .dashboard { display: none; }
+  .dashboard.active { display: flex; }
+  .dashboard {
+    max-width: 1280px; margin: 0 auto;
+    min-height: calc(100vh - 57px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 300px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 20px; overflow-y: auto;
+    max-height: calc(100vh - 57px);
+    position: sticky; top: 57px;
+  }
+  .sidebar-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .sidebar-title {
+    font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-muted);
+  }
+  .ws-id {
+    font-size: 0.7rem; color: var(--accent);
+    font-family: "Geist Mono", monospace;
+  }
+  .channel-list { list-style: none; }
+  .channel-item {
+    padding: 10px 12px; border-radius: 8px;
+    margin-bottom: 4px; transition: background 0.15s;
+  }
+  .channel-item:hover { background: var(--surface); }
+  .channel-name {
+    font-size: 0.85rem; color: var(--text); font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .channel-url-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .channel-url {
+    font-size: 0.7rem; color: var(--text-dim);
+    font-family: "Geist Mono", monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1;
+  }
+  .copy-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-dim); padding: 2px;
+    display: flex; align-items: center;
+    transition: color 0.15s; flex-shrink: 0;
+  }
+  .copy-btn:hover { color: var(--text); }
+  .copy-btn svg { width: 13px; height: 13px; }
+  .copy-btn.copied { color: var(--green); }
+  .disconnect-btn {
+    width: 100%; margin-top: 16px; padding: 8px;
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text-muted);
+    font-size: 0.8rem; cursor: pointer;
+    font-family: "Geist", sans-serif;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .disconnect-btn:hover { border-color: var(--rose); color: var(--rose); }
+
+  /* MAIN AREA */
+  .main-area {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 57px; z-index: 10;
+    background: var(--bg);
+  }
+  .toolbar-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; color: var(--text-muted);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .status-dot.connected { background: var(--green); }
+  .filter-input {
+    flex: 1; padding: 8px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: "Geist", sans-serif; font-size: 0.8rem;
+    outline: none; transition: border-color 0.15s;
+  }
+  .filter-input::placeholder { color: var(--text-dim); }
+  .filter-input:focus { border-color: var(--accent); }
+  .event-count {
+    font-size: 0.75rem; color: var(--text-dim);
+    white-space: nowrap;
+    font-family: "Geist Mono", monospace;
+  }
+
+  /* EVENT TABLE */
+  .events-container {
+    flex: 1; overflow-y: auto;
+  }
+  .events-table {
+    width: 100%; border-collapse: collapse;
+  }
+  .events-table th {
+    position: sticky; top: 0;
+    background: var(--bg);
+    padding: 10px 16px; text-align: left;
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 500; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .events-table td {
+    padding: 10px 16px; border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.8rem; vertical-align: top;
+  }
+  .events-table tr { cursor: pointer; transition: background 0.1s; }
+  .events-table tbody tr:hover { background: var(--surface); }
+  .events-table tr.new-event { animation: flash 1s ease-out; }
+  @keyframes flash {
+    0% { background: var(--accent-glow); }
+    100% { background: transparent; }
+  }
+  .col-time {
+    white-space: nowrap; color: var(--text-dim);
+    font-family: "Geist Mono", monospace; font-size: 0.75rem;
+    width: 140px;
+  }
+  .col-source {
+    font-weight: 500; color: var(--blue); width: 100px;
+  }
+  .col-type {
+    color: var(--violet); width: 160px;
+    font-family: "Geist Mono", monospace; font-size: 0.75rem;
+  }
+  .col-summary {
+    color: var(--text-secondary);
+    max-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* EXPANDED ROW */
+  .event-detail {
+    display: none;
+  }
+  .event-detail.open { display: table-row; }
+  .event-detail td {
+    padding: 0 16px 16px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .json-viewer {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+    overflow-x: auto; font-size: 0.75rem;
+    font-family: "Geist Mono", monospace;
+    line-height: 1.5; max-height: 400px;
+    overflow-y: auto; white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .json-key { color: var(--cyan); }
+  .json-string { color: var(--amber); }
+  .json-number { color: var(--violet); }
+  .json-bool { color: var(--rose); }
+  .json-null { color: var(--text-dim); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 80px 24px; color: var(--text-dim);
+    text-align: center;
+  }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.3; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* MOBILE */
+  @media (max-width: 768px) {
+    .sidebar {
+      display: none; position: fixed; top: 57px; left: 0;
+      width: 280px; height: calc(100vh - 57px);
+      z-index: 50; background: var(--bg);
+      border-right: 1px solid var(--border);
+    }
+    .sidebar.open { display: block; }
+    .mobile-sidebar-btn { display: flex !important; }
+    .col-type { display: none; }
+    .col-source { width: 80px; }
+    .toolbar { flex-wrap: wrap; }
+    .filter-input { min-width: 100%; order: 10; }
+  }
+  @media (min-width: 769px) {
+    .mobile-sidebar-btn { display: none !important; }
+    .sidebar-overlay { display: none !important; }
+  }
+
+  .mobile-sidebar-btn {
+    display: none; background: none; border: none;
+    color: var(--text-muted); cursor: pointer; padding: 4px;
+  }
+  .mobile-sidebar-btn svg { width: 18px; height: 18px; }
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0;
+    background: oklch(0% 0 0 / 0.5); z-index: 49;
+  }
+  .sidebar-overlay.open { display: block; }
+
+  /* LOAD MORE */
+  .load-more {
+    display: none; text-align: center; padding: 16px;
+  }
+  .load-more.active { display: block; }
+  .load-more button {
+    padding: 8px 20px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-muted); font-size: 0.8rem; cursor: pointer;
+    font-family: "Geist", sans-serif; transition: border-color 0.15s, color 0.15s;
+  }
+  .load-more button:hover { border-color: var(--text-muted); color: var(--text); }
+  .load-more button:disabled { opacity: 0.5; cursor: default; }
+
+  /* PAUSE BUTTON */
+  .pause-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; padding: 5px 10px;
+    color: var(--text-muted); display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; font-family: "Geist", sans-serif;
+    transition: border-color 0.15s, color 0.15s; white-space: nowrap;
+  }
+  .pause-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  .pause-btn svg { width: 14px; height: 14px; }
+  .pause-btn.paused { border-color: var(--amber); color: var(--amber); }
+  .pause-badge {
+    display: none; background: var(--amber); color: oklch(15% 0.003 256);
+    font-size: 0.65rem; font-weight: 600; padding: 1px 5px;
+    border-radius: 8px; margin-left: 2px;
+  }
+  .pause-btn.paused .pause-badge { display: inline; }
+
+  /* CHANNEL COLUMN */
+  .col-channel {
+    color: var(--orange); width: 110px; font-size: 0.8rem;
+  }
+  @media (max-width: 768px) {
+    .col-channel { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">dread.sh</a>
+    <div class="nav-links">
+      <a href="/docs">Documentation</a>
+      <a href="/changelog">Changelog</a>
+      <a href="/dashboard">Dashboard</a>
+      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
+      <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
+    </div>
+  </div>
+</nav>
+
+<!-- CONNECT SCREEN -->
+<div class="connect-screen" id="connect-screen">
+  <h1>Dashboard</h1>
+  <p>Enter your workspace ID to view channels and live events.</p>
+  <div class="connect-form">
+    <input type="text" id="ws-input" placeholder="ws_230a2bc06cb0" autocomplete="off" spellcheck="false">
+    <button onclick="connectWorkspace()">Connect</button>
+  </div>
+  <div class="connect-error" id="connect-error"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Channels</span>
+      <span class="ws-id" id="sidebar-ws-id"></span>
+    </div>
+    <ul class="channel-list" id="channel-list"></ul>
+    <button class="disconnect-btn" onclick="disconnect()">Disconnect</button>
+  </aside>
+
+  <div class="main-area">
+    <div class="toolbar">
+      <button class="mobile-sidebar-btn" onclick="toggleSidebar()" aria-label="Channels"><i data-lucide="menu"></i></button>
+      <div class="toolbar-status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Connecting...</span>
+      </div>
+      <button class="pause-btn" id="pause-btn" onclick="togglePause()"><i data-lucide="pause"></i><span id="pause-label">Pause</span><span class="pause-badge" id="pause-badge"></span></button>
+      <input type="text" class="filter-input" id="filter-input" placeholder="Filter by source, type, channel...">
+      <span class="event-count" id="event-count"></span>
+    </div>
+    <div class="events-container" id="events-container">
+      <table class="events-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Channel</th>
+            <th>Source</th>
+            <th class="col-type">Type</th>
+            <th>Summary</th>
+          </tr>
+        </thead>
+        <tbody id="events-body"></tbody>
+      </table>
+      <div class="load-more" id="load-more"><button onclick="loadMore()" id="load-more-btn">Load older events</button></div>
+      <div class="empty-state" id="empty-state">
+        <i data-lucide="inbox"></i>
+        <p>No events yet. Send a webhook to see it here.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+lucide.createIcons();
+
+var state = {
+  ws: null,
+  channels: [],
+  channelNames: {},
+  webhookURLs: {},
+  events: [],
+  workspaceId: '',
+  filter: '',
+  paused: false,
+  pauseBuffer: [],
+  hasMore: false,
+  loadingMore: false,
+  unreadCount: 0
+};
+
+// Theme
+function toggleTheme() {
+  var root = document.documentElement;
+  var isLight = root.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  var icon = document.getElementById('theme-icon');
+  if (icon) {
+    icon.setAttribute('data-lucide', isLight ? 'sun' : 'moon');
+    lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+  }
+}
+(function() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.documentElement.classList.add('light');
+    var i = document.getElementById('theme-icon');
+    if (i) i.setAttribute('data-lucide', 'sun');
+    lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+  }
+})();
+
+// Restore last workspace or deep link
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var wsParam = params.get('ws');
+  if (wsParam) {
+    document.getElementById('ws-input').value = wsParam;
+    // Auto-connect from URL param after icons init
+    setTimeout(function() { connectWorkspace(); }, 0);
+  } else {
+    var saved = localStorage.getItem('dread_workspace_id');
+    if (saved) {
+      document.getElementById('ws-input').value = saved;
+    }
+  }
+})();
+
+function connectWorkspace() {
+  var input = document.getElementById('ws-input');
+  var id = input.value.trim();
+  if (!id) return;
+  var errEl = document.getElementById('connect-error');
+  errEl.style.display = 'none';
+
+  fetch('/api/workspaces/' + encodeURIComponent(id))
+    .then(function(res) {
+      if (!res.ok) throw new Error('Workspace not found');
+      return res.json();
+    })
+    .then(function(data) {
+      state.workspaceId = id;
+      state.channels = data.channels || [];
+      state.channelNames = {};
+      state.channels.forEach(function(ch) {
+        state.channelNames[ch.id] = ch.name || ch.id;
+      });
+      localStorage.setItem('dread_workspace_id', id);
+      // Update URL with workspace ID for deep linking
+      var url = new URL(window.location);
+      url.searchParams.set('ws', id);
+      history.replaceState(null, '', url);
+      showDashboard();
+    })
+    .catch(function(err) {
+      errEl.textContent = err.message || 'Failed to load workspace';
+      errEl.style.display = 'block';
+    });
+}
+
+// Enter key on input
+document.getElementById('ws-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') connectWorkspace();
+});
+
+function showDashboard() {
+  document.getElementById('connect-screen').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  document.getElementById('sidebar-ws-id').textContent = state.workspaceId;
+  renderChannels();
+  connectWS();
+  fetchHistory();
+  // Refresh relative timestamps every 30s
+  if (state.timeInterval) clearInterval(state.timeInterval);
+  state.timeInterval = setInterval(refreshTimes, 30000);
+}
+
+function disconnect() {
+  if (state.ws) { state.ws.close(); state.ws = null; }
+  if (state.timeInterval) { clearInterval(state.timeInterval); state.timeInterval = null; }
+  state.events = [];
+  state.channels = [];
+  state.channelNames = {};
+  state.webhookURLs = {};
+  state.paused = false;
+  state.pauseBuffer = [];
+  state.hasMore = false;
+  state.unreadCount = 0;
+  document.title = 'Dashboard | dread.sh';
+  document.getElementById('events-body').innerHTML = '';
+  document.getElementById('load-more').classList.remove('active');
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('connect-screen').style.display = '';
+  var url = new URL(window.location);
+  url.searchParams.delete('ws');
+  history.replaceState(null, '', url);
+  updateStatus(false);
+  updateEventCount();
+  updatePauseUI();
+}
+
+function renderChannels() {
+  var list = document.getElementById('channel-list');
+  list.innerHTML = '';
+  state.channels.forEach(function(ch) {
+    var li = document.createElement('li');
+    li.className = 'channel-item';
+    var url = state.webhookURLs[ch.id] || '...';
+    li.innerHTML = '<div class="channel-name">' + esc(ch.name || ch.id) + '</div>' +
+      '<div class="channel-url-row">' +
+        '<span class="channel-url" title="' + esc(url) + '">' + esc(url) + '</span>' +
+        '<button class="copy-btn" onclick="copyUrl(this, \'' + esc(ch.id) + '\')" title="Copy webhook URL"><i data-lucide="copy"></i></button>' +
+      '</div>';
+    list.appendChild(li);
+  });
+  lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+}
+
+function copyUrl(btn, channelId) {
+  var url = state.webhookURLs[channelId];
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(function() {
+    btn.classList.add('copied');
+    var svg = btn.querySelector('svg');
+    if (svg) svg.setAttribute('data-lucide', 'check');
+    lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+    setTimeout(function() {
+      btn.classList.remove('copied');
+      if (svg) svg.setAttribute('data-lucide', 'copy');
+      lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+    }, 1500);
+  });
+}
+
+function channelIds() {
+  return state.channels.map(function(ch) { return ch.id; });
+}
+
+function connectWS() {
+  var ids = channelIds();
+  if (ids.length === 0) return;
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var url = proto + '//' + location.host + '/ws?channels=' + ids.join(',');
+  var ws = new WebSocket(url);
+  state.ws = ws;
+
+  ws.onopen = function() { updateStatus(true); };
+  ws.onclose = function() {
+    updateStatus(false);
+    // Reconnect after 3s
+    setTimeout(function() {
+      if (state.channels.length > 0) connectWS();
+    }, 3000);
+  };
+  ws.onmessage = function(e) {
+    var msg;
+    try { msg = JSON.parse(e.data); } catch(_) { return; }
+    if (msg.type === 'registered' && msg.webhook_urls) {
+      state.webhookURLs = msg.webhook_urls;
+      renderChannels();
+    } else if (msg.type === 'event' && msg.event) {
+      if (state.paused) {
+        state.pauseBuffer.push(msg.event);
+        updatePauseUI();
+      } else {
+        addEvent(msg.event, true);
+      }
+      // Track unread when tab is hidden
+      if (document.hidden) {
+        state.unreadCount++;
+        document.title = '(' + state.unreadCount + ') Dashboard | dread.sh';
+      }
+    }
+  };
+}
+
+function updateStatus(connected) {
+  var dot = document.getElementById('status-dot');
+  var text = document.getElementById('status-text');
+  if (connected) {
+    dot.classList.add('connected');
+    text.textContent = 'Connected';
+  } else {
+    dot.classList.remove('connected');
+    text.textContent = 'Disconnected';
+  }
+}
+
+function fetchHistory(before) {
+  var ids = channelIds();
+  if (ids.length === 0) return;
+  var url = '/api/events?channels=' + ids.join(',') + '&limit=50';
+  if (before) url += '&before=' + encodeURIComponent(before);
+  fetch(url)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.events) {
+        data.events.forEach(function(ev) { addEvent(ev, false); });
+      }
+      state.hasMore = !!data.has_more;
+      var loadMoreEl = document.getElementById('load-more');
+      if (state.hasMore) {
+        loadMoreEl.classList.add('active');
+      } else {
+        loadMoreEl.classList.remove('active');
+      }
+      state.loadingMore = false;
+      updateEventCount();
+    })
+    .catch(function() { state.loadingMore = false; });
+}
+
+function loadMore() {
+  if (state.loadingMore || !state.hasMore) return;
+  state.loadingMore = true;
+  var btn = document.getElementById('load-more-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  // Find oldest event timestamp
+  var oldest = state.events[state.events.length - 1];
+  var before = oldest ? oldest.timestamp : '';
+  fetchHistory(before);
+  btn.disabled = false;
+  btn.textContent = 'Load older events';
+}
+
+function addEvent(ev, isLive) {
+  // Deduplicate
+  for (var i = 0; i < state.events.length; i++) {
+    if (state.events[i].id === ev.id) return;
+  }
+
+  if (isLive) {
+    state.events.unshift(ev);
+  } else {
+    state.events.push(ev);
+  }
+
+  var empty = document.getElementById('empty-state');
+  if (empty) empty.style.display = 'none';
+
+  var tbody = document.getElementById('events-body');
+  var row = createEventRow(ev, isLive);
+  var detail = createDetailRow(ev);
+
+  if (isLive) {
+    tbody.insertBefore(detail, tbody.firstChild);
+    tbody.insertBefore(row, tbody.firstChild);
+  } else {
+    tbody.appendChild(row);
+    tbody.appendChild(detail);
+  }
+
+  applyFilter();
+  updateEventCount();
+}
+
+function createEventRow(ev, isLive) {
+  var tr = document.createElement('tr');
+  tr.setAttribute('data-event-id', ev.id);
+  tr.setAttribute('data-ts', ev.timestamp);
+  tr.className = 'event-row' + (isLive ? ' new-event' : '');
+  tr.onclick = function() { toggleDetail(ev.id); };
+  var chName = state.channelNames[ev.channel] || ev.channel || '';
+  tr.innerHTML =
+    '<td class="col-time">' + formatTime(ev.timestamp) + '</td>' +
+    '<td class="col-channel">' + esc(chName) + '</td>' +
+    '<td class="col-source">' + esc(ev.source) + '</td>' +
+    '<td class="col-type">' + esc(ev.type) + '</td>' +
+    '<td class="col-summary">' + esc(ev.summary) + '</td>';
+  return tr;
+}
+
+function createDetailRow(ev) {
+  var tr = document.createElement('tr');
+  tr.className = 'event-detail';
+  tr.setAttribute('data-detail-for', ev.id);
+  var td = document.createElement('td');
+  td.setAttribute('colspan', '5');
+  var json = '';
+  try {
+    var parsed = typeof ev.raw_json === 'string' ? JSON.parse(ev.raw_json) : ev.raw_json;
+    json = syntaxHighlight(JSON.stringify(parsed, null, 2));
+  } catch(_) {
+    json = esc(ev.raw_json || '{}');
+  }
+  td.innerHTML = '<div class="json-viewer">' + json + '</div>';
+  tr.appendChild(td);
+  return tr;
+}
+
+function toggleDetail(id) {
+  var detail = document.querySelector('[data-detail-for="' + id + '"]');
+  if (detail) detail.classList.toggle('open');
+}
+
+function formatTime(ts) {
+  var d = new Date(ts);
+  var now = new Date();
+  var diff = (now - d) / 1000;
+  if (diff < 60) return Math.floor(diff) + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+
+function syntaxHighlight(json) {
+  json = esc(json);
+  return json.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+    var cls = 'json-number';
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) {
+        cls = 'json-key';
+        return '<span class="' + cls + '">' + match.slice(0, -1) + '</span>:';
+      } else {
+        cls = 'json-string';
+      }
+    } else if (/true|false/.test(match)) {
+      cls = 'json-bool';
+    } else if (/null/.test(match)) {
+      cls = 'json-null';
+    }
+    return '<span class="' + cls + '">' + match + '</span>';
+  });
+}
+
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+// Filter
+document.getElementById('filter-input').addEventListener('input', function() {
+  state.filter = this.value.toLowerCase();
+  applyFilter();
+});
+
+function applyFilter() {
+  var f = state.filter;
+  var rows = document.querySelectorAll('.event-row');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var text = row.textContent.toLowerCase();
+    var show = !f || text.indexOf(f) !== -1;
+    row.style.display = show ? '' : 'none';
+    var id = row.getAttribute('data-event-id');
+    var detail = document.querySelector('[data-detail-for="' + id + '"]');
+    if (detail && !show) {
+      detail.style.display = 'none';
+      detail.classList.remove('open');
+    } else if (detail && show) {
+      detail.style.display = '';
+    }
+    if (show) visible++;
+  });
+  var countEl = document.getElementById('event-count');
+  if (f) {
+    countEl.textContent = visible + ' / ' + state.events.length;
+  } else {
+    updateEventCount();
+  }
+}
+
+function updateEventCount() {
+  var countEl = document.getElementById('event-count');
+  countEl.textContent = state.events.length + ' event' + (state.events.length !== 1 ? 's' : '');
+}
+
+// Refresh relative timestamps
+function refreshTimes() {
+  var rows = document.querySelectorAll('.event-row');
+  rows.forEach(function(row) {
+    var ts = row.getAttribute('data-ts');
+    if (ts) {
+      var cell = row.querySelector('.col-time');
+      if (cell) cell.textContent = formatTime(ts);
+    }
+  });
+}
+
+// Pause / Resume
+function togglePause() {
+  state.paused = !state.paused;
+  if (!state.paused) {
+    // Flush buffered events
+    state.pauseBuffer.forEach(function(ev) { addEvent(ev, true); });
+    state.pauseBuffer = [];
+  }
+  updatePauseUI();
+}
+
+function updatePauseUI() {
+  var btn = document.getElementById('pause-btn');
+  var label = document.getElementById('pause-label');
+  var badge = document.getElementById('pause-badge');
+  var icon = btn.querySelector('i');
+  if (state.paused) {
+    btn.classList.add('paused');
+    label.textContent = 'Resume';
+    if (icon) icon.setAttribute('data-lucide', 'play');
+    badge.textContent = state.pauseBuffer.length;
+  } else {
+    btn.classList.remove('paused');
+    label.textContent = 'Pause';
+    if (icon) icon.setAttribute('data-lucide', 'pause');
+    badge.textContent = '';
+  }
+  lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+}
+
+// Tab visibility — reset unread count when tab becomes visible
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    state.unreadCount = 0;
+    document.title = 'Dashboard | dread.sh';
+  }
+});
+
+// Mobile sidebar
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
 </script>
 </body>
 </html>`
