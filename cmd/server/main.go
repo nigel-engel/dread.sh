@@ -1256,7 +1256,7 @@ echo "Installed dread to $INSTALL_DIR/$BINARY"
 if [ "$OS" = "darwin" ]; then
   PLIST="$HOME/Library/LaunchAgents/dev.dread.watch.plist"
   mkdir -p "$HOME/Library/LaunchAgents"
-  cat > "$PLIST" << 'PLISTEOF'
+  cat > "$PLIST" << PLISTEOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
