@@ -1268,12 +1268,35 @@ fi
 curl -sS -X POST https://dread.sh/api/installed >/dev/null 2>&1 &
 
 echo ""
+
+# Auto-add to PATH if not already there
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
-  *) echo "Add ~/.local/bin to your PATH:"
-     echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
-     echo "" ;;
+  *)
+    LINE='export PATH="$HOME/.local/bin:$PATH"'
+    RCFILE=""
+    if [ -n "$ZSH_VERSION" ] || [ "$(basename "$SHELL")" = "zsh" ]; then
+      RCFILE="$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+      RCFILE="$HOME/.bashrc"
+    elif [ -f "$HOME/.bash_profile" ]; then
+      RCFILE="$HOME/.bash_profile"
+    fi
+    if [ -n "$RCFILE" ]; then
+      if ! grep -qF '.local/bin' "$RCFILE" 2>/dev/null; then
+        echo "" >> "$RCFILE"
+        echo "$LINE" >> "$RCFILE"
+      fi
+      export PATH="$INSTALL_DIR:$PATH"
+      echo "Added ~/.local/bin to PATH (in $RCFILE)"
+    else
+      echo "Add this to your shell profile:"
+      echo "  $LINE"
+    fi
+    ;;
 esac
+
+echo ""
 echo "Next: dread new \"My Channel\""
 `
 
