@@ -28,6 +28,9 @@ func New(path string) (*Store, error) {
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
 
+	// Add sound column if missing (migration for existing databases).
+	db.Exec(`ALTER TABLE workspaces ADD COLUMN sound TEXT NOT NULL DEFAULT ''`)
+
 	return &Store{db: db}, nil
 }
 
@@ -129,24 +132,30 @@ func (s *Store) GetStats() map[string]int64 {
 	return stats
 }
 
-// SaveWorkspace upserts a workspace with the given channels JSON.
-func (s *Store) SaveWorkspace(id string, channelsJSON string) error {
+// SaveWorkspace upserts a workspace with the given channels JSON and sound.
+func (s *Store) SaveWorkspace(id string, channelsJSON string, sound string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO workspaces (id, channels, updated_at) VALUES (?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET channels = excluded.channels, updated_at = excluded.updated_at`,
-		id, channelsJSON, time.Now().UTC(),
+		`INSERT INTO workspaces (id, channels, sound, updated_at) VALUES (?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET channels = excluded.channels, sound = excluded.sound, updated_at = excluded.updated_at`,
+		id, channelsJSON, sound, time.Now().UTC(),
 	)
 	return err
 }
 
-// GetWorkspace returns the channels JSON for a workspace.
-func (s *Store) GetWorkspace(id string) (string, error) {
-	var channels string
-	err := s.db.QueryRow(`SELECT channels FROM workspaces WHERE id = ?`, id).Scan(&channels)
+// Workspace holds the data returned by GetWorkspace.
+type Workspace struct {
+	Channels string
+	Sound    string
+}
+
+// GetWorkspace returns the workspace data for a given ID.
+func (s *Store) GetWorkspace(id string) (*Workspace, error) {
+	var ws Workspace
+	err := s.db.QueryRow(`SELECT channels, sound FROM workspaces WHERE id = ?`, id).Scan(&ws.Channels, &ws.Sound)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return channels, nil
+	return &ws, nil
 }
 
 // Close closes the database connection.

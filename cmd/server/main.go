@@ -126,12 +126,13 @@ func main() {
 		// Validate it's valid JSON with a channels array
 		var payload struct {
 			Channels json.RawMessage `json:"channels"`
+			Sound    string          `json:"sound"`
 		}
 		if err := json.Unmarshal(body, &payload); err != nil || payload.Channels == nil {
 			http.Error(w, "invalid payload: requires {\"channels\":[...]}", http.StatusBadRequest)
 			return
 		}
-		if err := db.SaveWorkspace(id, string(payload.Channels)); err != nil {
+		if err := db.SaveWorkspace(id, string(payload.Channels), payload.Sound); err != nil {
 			http.Error(w, "db error", http.StatusInternalServerError)
 			log.Printf("save workspace: %v", err)
 			return
@@ -142,13 +143,18 @@ func main() {
 	// Workspace API — get workspace
 	mux.HandleFunc("GET /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		channelsJSON, err := db.GetWorkspace(id)
+		ws, err := db.GetWorkspace(id)
 		if err != nil {
 			http.Error(w, "workspace not found", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"channels":` + channelsJSON + `}`))
+		soundJSON := `""`
+		if ws.Sound != "" {
+			b, _ := json.Marshal(ws.Sound)
+			soundJSON = string(b)
+		}
+		w.Write([]byte(`{"channels":` + ws.Channels + `,"sound":` + soundJSON + `}`))
 	})
 
 	// Install script
@@ -1966,6 +1972,7 @@ const docsPage = `<!DOCTYPE html>
       <p><strong>macOS built-in sounds:</strong> Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping, Pop, Purr, Sosumi, Submarine, Tink</p>
       <p>You can also use custom sounds on macOS by placing a <code>.aiff</code> file in <code>~/Library/Sounds/</code> and referencing it by name (without extension).</p>
       <p><strong>Linux:</strong> uses freedesktop sound names (e.g. <code>message-new-instant</code>). Support varies by desktop environment.</p>
+      <p>You can also change the sound from the <a href="/dashboard">web dashboard</a> &mdash; open the sidebar and use the Notification Sound dropdown. Changes are saved to the workspace and synced to team members.</p>
     </section>
 
     <section class="docs-section" id="watch-mode">
@@ -2333,6 +2340,7 @@ const changelogPage = `<!DOCTYPE html>
       <li>macOS: any system sound name (Glass, Ping, Pop, Hero, Submarine, etc.)</li>
       <li>Linux: freedesktop sound names via <code>notify-send</code></li>
       <li>Custom sounds on macOS: drop a <code>.aiff</code> file in <code>~/Library/Sounds/</code></li>
+      <li>Sound is also configurable from the <a href="/dashboard">web dashboard</a> sidebar</li>
     </ul>
   </div>
 
@@ -2842,6 +2850,36 @@ const dashboardPage = `<!DOCTYPE html>
   }
   .pause-btn.paused .pause-badge { display: inline; }
 
+  /* SOUND SELECTOR */
+  .sound-section {
+    margin-top: 20px; padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .sound-section-label {
+    font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .sound-select {
+    width: 100%; padding: 8px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: "Geist", sans-serif; font-size: 0.8rem;
+    outline: none; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+  .sound-select:focus { border-color: var(--accent); }
+  .sound-select option { background: var(--surface); color: var(--text); }
+  .sound-saved {
+    font-size: 0.7rem; color: var(--green);
+    margin-top: 6px; opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .sound-saved.show { opacity: 1; }
+
   /* CHANNEL COLUMN */
   .col-channel {
     color: var(--orange); width: 110px; font-size: 0.8rem;
@@ -2886,6 +2924,27 @@ const dashboardPage = `<!DOCTYPE html>
       <span class="ws-id" id="sidebar-ws-id"></span>
     </div>
     <ul class="channel-list" id="channel-list"></ul>
+    <div class="sound-section">
+      <div class="sound-section-label">Notification Sound</div>
+      <select class="sound-select" id="sound-select" onchange="changeSound(this.value)">
+        <option value="">Default (Glass)</option>
+        <option value="Basso">Basso</option>
+        <option value="Blow">Blow</option>
+        <option value="Bottle">Bottle</option>
+        <option value="Frog">Frog</option>
+        <option value="Funk">Funk</option>
+        <option value="Glass">Glass</option>
+        <option value="Hero">Hero</option>
+        <option value="Morse">Morse</option>
+        <option value="Ping">Ping</option>
+        <option value="Pop">Pop</option>
+        <option value="Purr">Purr</option>
+        <option value="Sosumi">Sosumi</option>
+        <option value="Submarine">Submarine</option>
+        <option value="Tink">Tink</option>
+      </select>
+      <div class="sound-saved" id="sound-saved">Saved</div>
+    </div>
     <button class="disconnect-btn" onclick="disconnect()">Disconnect</button>
   </aside>
 
@@ -2991,6 +3050,7 @@ function connectWorkspace() {
     .then(function(data) {
       state.workspaceId = id;
       state.channels = data.channels || [];
+      state.sound = data.sound || '';
       state.channelNames = {};
       state.channels.forEach(function(ch) {
         state.channelNames[ch.id] = ch.name || ch.id;
@@ -3017,6 +3077,7 @@ function showDashboard() {
   document.getElementById('connect-screen').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
   document.getElementById('sidebar-ws-id').textContent = state.workspaceId;
+  document.getElementById('sound-select').value = state.sound;
   renderChannels();
   connectWS();
   fetchHistory();
@@ -3367,6 +3428,24 @@ document.addEventListener('visibilitychange', function() {
     document.title = 'Dashboard | dread.sh';
   }
 });
+
+// Sound selector
+function changeSound(sound) {
+  state.sound = sound;
+  // Save to workspace via API
+  var channels = state.channels;
+  fetch('/api/workspaces/' + encodeURIComponent(state.workspaceId), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({channels: channels, sound: sound})
+  }).then(function(res) {
+    if (res.ok) {
+      var el = document.getElementById('sound-saved');
+      el.classList.add('show');
+      setTimeout(function() { el.classList.remove('show'); }, 1500);
+    }
+  }).catch(function() {});
+}
 
 // Mobile sidebar
 function toggleSidebar() {

@@ -604,7 +604,8 @@ func publishWorkspace(serverURL string, cfg *auth.UserConfig) error {
 	if err != nil {
 		return err
 	}
-	body := fmt.Sprintf(`{"channels":%s}`, channelsJSON)
+	soundJSON, _ := json.Marshal(cfg.Sound)
+	body := fmt.Sprintf(`{"channels":%s,"sound":%s}`, channelsJSON, soundJSON)
 	req, err := http.NewRequest("PUT", serverURL+"/api/workspaces/"+cfg.WorkspaceID, bytes.NewBufferString(body))
 	if err != nil {
 		return err
