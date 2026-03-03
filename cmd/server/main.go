@@ -4020,43 +4020,43 @@ const howToPage = `<!DOCTYPE html>
     <div class="docs-sidebar-label">Getting Started</div>
     <a href="#quick-setup" class="active">Quick Setup</a>
     <a href="#first-webhook">Your First Webhook</a>
+    <a href="#customise">Customise</a>
   </div>
   <div class="docs-sidebar-group">
-    <div class="docs-sidebar-label">Connect Services</div>
+    <div class="docs-sidebar-label">Payments</div>
     <a href="#stripe">Stripe</a>
+    <a href="#paypal">PayPal</a>
+    <a href="#paddle">Paddle</a>
+    <a href="#shopify">Shopify</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Developer Tools</div>
     <a href="#github">GitHub</a>
+    <a href="#gitlab">GitLab</a>
     <a href="#vercel">Vercel</a>
     <a href="#sentry">Sentry</a>
-    <a href="#shopify">Shopify</a>
-    <a href="#gitlab">GitLab</a>
+    <a href="#linear">Linear</a>
     <a href="#jira">Jira</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Infrastructure</div>
+    <a href="#aws-sns">AWS SNS</a>
     <a href="#pagerduty">PagerDuty</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Communication</div>
     <a href="#slack-source">Slack</a>
     <a href="#discord-source">Discord</a>
-    <a href="#linear">Linear</a>
-    <a href="#paypal">PayPal</a>
-    <a href="#aws-sns">AWS SNS</a>
+    <a href="#twilio">Twilio</a>
+    <a href="#sendgrid">SendGrid</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">SaaS</div>
+    <a href="#hubspot">HubSpot</a>
+    <a href="#typeform">Typeform</a>
+    <a href="#clerk">Clerk</a>
+    <a href="#twitch">Twitch</a>
     <a href="#custom-source">Custom / Other</a>
-  </div>
-  <div class="docs-sidebar-group">
-    <div class="docs-sidebar-label">Team Features</div>
-    <a href="#workspaces">Workspaces</a>
-    <a href="#slack-discord">Slack / Discord Integration</a>
-  </div>
-  <div class="docs-sidebar-group">
-    <div class="docs-sidebar-label">Notifications</div>
-    <a href="#desktop-notifs">Desktop Notifications</a>
-    <a href="#filtering">Filtering</a>
-    <a href="#muting">Muting Channels</a>
-    <a href="#alert-rules">Alert Rules</a>
-  </div>
-  <div class="docs-sidebar-group">
-    <div class="docs-sidebar-label">Data &amp; Tools</div>
-    <a href="#dashboard-usage">Dashboard</a>
-    <a href="#replay">Replay</a>
-    <a href="#export">Export</a>
-    <a href="#digest">Digest</a>
-    <a href="#status-page">Status Page</a>
   </div>
 </aside>
 
@@ -4089,270 +4089,366 @@ const howToPage = `<!DOCTYPE html>
 <div class="expect">You should see a test event appear in the TUI and get a desktop notification.</div>
 </section>
 
+<section id="customise" class="docs-section">
+<h2>Customise Channel Name, Source &amp; Summary</h2>
+
+<h3>Change the channel name</h3>
+<p>The channel name is set when you create it with <code>dread new</code>. To rename it, remove and re-add with the new name:</p>
+<div class="code-block"><pre><code>dread remove ch_old-name_abc123
+dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>The channel ID and webhook URL stay the same &mdash; only the display name changes in the TUI, notifications, and dashboard.</p>
+
+<h3>Change the source label</h3>
+<p>dread auto-detects the source from HTTP headers (Stripe-Signature, X-GitHub-Event, etc.). For services that aren't auto-detected, or to override the label, send an <code>X-Dread-Source</code> header:</p>
+<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
+  -H "Content-Type: application/json" \
+  -H "X-Dread-Source: my-api" \
+  -d '{"event":"deploy"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>The source label controls how events are grouped in the dashboard and which icon appears in the TUI. Auto-detected sources (stripe, github, vercel, sentry, etc.) always take priority over the header.</p>
+
+<h3>Change the summary text</h3>
+<p>The summary is extracted automatically from known payload formats. For custom services, dread looks for these JSON fields in order:</p>
+<ol>
+<li><code>type</code>, <code>event</code>, <code>event_type</code>, <code>action</code>, <code>topic</code> &mdash; used as the event type</li>
+<li><code>message</code>, <code>description</code>, <code>summary</code>, <code>text</code>, <code>status</code> &mdash; used as the summary text</li>
+</ol>
+<p>To control what appears in notifications, structure your JSON payload with these fields:</p>
+<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
+  -H "Content-Type: application/json" \
+  -H "X-Dread-Source: deploy-bot" \
+  -d '{"type":"deploy.success","message":"v2.1.0 deployed to production"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">This will show as: source <strong>deploy-bot</strong>, type <strong>deploy.success</strong>, summary <strong>deploy-bot &mdash; v2.1.0 deployed to production</strong></div>
+</section>
+
 <hr class="section-divider">
 
-<!-- CONNECT SERVICES -->
+<!-- PAYMENTS -->
 <section id="stripe" class="docs-section">
-<h2>Connect Stripe</h2>
+<h2>Stripe</h2>
 <ol>
-<li>Go to <strong>Stripe Dashboard &rarr; Developers &rarr; Webhooks</strong></li>
+<li>Open <strong>Stripe Dashboard</strong> &rarr; click <strong>Developers</strong> in the top nav</li>
+<li>Select <strong>Webhooks</strong> from the submenu</li>
+<li>Click <strong>Create an event destination</strong></li>
+<li>Select <strong>Account</strong> as the event source, then choose <strong>Webhook endpoint</strong></li>
+<li>Paste your dread webhook URL in <strong>Endpoint URL</strong></li>
+<li>Select the events you want (e.g. <code>payment_intent.succeeded</code>, <code>charge.failed</code>) or choose all events for testing</li>
 <li>Click <strong>Add endpoint</strong></li>
-<li>Paste your dread webhook URL</li>
-<li>Select the events you want (or choose all)</li>
-<li>Click <strong>Add endpoint</strong></li>
 </ol>
-<div class="expect">Stripe events (payments, subscriptions, etc.) will appear in dread with parsed summaries showing amounts and statuses.</div>
-</section>
-
-<section id="github" class="docs-section">
-<h2>Connect GitHub</h2>
-<ol>
-<li>Go to your repo <strong>Settings &rarr; Webhooks &rarr; Add webhook</strong></li>
-<li>Paste your dread webhook URL in <strong>Payload URL</strong></li>
-<li>Set Content type to <code>application/json</code></li>
-<li>Choose which events to send (or select all)</li>
-<li>Click <strong>Add webhook</strong></li>
-</ol>
-<div class="expect">Push, PR, issue, star, and release events will show parsed summaries with branch names, PR titles, and authors.</div>
-</section>
-
-<section id="vercel" class="docs-section">
-<h2>Connect Vercel</h2>
-<ol>
-<li>Go to your project <strong>Settings &rarr; Webhooks</strong> (or account-level settings)</li>
-<li>Click <strong>Create Webhook</strong></li>
-<li>Paste your dread webhook URL</li>
-<li>Select the events you want</li>
-</ol>
-<div class="expect">Deployment and project events will appear with project names.</div>
-</section>
-
-<section id="sentry" class="docs-section">
-<h2>Connect Sentry</h2>
-<ol>
-<li>Go to <strong>Settings &rarr; Integrations &rarr; Internal Integrations</strong></li>
-<li>Create a new integration and add a <strong>Webhook URL</strong></li>
-<li>Paste your dread webhook URL</li>
-<li>Subscribe to issue and error events</li>
-</ol>
-<div class="expect">Error and issue alerts will show the issue title in the summary.</div>
-</section>
-
-<section id="shopify" class="docs-section">
-<h2>Connect Shopify</h2>
-<ol>
-<li>Go to <strong>Settings &rarr; Notifications &rarr; Webhooks</strong></li>
-<li>Click <strong>Create webhook</strong></li>
-<li>Choose event topic and paste your dread URL</li>
-<li>Set format to JSON</li>
-</ol>
-<div class="expect">Order and product events will show order numbers and totals.</div>
-</section>
-
-<section id="gitlab" class="docs-section">
-<h2>Connect GitLab</h2>
-<ol>
-<li>Go to your project <strong>Settings &rarr; Webhooks</strong></li>
-<li>Paste your dread URL</li>
-<li>Select triggers (push, MR, pipeline, etc.)</li>
-<li>Click <strong>Add webhook</strong></li>
-</ol>
-<div class="expect">Push, merge request, issue, and pipeline events will show branch names, MR titles, and pipeline statuses.</div>
-</section>
-
-<section id="jira" class="docs-section">
-<h2>Connect Jira</h2>
-<ol>
-<li>Go to <strong>Settings &rarr; System &rarr; WebHooks</strong></li>
-<li>Click <strong>Create a WebHook</strong></li>
-<li>Paste your dread URL</li>
-<li>Select issue events</li>
-</ol>
-<div class="expect">Issue events will show the Jira issue key and summary.</div>
-</section>
-
-<section id="pagerduty" class="docs-section">
-<h2>Connect PagerDuty</h2>
-<ol>
-<li>Go to <strong>Integrations &rarr; Generic Webhooks (v3)</strong></li>
-<li>Add a new subscription with your dread URL</li>
-<li>Select incident events</li>
-</ol>
-<div class="expect">Incident triggers and resolves will show the incident title.</div>
-</section>
-
-<section id="slack-source" class="docs-section">
-<h2>Connect Slack (as source)</h2>
-<ol>
-<li>Create a Slack app at <strong>api.slack.com/apps</strong></li>
-<li>Under <strong>Event Subscriptions</strong>, enable events</li>
-<li>Set your dread URL as the Request URL</li>
-<li>Subscribe to events like <code>message.channels</code></li>
-</ol>
-<div class="expect">Slack messages and events will appear with their text content.</div>
-</section>
-
-<section id="discord-source" class="docs-section">
-<h2>Connect Discord (as source)</h2>
-<ol>
-<li>Create a Discord app at <strong>discord.com/developers</strong></li>
-<li>Under <strong>General Information</strong>, set your Interactions Endpoint URL to your dread URL</li>
-</ol>
-<div class="expect">Discord interactions (commands, pings) will appear in dread.</div>
-</section>
-
-<section id="linear" class="docs-section">
-<h2>Connect Linear</h2>
-<ol>
-<li>Go to <strong>Settings &rarr; API &rarr; Webhooks</strong></li>
-<li>Click <strong>New webhook</strong></li>
-<li>Paste your dread URL and select resources</li>
-</ol>
-<div class="expect">Issue and project updates will show the identifier and title.</div>
+<div class="expect">Stripe events will show parsed summaries with amounts (e.g. <strong>payment_intent.succeeded &mdash; $49.99 USD</strong>), subscription statuses, and customer emails.</div>
 </section>
 
 <section id="paypal" class="docs-section">
-<h2>Connect PayPal</h2>
+<h2>PayPal</h2>
 <ol>
-<li>Go to <strong>Developer Dashboard &rarr; Webhooks</strong></li>
+<li>Log in to <strong>developer.paypal.com/dashboard</strong></li>
+<li>Go to <strong>Apps &amp; Credentials</strong> and select your app (or create one)</li>
+<li>Open the <strong>Webhooks</strong> section</li>
 <li>Click <strong>Add Webhook</strong></li>
-<li>Paste your dread URL and select event types</li>
+<li>Paste your dread webhook URL (must be HTTPS)</li>
+<li>Select event types (e.g. <code>PAYMENT.CAPTURE.COMPLETED</code>, <code>BILLING.SUBSCRIPTION.ACTIVATED</code>)</li>
+<li>Click <strong>Save</strong></li>
 </ol>
-<div class="expect">Payment events will show amounts and statuses.</div>
+<div class="expect">Payment events will show amounts and statuses (e.g. <strong>PAYMENT.CAPTURE.COMPLETED &mdash; 29.99 USD</strong>).</div>
 </section>
 
-<section id="aws-sns" class="docs-section">
-<h2>Connect AWS SNS</h2>
+<section id="paddle" class="docs-section">
+<h2>Paddle</h2>
 <ol>
-<li>Go to <strong>SNS &rarr; Subscriptions &rarr; Create subscription</strong></li>
-<li>Set protocol to HTTPS</li>
-<li>Paste your dread URL as the endpoint</li>
-<li>Confirm the subscription (dread will log the confirmation)</li>
+<li>Open <strong>Paddle Dashboard</strong> &rarr; <strong>Developer Tools</strong> &rarr; <strong>Notifications</strong></li>
+<li>Click <strong>+ New destination</strong></li>
+<li>Select <strong>Webhook</strong> as the type</li>
+<li>Paste your dread webhook URL</li>
+<li>Select events (subscriptions, transactions, customers, adjustments)</li>
+<li>Click <strong>Save destination</strong></li>
 </ol>
-<div class="expect">SNS notifications will show the subject or message content.</div>
+<div class="expect">Paddle events will show the event type and status (e.g. <strong>subscription.created &mdash; active</strong>).</div>
+</section>
+
+<section id="shopify" class="docs-section">
+<h2>Shopify</h2>
+<ol>
+<li>Open <strong>Shopify Admin</strong> &rarr; <strong>Settings</strong> (bottom left) &rarr; <strong>Notifications</strong></li>
+<li>Scroll down to <strong>Webhooks</strong> and click <strong>Create webhook</strong></li>
+<li>Select an event topic from the dropdown (e.g. <code>orders/create</code>)</li>
+<li>Set format to <strong>JSON</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Note: you can't change the event topic after creation &mdash; create a new webhook for each topic you need.</p>
+<div class="expect">Order events will show order numbers and totals (e.g. <strong>orders/create &mdash; order #1042 ($79.00)</strong>).</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- DEVELOPER TOOLS -->
+<section id="github" class="docs-section">
+<h2>GitHub</h2>
+<ol>
+<li>Go to your repository &rarr; <strong>Settings</strong> tab &rarr; <strong>Webhooks</strong> in the left sidebar</li>
+<li>Click <strong>Add webhook</strong></li>
+<li>Paste your dread webhook URL in <strong>Payload URL</strong></li>
+<li>Set <strong>Content type</strong> to <code>application/json</code></li>
+<li>Under "Which events would you like to trigger this webhook?" select <strong>Let me select individual events</strong> and check the ones you want, or choose <strong>Send me everything</strong></li>
+<li>Make sure <strong>Active</strong> is checked and click <strong>Add webhook</strong></li>
+</ol>
+<p>GitHub sends a <code>ping</code> event to confirm the setup.</p>
+<div class="expect">Push events show branch and commit message. PRs show number and title. Stars show who starred. (e.g. <strong>push to main by alice &mdash; fix login bug</strong>)</div>
+</section>
+
+<section id="gitlab" class="docs-section">
+<h2>GitLab</h2>
+<ol>
+<li>Go to your project &rarr; <strong>Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Add new webhook</strong></li>
+<li>Paste your dread webhook URL in the <strong>URL</strong> field</li>
+<li>Select trigger events: <strong>Push events</strong>, <strong>Merge request events</strong>, <strong>Issues events</strong>, <strong>Pipeline events</strong>, etc.</li>
+<li>Click <strong>Add webhook</strong></li>
+</ol>
+<p>Requires Maintainer or Owner role. Use the <strong>Test</strong> dropdown to send a test event.</p>
+<div class="expect">Push events show branch and author. MRs show title and action. Pipelines show status and ref. (e.g. <strong>MR opened &mdash; Add dark mode support</strong>)</div>
+</section>
+
+<section id="vercel" class="docs-section">
+<h2>Vercel</h2>
+<p>Requires Pro or Enterprise plan. Webhooks are configured at the team level, not per project.</p>
+<ol>
+<li>Go to your <strong>Team Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Create Webhook</strong></li>
+<li>Select events: Deployment (created, succeeded, error), Project (created, removed), etc.</li>
+<li>Choose target projects (all or specific ones)</li>
+<li>Paste your dread webhook URL</li>
+<li>Click <strong>Create Webhook</strong> and copy the secret key shown (it's only displayed once)</li>
+</ol>
+<div class="expect">Deployment events show the project name (e.g. <strong>deployment.succeeded &mdash; my-app</strong>).</div>
+</section>
+
+<section id="sentry" class="docs-section">
+<h2>Sentry</h2>
+<ol>
+<li>Go to <strong>Settings</strong> &rarr; <strong>Developer Settings</strong></li>
+<li>Click <strong>Create New Integration</strong> &rarr; select <strong>Internal Integration</strong></li>
+<li>Enter a name for the integration</li>
+<li>Paste your dread webhook URL in the <strong>Webhook URL</strong> field</li>
+<li>Set Permissions: <strong>Issue &amp; Event</strong> to Read</li>
+<li>Under Webhooks, check: <strong>Issue</strong>, <strong>Error</strong>, and any other events you want</li>
+<li>Click <strong>Save Changes</strong> &mdash; the integration installs automatically on your org</li>
+</ol>
+<div class="expect">Error and issue events show the issue title (e.g. <strong>issue.created &mdash; TypeError: Cannot read property 'map' of undefined</strong>).</div>
+</section>
+
+<section id="linear" class="docs-section">
+<h2>Linear</h2>
+<ol>
+<li>Click your profile icon &rarr; <strong>Settings</strong></li>
+<li>Go to <strong>API</strong> (under Administration)</li>
+<li>Click <strong>New webhook</strong></li>
+<li>Paste your dread webhook URL (must be publicly accessible HTTPS)</li>
+<li>Add a label and select resources: Issues, Comments, Projects, Cycles, etc.</li>
+<li>Save the webhook</li>
+</ol>
+<p>Only workspace admins can create webhooks.</p>
+<div class="expect">Issue events show the identifier and title (e.g. <strong>Issue updated &mdash; ENG-142 Fix onboarding flow</strong>).</div>
+</section>
+
+<section id="jira" class="docs-section">
+<h2>Jira</h2>
+<p>Requires the <strong>Administer Jira</strong> global permission.</p>
+<ol>
+<li>Click the gear icon &rarr; <strong>System</strong></li>
+<li>Go to <strong>Advanced</strong> &rarr; <strong>WebHooks</strong></li>
+<li>Click <strong>Create a WebHook</strong></li>
+<li>Enter a name and paste your dread webhook URL</li>
+<li>Select events (e.g. <code>jira:issue_created</code>, <code>jira:issue_updated</code>, <code>comment_created</code>)</li>
+<li>Optionally add a JQL filter to limit which issues trigger the webhook (e.g. <code>project = PROD</code>)</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<div class="expect">Issue events show the key and summary (e.g. <strong>jira:issue_updated &mdash; PROD-245 Update payment timeout</strong>).</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- INFRASTRUCTURE -->
+<section id="aws-sns" class="docs-section">
+<h2>AWS SNS</h2>
+<ol>
+<li>Open the <strong>SNS console</strong> &rarr; <strong>Topics</strong> &rarr; <strong>Create topic</strong></li>
+<li>Choose <strong>Standard</strong>, enter a name, and click <strong>Create topic</strong></li>
+<li>Select your topic, then click <strong>Create subscription</strong></li>
+<li>Set Protocol to <strong>HTTPS</strong></li>
+<li>Paste your dread webhook URL as the endpoint</li>
+<li>Click <strong>Create subscription</strong></li>
+<li>dread will receive a <code>SubscriptionConfirmation</code> message &mdash; the subscription auto-confirms when dread responds with 200</li>
+</ol>
+<p>Check the SNS console Subscriptions page &mdash; status should change from PendingConfirmation to Confirmed.</p>
+<div class="expect">Notifications show the subject or message content (e.g. <strong>notification &mdash; Auto Scaling: instance i-0abc123 terminated</strong>).</div>
+</section>
+
+<section id="pagerduty" class="docs-section">
+<h2>PagerDuty</h2>
+<ol>
+<li>Go to <strong>Integrations</strong> &rarr; <strong>Generic Webhooks (v3)</strong></li>
+<li>Click <strong>New Webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select event subscriptions: incident events (triggered, acknowledged, resolved, escalated) and/or service events</li>
+<li>Optionally add a description and custom headers</li>
+<li>Click <strong>Add Webhook</strong> and save the generated webhook secret</li>
+</ol>
+<p>Requires Manager, Admin, or Account Owner role. Max 10 webhook subscriptions per scope.</p>
+<div class="expect">Incident events show the incident title (e.g. <strong>incident.triggered &mdash; High CPU on web-prod-3</strong>).</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- COMMUNICATION -->
+<section id="slack-source" class="docs-section">
+<h2>Slack (as event source)</h2>
+<p>This receives events <em>from</em> Slack into dread. (For forwarding dread events <em>to</em> Slack, see <a href="/docs#slack-discord-fwd" style="color:var(--violet)">Docs &rarr; Slack/Discord Forwarding</a>.)</p>
+<ol>
+<li>Go to <strong>api.slack.com/apps</strong> &rarr; <strong>Create New App</strong> &rarr; <strong>From scratch</strong></li>
+<li>Name your app and select your workspace</li>
+<li>In the sidebar, click <strong>Event Subscriptions</strong> and toggle it on</li>
+<li>Paste your dread webhook URL in <strong>Request URL</strong> &mdash; Slack sends a verification challenge that dread handles automatically</li>
+<li>Under <strong>Subscribe to bot events</strong>, add events like <code>message.channels</code>, <code>app_mention</code>, etc.</li>
+<li>Go to <strong>OAuth &amp; Permissions</strong> and add the required scopes</li>
+<li>Click <strong>Install App</strong> to install to your workspace</li>
+</ol>
+<div class="expect">Slack events show the event type and message text (e.g. <strong>message &mdash; Hey team, deploy is live</strong>).</div>
+</section>
+
+<section id="discord-source" class="docs-section">
+<h2>Discord (as event source)</h2>
+<p>This receives interactions from Discord into dread.</p>
+<ol>
+<li>Go to <strong>discord.com/developers/applications</strong> &rarr; <strong>New Application</strong></li>
+<li>Navigate to the <strong>General Information</strong> tab</li>
+<li>Paste your dread webhook URL in <strong>Interactions Endpoint URL</strong></li>
+<li>Click <strong>Save Changes</strong> &mdash; Discord will send test PING requests to verify your endpoint</li>
+</ol>
+<p>Your endpoint must handle the PING verification (dread does this automatically). Discord sends all interactions (slash commands, buttons) as HTTP POST requests.</p>
+<div class="expect">Discord interactions show the type (e.g. <strong>command &mdash; /deploy</strong>).</div>
+</section>
+
+<section id="twilio" class="docs-section">
+<h2>Twilio</h2>
+<ol>
+<li>Log in to <strong>console.twilio.com</strong></li>
+<li>Go to <strong>Phone Numbers</strong> &rarr; <strong>Active Numbers</strong></li>
+<li>Click on the phone number you want to configure</li>
+<li>Scroll to the <strong>Messaging</strong> section</li>
+<li>Under "A Message Comes In", select <strong>Webhook</strong></li>
+<li>Paste your dread webhook URL and set the method to <strong>POST</strong></li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>For Messaging Services: go to <strong>Messaging Services</strong> &rarr; select your service &rarr; <strong>Integration</strong> tab &rarr; enter the Inbound Request URL.</p>
+<div class="expect">Twilio events show as generic webhook events with the message body from the SMS/call.</div>
+</section>
+
+<section id="sendgrid" class="docs-section">
+<h2>SendGrid</h2>
+<ol>
+<li>Log in to <strong>SendGrid</strong> &rarr; go to <strong>Settings</strong> &rarr; <strong>Mail Settings</strong></li>
+<li>Select <strong>Event Webhooks</strong></li>
+<li>Click <strong>Create new webhook</strong></li>
+<li>Paste your dread webhook URL in the <strong>Post URL</strong> field</li>
+<li>Select event types: <strong>processed</strong>, <strong>delivered</strong>, <strong>bounced</strong>, <strong>open</strong>, <strong>click</strong>, <strong>spam report</strong>, etc.</li>
+<li>Toggle <strong>Enabled</strong> on</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Use <strong>Test Your Integration</strong> to send a sample payload and verify.</p>
+<div class="expect">SendGrid events show as generic webhook events with delivery status information.</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- SaaS -->
+<section id="hubspot" class="docs-section">
+<h2>HubSpot</h2>
+<p>Requires a HubSpot developer account and a registered app.</p>
+<ol>
+<li>Log in to your <strong>HubSpot developer account</strong></li>
+<li>Go to your app dashboard and select your app (or create one)</li>
+<li>Click <strong>Webhooks</strong> in the left sidebar</li>
+<li>Enter your dread webhook URL as the <strong>Target URL</strong></li>
+<li>Click <strong>Create subscription</strong></li>
+<li>Select the <strong>Object type</strong> (Contacts, Companies, Deals, Tickets)</li>
+<li>Select event types (creation, deletion, property changes)</li>
+<li>Click <strong>Subscribe</strong> &mdash; subscriptions start paused</li>
+<li>Hover over the subscription, check it, and click <strong>Activate</strong></li>
+</ol>
+<div class="expect">HubSpot events show the subscription type and object ID (e.g. <strong>contact.creation &mdash; object 12345</strong>).</div>
+</section>
+
+<section id="typeform" class="docs-section">
+<h2>Typeform</h2>
+<ol>
+<li>Open your form in Typeform</li>
+<li>Click <strong>Connect</strong> in the top menu</li>
+<li>Click the <strong>Webhooks</strong> tab</li>
+<li>Click <strong>Add a webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Toggle the webhook <strong>ON</strong> (off by default)</li>
+<li>Optionally click <strong>Edit</strong> to add a secret for signature verification</li>
+</ol>
+<p>Use <strong>View deliveries</strong> &rarr; <strong>Send test request</strong> to verify.</p>
+<div class="expect">Typeform events show the form title (e.g. <strong>form_response &mdash; Customer Feedback Survey</strong>).</div>
+</section>
+
+<section id="clerk" class="docs-section">
+<h2>Clerk</h2>
+<p>Clerk uses Svix for webhook delivery.</p>
+<ol>
+<li>Log in to your <strong>Clerk Dashboard</strong></li>
+<li>Go to <strong>Webhooks</strong> in the left sidebar</li>
+<li>Click <strong>Add Endpoint</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select events to receive: <code>user.created</code>, <code>user.updated</code>, <code>user.deleted</code>, organization events, session events, etc. (or leave unselected for all)</li>
+<li>Click <strong>Create</strong></li>
+<li>Copy the <strong>Webhook Signing Secret</strong> from the endpoint settings page</li>
+</ol>
+<p>Use the <strong>Testing</strong> tab on your endpoint page to send example events.</p>
+<div class="expect">Clerk events are detected via the <code>Svix-Id</code> header and show as svix events with the event type.</div>
+</section>
+
+<section id="twitch" class="docs-section">
+<h2>Twitch EventSub</h2>
+<p>Twitch EventSub requires API calls to create subscriptions (no dashboard UI).</p>
+<ol>
+<li>Register an app at <strong>dev.twitch.tv/console</strong> &rarr; <strong>Applications</strong> &rarr; <strong>Register Your Application</strong></li>
+<li>Note your <strong>Client ID</strong> and generate a <strong>Client Secret</strong></li>
+<li>Get an access token via the Client Credentials flow:</li>
+</ol>
+<div class="code-block"><pre><code>curl -X POST "https://id.twitch.tv/oauth2/token" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "grant_type=client_credentials"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="4">
+<li>Create a webhook subscription:</li>
+</ol>
+<div class="code-block"><pre><code>curl -X POST "https://api.twitch.tv/helix/eventsub/subscriptions" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Client-Id: YOUR_CLIENT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "channel.follow",
+    "version": "2",
+    "condition": {"broadcaster_user_id": "USER_ID", "moderator_user_id": "USER_ID"},
+    "transport": {"method": "webhook", "callback": "https://dread.sh/wh/ch_xxx", "secret": "your-secret"}
+  }'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="5">
+<li>Twitch sends a verification challenge &mdash; dread responds automatically</li>
+</ol>
+<div class="expect">Twitch events show the subscription type and broadcaster name (e.g. <strong>channel.follow &mdash; ninja</strong>).</div>
 </section>
 
 <section id="custom-source" class="docs-section">
 <h2>Custom / Any Service</h2>
-<p>Any service that sends JSON webhooks works with dread. Just point it at your channel URL. Add a header <code>X-Dread-Source: myservice</code> for custom source labelling.</p>
+<p>Any service that sends JSON webhooks works with dread. Just point it at your channel URL:</p>
 <div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
   -H "Content-Type: application/json" \
   -H "X-Dread-Source: myapp" \
-  -d '{"type":"deploy","message":"v1.2.3 deployed"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-</section>
-
-<hr class="section-divider">
-
-<!-- TEAM FEATURES -->
-<section id="workspaces" class="docs-section">
-<h2>Workspaces</h2>
-<p>Share your channels with teammates so everyone gets the same notifications.</p>
-<ol>
-<li>Share your workspace ID:</li>
-</ol>
-<div class="code-block"><pre><code>dread share</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<ol start="2">
-<li>Teammates subscribe:</li>
-</ol>
-<div class="code-block"><pre><code>dread follow ws_abc123def456</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">New channels you create are automatically synced to followers on reconnect.</div>
-</section>
-
-<section id="slack-discord" class="docs-section">
-<h2>Slack / Discord Integration</h2>
-<p>Forward webhook events to a Slack or Discord channel in real time.</p>
-<div class="code-block"><pre><code># Via CLI flags
-dread watch --slack https://hooks.slack.com/services/T.../B.../xxx
-dread watch --discord https://discord.com/api/webhooks/123/abc</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>Or set them permanently in your config (<code>~/.config/dread/config.json</code>):</p>
-<div class="code-block"><pre><code>{
-  "slack_url": "https://hooks.slack.com/services/...",
-  "discord_url": "https://discord.com/api/webhooks/..."
-}</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">Events will be forwarded as rich messages to your Slack/Discord channel while <code>dread watch</code> is running.</div>
-</section>
-
-<hr class="section-divider">
-
-<!-- NOTIFICATIONS -->
-<section id="desktop-notifs" class="docs-section">
-<h2>Desktop Notifications</h2>
-<p>Run <code>dread watch</code> in the background to get native desktop notifications for all events. The installer sets this up automatically as a system service.</p>
-<div class="code-block"><pre><code>dread watch</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-</section>
-
-<section id="filtering" class="docs-section">
-<h2>Filtering</h2>
-<p>Show only events matching a pattern:</p>
-<div class="code-block"><pre><code>dread watch --filter stripe
-dread --filter "payment_intent"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>Matches against source, event type, and summary.</p>
-</section>
-
-<section id="muting" class="docs-section">
-<h2>Muting Channels</h2>
-<p>Temporarily silence a noisy channel:</p>
-<div class="code-block"><pre><code>dread mute ch_noisy_abc123
-dread unmute ch_noisy_abc123</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">Muted channels still receive events server-side but won't trigger notifications in watch mode or the TUI. The dashboard has a per-channel mute toggle (saved in localStorage).</div>
-</section>
-
-<section id="alert-rules" class="docs-section">
-<h2>Alert Rules</h2>
-<p>Get alerted when a pattern exceeds a threshold in a time window:</p>
-<div class="code-block"><pre><code># Alert if 5+ sentry events in 10 minutes
-dread alert add sentry 5 10
-
-# List rules
-dread alert list
-
-# Remove rule by index
-dread alert remove 0</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">When the threshold is hit, you get a desktop notification and the alert is forwarded to Slack/Discord if configured.</div>
-</section>
-
-<hr class="section-divider">
-
-<!-- DATA & TOOLS -->
-<section id="dashboard-usage" class="docs-section">
-<h2>Dashboard</h2>
-<p>Open <a href="/dashboard" style="color:var(--violet)">/dashboard</a> in your browser. Enter your channel IDs to see a live event feed with auto-refresh, event detail view, and replay capability.</p>
-</section>
-
-<section id="replay" class="docs-section">
-<h2>Replay Events</h2>
-<p>Re-send a past event to any URL (useful for debugging):</p>
-<div class="code-block"><pre><code>dread replay evt_abc123 --forward https://localhost:3000/webhook</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>The dashboard also has a Replay button in the event detail view.</p>
-</section>
-
-<section id="export" class="docs-section">
-<h2>Export Events</h2>
-<p>Download events as JSON or CSV:</p>
-<div class="code-block"><pre><code># JSON export
-curl "https://dread.sh/api/export?channels=ch_xxx&format=json" -o events.json
-
-# CSV export
-curl "https://dread.sh/api/export?channels=ch_xxx&format=csv" -o events.csv</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>The dashboard includes an Export button in the toolbar. Exports are capped at 1000 events per request.</p>
-</section>
-
-<section id="digest" class="docs-section">
-<h2>Daily Digest</h2>
-<p>Get a summary of recent activity:</p>
-<div class="code-block"><pre><code># Last 24 hours (default)
-dread digest
-
-# Last 8 hours
-dread digest --hours 8</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">Shows total event count, breakdown by source, and the 10 most recent events.</div>
-</section>
-
-<section id="status-page" class="docs-section">
-<h2>Status Page</h2>
-<p>Every workspace gets a public status page showing channel freshness:</p>
-<div class="code-block"><pre><code>https://dread.sh/status/ws_abc123def456</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>Channels are colour-coded: <span style="color:var(--accent)">green</span> (&lt;5min), <span style="color:oklch(82% 0.18 90)">yellow</span> (&lt;30min), <span style="color:oklch(65% 0.2 25)">red</span> (&gt;30min), grey (no events). Auto-refreshes every 30 seconds.</p>
+  -d '{"type":"deploy.success","message":"v1.2.3 deployed to production"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Set <code>X-Dread-Source</code> to control the source label. Use <code>type</code> or <code>event</code> in your JSON for the event type, and <code>message</code> or <code>description</code> for the summary text.</p>
+<p>For all other features (muting, alerts, export, digest, forwarding, status page, dashboard), see the <a href="/docs" style="color:var(--violet)">Documentation</a>.</p>
 </section>
 
 </main>
