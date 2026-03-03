@@ -158,6 +158,12 @@ func main() {
 		w.Write([]byte(installScript))
 	})
 
+	// Changelog page
+	mux.HandleFunc("GET /changelog", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(changelogPage))
+	})
+
 	// Documentation page
 	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -341,7 +347,7 @@ const landingPage = `<!DOCTYPE html>
     margin-bottom: 24px;
     position: relative; z-index: 1;
   }
-  h1 span { color: var(--accent); }
+  h1 span { color: var(--text); }
   .hero-sub {
     font-size: 1.25rem;
     color: var(--text-muted);
@@ -772,6 +778,7 @@ const landingPage = `<!DOCTYPE html>
     <a href="/" class="nav-brand">dread.sh</a>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
+      <a href="/changelog">Changelog</a>
       <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <a href="https://github.com/nigel-engel/dread.sh" class="nav-btn" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
     </div>
@@ -781,7 +788,7 @@ const landingPage = `<!DOCTYPE html>
 <!-- HERO -->
 <div class="hero">
   <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
-  <h1>Webhooks to your<br>terminal <span>and desktop</span></h1>
+  <h1>Webhooks to your<br>terminal and desktop</h1>
   <p class="hero-sub">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
   <div class="hero-actions">
     <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
@@ -1531,6 +1538,7 @@ const docsPage = `<!DOCTYPE html>
     </div>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
+      <a href="/changelog">Changelog</a>
       <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <a href="https://github.com/nigel-engel/dread.sh" class="nav-btn" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
     </div>
@@ -2072,6 +2080,232 @@ function copyText(text, el) {
     }, 1500);
   });
 }
+</script>
+</body>
+</html>`
+
+const changelogPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>Changelog — dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --border-subtle: oklch(18% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(65% 0.1 40);
+    --accent-dim: oklch(47% 0.09 36);
+    --accent-glow: oklch(55% 0.1 38 / 0.15);
+    --accent-glow-strong: oklch(55% 0.1 38 / 0.3);
+    --nav-bg: oklch(10% 0.003 256 / 0.85);
+  }
+
+  :root.light {
+    --bg: oklch(98% 0.003 256);
+    --surface: oklch(97% 0.003 256);
+    --surface-hover: oklch(94% 0.003 256);
+    --border: oklch(85% 0.003 256);
+    --border-subtle: oklch(90% 0.003 256);
+    --text: oklch(15% 0.003 256);
+    --text-secondary: oklch(35% 0.003 256);
+    --text-muted: oklch(50% 0.003 256);
+    --text-dim: oklch(65% 0.003 256);
+    --accent: oklch(50% 0.12 40);
+    --accent-dim: oklch(40% 0.1 36);
+    --accent-glow: oklch(50% 0.12 40 / 0.1);
+    --accent-glow-strong: oklch(50% 0.12 40 / 0.2);
+    --nav-bg: oklch(98% 0.003 256 / 0.85);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overscroll-behavior: none; }
+  html { font-size: 18px; }
+  body {
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, pre, kbd {
+    font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--border);
+    background: var(--nav-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .nav-inner {
+    max-width: 720px; margin: 0 auto;
+    padding: 0 24px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 1.05rem; font-weight: 600; color: var(--text);
+    text-decoration: none; letter-spacing: -0.02em;
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a {
+    font-size: 0.85rem; color: var(--text-muted);
+    text-decoration: none; transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); display: flex; align-items: center;
+    justify-content: center; padding: 6px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--surface-hover); }
+  .nav-btn svg { width: 18px; height: 18px; }
+
+  .changelog {
+    max-width: 720px; margin: 0 auto;
+    padding: 64px 24px 120px;
+  }
+  .changelog h1 {
+    font-size: 2.2rem; font-weight: 700; color: var(--text);
+    letter-spacing: -0.03em; margin-bottom: 8px;
+  }
+  .changelog .subtitle {
+    color: var(--text-muted); font-size: 1rem; margin-bottom: 56px;
+  }
+  .changelog-entry {
+    padding-bottom: 48px; margin-bottom: 48px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .changelog-entry:last-child { border-bottom: none; margin-bottom: 0; }
+  .changelog-date {
+    font-size: 0.8rem; color: var(--accent); font-weight: 500;
+    margin-bottom: 8px; letter-spacing: 0.02em;
+  }
+  .changelog-title {
+    font-size: 1.35rem; font-weight: 600; color: var(--text);
+    margin-bottom: 16px; letter-spacing: -0.02em;
+  }
+  .changelog-entry ul {
+    list-style: none; padding: 0;
+  }
+  .changelog-entry li {
+    position: relative; padding-left: 20px;
+    margin-bottom: 8px; color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+  .changelog-entry li::before {
+    content: ""; position: absolute; left: 0; top: 10px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">dread.sh</a>
+    <div class="nav-links">
+      <a href="/docs">Documentation</a>
+      <a href="/changelog">Changelog</a>
+      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
+      <a href="https://github.com/nigel-engel/dread.sh" class="nav-btn" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
+    </div>
+  </div>
+</nav>
+
+<div class="changelog">
+  <h1>Changelog</h1>
+  <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">Landing page redesign</div>
+    <ul>
+      <li>Redesigned landing page with live terminal preview and use cases section</li>
+      <li>Added value proposition section highlighting key benefits</li>
+      <li>Improved typography with Geist Sans and Geist Mono fonts</li>
+      <li>Added copy-to-clipboard buttons on all code blocks</li>
+      <li>Added Lucide icons across feature grid and flow cards</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">Documentation site</div>
+    <ul>
+      <li>Added full documentation page with sidebar navigation</li>
+      <li>Covers CLI reference, webhook setup, team workspaces, and notifications</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 2, 2026</div>
+    <div class="changelog-title">Team workspaces</div>
+    <ul>
+      <li>Added workspace follow model for sharing webhook feeds across a team</li>
+      <li>New team commands for managing shared workspaces</li>
+      <li>Install download tracking</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 2, 2026</div>
+    <div class="changelog-title">Background notifications and installer</div>
+    <ul>
+      <li>Added dread watch for headless background desktop notifications</li>
+      <li>Auto-setup background notifications on install</li>
+      <li>Added curl installer at dread.sh/install</li>
+      <li>Config auto-reloads on reconnect so new channels are picked up automatically</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 2, 2026</div>
+    <div class="changelog-title">Initial release</div>
+    <ul>
+      <li>Go server with real-time webhook event streaming</li>
+      <li>CLI with interactive TUI for monitoring events</li>
+      <li>Desktop notifications for incoming webhooks</li>
+      <li>Support for Stripe, GitHub, Sentry, and custom webhook sources</li>
+      <li>Fly.io deployment with auto-deploy on push</li>
+      <li>Homebrew tap for easy installation</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  var root = document.documentElement;
+  var isLight = root.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  var icon = document.getElementById('theme-icon');
+  if (icon) {
+    icon.setAttribute('data-lucide', isLight ? 'sun' : 'moon');
+    lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+  }
+}
+(function() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.documentElement.classList.add('light');
+    var i = document.getElementById('theme-icon');
+    if (i) i.setAttribute('data-lucide', 'sun');
+  }
+  lucide.createIcons({attrs:{class:'lucide'},nameAttr:'data-lucide'});
+})();
 </script>
 </body>
 </html>`
