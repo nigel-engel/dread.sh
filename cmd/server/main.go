@@ -2610,6 +2610,8 @@ const dashboardPage = `<!DOCTYPE html>
   .dashboard {
     max-width: 1280px; margin: 0 auto;
     min-height: calc(100vh - 57px);
+    border-left: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--border-subtle);
   }
 
   /* SIDEBAR */
