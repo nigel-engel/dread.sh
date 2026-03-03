@@ -22,6 +22,7 @@ type UserConfig struct {
 	Channels    []Channel `json:"channels"`
 	WorkspaceID string    `json:"workspace_id,omitempty"`
 	Follows     []string  `json:"follows,omitempty"`
+	Sound       string    `json:"sound,omitempty"`
 	path        string
 }
 

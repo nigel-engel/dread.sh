@@ -123,7 +123,7 @@ func runTUI() {
 		os.Exit(0)
 	}
 
-	m := tui.New(*serverURL, channels, *forwardURL, *filter)
+	m := tui.New(*serverURL, channels, *forwardURL, *filter, cfg.Sound)
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {

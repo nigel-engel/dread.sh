@@ -57,10 +57,11 @@ type Model struct {
 	lastForwardOK  bool
 	lastForwardErr string
 
-	now time.Time
+	sound string
+	now   time.Time
 }
 
-func New(serverURL string, channels []auth.Channel, forwardURL string, filter string) Model {
+func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string) Model {
 	vp := viewport.New()
 	dvp := viewport.New()
 	ids := make([]string, len(channels))
@@ -76,6 +77,7 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 		filterText:   filter,
 		viewport:     vp,
 		detailVP:     dvp,
+		sound:        sound,
 		now:          time.Now(),
 	}
 	if forwardURL != "" {
@@ -156,7 +158,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = len(filtered) - 1
 			}
 			m.refreshViewport()
-			notify.Send(m.displayName(msg.Event.Channel), msg.Event.Summary)
+			notify.Send(m.displayName(msg.Event.Channel), msg.Event.Summary, m.sound)
 			if m.forwarder != nil {
 				cmds = append(cmds, forwardEvent(m.forwarder, &msg.Event))
 			}

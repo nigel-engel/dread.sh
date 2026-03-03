@@ -7,10 +7,11 @@ import (
 	"strings"
 )
 
-func send(title, body string) {
+func send(title, body, sound string) {
 	// Escape double quotes for AppleScript
 	title = strings.ReplaceAll(title, `"`, `\"`)
 	body = strings.ReplaceAll(body, `"`, `\"`)
-	script := `display notification "` + body + `" with title "` + title + `" sound name "Funk"`
+	sound = strings.ReplaceAll(sound, `"`, `\"`)
+	script := `display notification "` + body + `" with title "` + title + `" sound name "` + sound + `"`
 	exec.Command("osascript", "-e", script).Run()
 }

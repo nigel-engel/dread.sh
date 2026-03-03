@@ -4,6 +4,6 @@ package notify
 
 import "os/exec"
 
-func send(title, body string) {
-	exec.Command("notify-send", title, body).Run()
+func send(title, body, sound string) {
+	exec.Command("notify-send", "--hint", "string:sound-name:"+sound, title, body).Run()
 }

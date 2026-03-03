@@ -1001,7 +1001,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     <div class="feat">
       <div class="feat-icon ic-green"><i data-lucide="bell"></i></div>
       <h3>Desktop notifications</h3>
-      <p>Native macOS + Linux. Works in the background, no terminal needed.</p>
+      <p>Native macOS + Linux with customizable sounds. Background or terminal.</p>
     </div>
     <div class="feat">
       <div class="feat-icon ic-blue"><i data-lucide="terminal"></i></div>
@@ -1954,6 +1954,18 @@ const docsPage = `<!DOCTYPE html>
         <li><strong>Linux</strong> — uses <code>notify-send</code>. Works with any desktop environment that supports freedesktop notifications.</li>
       </ul>
       <p>The install script sets this up as a <code>launchd</code> service (macOS) or <code>systemd</code> user service (Linux) that starts at login.</p>
+      <h4 style="margin-top:24px;">Custom notification sound</h4>
+      <p>Set the <code>"sound"</code> field in your config to change the notification sound (default: <code>Glass</code>):</p>
+      <div class="copy-wrap">
+        <pre><code>{
+  "token": "dk_...",
+  "channels": [...],
+  <span class="kw">"sound": "Hero"</span>
+}</code></pre>
+      </div>
+      <p><strong>macOS built-in sounds:</strong> Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping, Pop, Purr, Sosumi, Submarine, Tink</p>
+      <p>You can also use custom sounds on macOS by placing a <code>.aiff</code> file in <code>~/Library/Sounds/</code> and referencing it by name (without extension).</p>
+      <p><strong>Linux:</strong> uses freedesktop sound names (e.g. <code>message-new-instant</code>). Support varies by desktop environment.</p>
     </section>
 
     <section class="docs-section" id="watch-mode">
@@ -2311,6 +2323,18 @@ const changelogPage = `<!DOCTYPE html>
 <div class="changelog">
   <h1>Changelog</h1>
   <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">Custom notification sounds</div>
+    <ul>
+      <li>Notification sound is now configurable — set <code>"sound"</code> in <code>~/.config/dread/config.json</code></li>
+      <li>Default sound changed from Funk to Glass</li>
+      <li>macOS: any system sound name (Glass, Ping, Pop, Hero, Submarine, etc.)</li>
+      <li>Linux: freedesktop sound names via <code>notify-send</code></li>
+      <li>Custom sounds on macOS: drop a <code>.aiff</code> file in <code>~/Library/Sounds/</code></li>
+    </ul>
+  </div>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>

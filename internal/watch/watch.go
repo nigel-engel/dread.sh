@@ -72,7 +72,7 @@ func Run(serverURL string, filter string, follows []string) error {
 		endpoint := wsURL + "/ws?channels=" + strings.Join(ids, ",")
 		fmt.Printf("watching %d channel(s)...\n", len(channels))
 
-		err = listen(ctx, endpoint, nameByID, filter)
+		err = listen(ctx, endpoint, nameByID, filter, cfg.Sound)
 		if ctx.Err() != nil {
 			fmt.Println("\nshutting down")
 			return nil
@@ -97,7 +97,7 @@ func matchesFilter(filter, source, typ, summary string) bool {
 		strings.Contains(strings.ToLower(summary), lower)
 }
 
-func listen(ctx context.Context, endpoint string, names map[string]string, filter string) error {
+func listen(ctx context.Context, endpoint string, names map[string]string, filter string, sound string) error {
 	conn, _, err := websocket.Dial(ctx, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -131,7 +131,7 @@ func listen(ctx context.Context, endpoint string, names map[string]string, filte
 			if title == "" {
 				title = msg.Event.Channel
 			}
-			notify.Send(title, msg.Event.Summary)
+			notify.Send(title, msg.Event.Summary, sound)
 			log.Printf("[%s] %s", title, msg.Event.Summary)
 		}
 	}
