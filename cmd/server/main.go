@@ -2249,6 +2249,8 @@ const changelogPage = `<!DOCTYPE html>
     margin-bottom: 8px; color: var(--text-secondary);
     font-size: 0.95rem;
   }
+  .changelog-entry a { color: var(--violet); text-decoration: none; }
+  .changelog-entry a:hover { text-decoration: underline; }
   .changelog-entry li::before {
     content: ""; position: absolute; left: 0; top: 10px;
     width: 6px; height: 6px; border-radius: 50%;
