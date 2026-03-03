@@ -1609,7 +1609,7 @@ const docsPage = `<!DOCTYPE html>
       </div>
       <p>This will:</p>
       <ul>
-        <li>Download the <code>dread</code> binary to <code>/usr/local/bin</code></li>
+        <li>Download the <code>dread</code> binary to <code>~/.local/bin</code></li>
         <li>Set up a background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux) for desktop notifications</li>
         <li>Start listening for webhook events immediately</li>
       </ul>
