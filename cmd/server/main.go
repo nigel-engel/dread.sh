@@ -1398,7 +1398,7 @@ const docsPage = `<!DOCTYPE html>
     height: 56px;
   }
   .nav-inner {
-    max-width: 100%; margin: 0; padding: 0 24px; height: 56px;
+    max-width: 1080px; margin: 0 auto; padding: 0 24px; height: 56px;
     display: flex; align-items: center; justify-content: space-between;
   }
   .nav-brand {
@@ -2250,7 +2250,7 @@ const changelogPage = `<!DOCTYPE html>
     -webkit-backdrop-filter: blur(16px);
   }
   .nav-inner {
-    max-width: 720px; margin: 0 auto;
+    max-width: 1080px; margin: 0 auto;
     padding: 0 24px; height: 56px;
     display: flex; align-items: center; justify-content: space-between;
   }
@@ -2542,7 +2542,7 @@ const dashboardPage = `<!DOCTYPE html>
     -webkit-backdrop-filter: blur(16px);
   }
   .nav-inner {
-    max-width: 1280px; margin: 0 auto;
+    max-width: 1080px; margin: 0 auto;
     padding: 0 24px; height: 56px;
     display: flex; align-items: center; justify-content: space-between;
   }
