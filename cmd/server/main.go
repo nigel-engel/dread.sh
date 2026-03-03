@@ -1007,7 +1007,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     <div class="feat">
       <div class="feat-icon ic-green"><i data-lucide="bell"></i></div>
       <h3>Desktop notifications</h3>
-      <p>Native macOS + Linux with customizable sounds. Background or terminal.</p>
+      <p>Native macOS + Linux with customisable sounds. Background or terminal.</p>
     </div>
     <div class="feat">
       <div class="feat-icon ic-blue"><i data-lucide="terminal"></i></div>
@@ -1883,7 +1883,7 @@ const docsPage = `<!DOCTYPE html>
         <tr><td>Svix</td><td><code>Svix-Id</code></td><td>message.attempt.completed</td></tr>
         <tr><td>Paddle</td><td><code>Paddle-Signature</code></td><td>subscription.activated sub_01h...</td></tr>
       </table>
-      <p>Any unrecognized source is labeled "webhook" with the raw event type if available.</p>
+      <p>Any unrecognised source is labelled "webhook" with the raw event type if available.</p>
     </section>
 
     <section class="docs-section" id="custom-webhooks">
