@@ -2567,6 +2567,17 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">108 webhook sources, 47 summarizers, TUI fix</div>
+    <ul>
+      <li><strong>108 auto-detected sources</strong> &mdash; added 60+ new webhook sources including Pipedrive, Asana, Webflow, Klaviyo, Cal.com, Monday, Chargebee, ActiveCampaign, BambooHR, Smartsheet, Hootsuite, Dropbox, Box, Help Scout, and many more</li>
+      <li><strong>47 payload summarizers</strong> &mdash; 30 new summarizer functions for richer event descriptions from Pipedrive, Asana, Webflow, Klaviyo, Squarespace, Ecwid, Box, Help Scout, Smartsheet, Cal.com, Monday, Chargebee, ActiveCampaign, Basecamp, and more</li>
+      <li><strong>TUI duplicate event fix</strong> &mdash; fixed a bug where WebSocket reconnects caused duplicate events to pile up in the TUI (e.g. 16 real events showing as 122)</li>
+      <li><strong>Default sound changed to Sosumi</strong></li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
     <div class="changelog-title">10 New Features</div>
     <ul>
       <li><strong>Health endpoint</strong> &mdash; <code>GET /health</code> returns server status, uptime, and event count</li>
@@ -2608,7 +2619,7 @@ const changelogPage = `<!DOCTYPE html>
     <div class="changelog-title">Custom notification sounds</div>
     <ul>
       <li>Notification sound is now configurable — set <code>"sound"</code> in <code>~/.config/dread/config.json</code></li>
-      <li>Default sound changed from Funk to Glass</li>
+      <li>Default sound changed from Funk to Sosumi</li>
       <li>macOS: any system sound name (Glass, Ping, Pop, Hero, Submarine, etc.)</li>
       <li>Linux: freedesktop sound names via <code>notify-send</code></li>
       <li>Custom sounds on macOS: drop a <code>.aiff</code> file in <code>~/Library/Sounds/</code></li>
