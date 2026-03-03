@@ -16,6 +16,14 @@ func (p *GenericProcessor) Process(source string, header http.Header, body []byt
 	var raw map[string]any
 	json.Unmarshal(body, &raw)
 
+	// HubSpot sends a JSON array — use the first element
+	if raw == nil && len(body) > 0 && body[0] == '[' {
+		var arr []map[string]any
+		if err := json.Unmarshal(body, &arr); err == nil && len(arr) > 0 {
+			raw = arr[0]
+		}
+	}
+
 	ev := &event.Event{
 		Source:  source,
 		RawJSON: string(body),
@@ -299,11 +307,18 @@ func summarizeVercel(raw map[string]any) (string, string) {
 		return "webhook", "vercel event"
 	}
 	if payload, ok := raw["payload"].(map[string]any); ok {
-		name := str(payload, "name")
-		if name == "" {
-			name = str(payload, "url")
+		// Vercel nests project name under payload.deployment
+		if dep, ok := payload["deployment"].(map[string]any); ok {
+			name := str(dep, "name")
+			if name == "" {
+				name = str(dep, "url")
+			}
+			if name != "" {
+				return typ, fmt.Sprintf("%s — %s", typ, name)
+			}
 		}
-		if name != "" {
+		// Fallback to payload.name for other event types
+		if name := str(payload, "name"); name != "" {
 			return typ, fmt.Sprintf("%s — %s", typ, name)
 		}
 	}
@@ -333,11 +348,36 @@ func summarizeSentry(header http.Header, raw map[string]any) (string, string) {
 				return typ, fmt.Sprintf("%s — %s", typ, title)
 			}
 		}
+		// metric_alert webhooks use description_title
+		if descTitle := str(data, "description_title"); descTitle != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, descTitle)
+		}
+		// error webhooks use data.error.title
+		if errObj, ok := data["error"].(map[string]any); ok {
+			title := str(errObj, "title")
+			if title != "" {
+				return typ, fmt.Sprintf("%s — %s", typ, title)
+			}
+		}
 	}
 	return typ, typ
 }
 
 func summarizePagerDuty(raw map[string]any) (string, string) {
+	// V3 format: top-level "event" object
+	if ev, ok := raw["event"].(map[string]any); ok {
+		evType := str(ev, "event_type")
+		if data, ok := ev["data"].(map[string]any); ok {
+			title := str(data, "title")
+			if title != "" {
+				return evType, fmt.Sprintf("%s — %s", evType, title)
+			}
+		}
+		if evType != "" {
+			return evType, evType
+		}
+	}
+	// V2 format: "messages" array
 	if messages, ok := raw["messages"].([]any); ok && len(messages) > 0 {
 		if msg, ok := messages[0].(map[string]any); ok {
 			evType := str(msg, "event")
@@ -431,12 +471,18 @@ func summarizePayPal(raw map[string]any) (string, string) {
 				value = str(amount, "value")
 			}
 			currency := str(amount, "currency_code")
+			if currency == "" {
+				currency = str(amount, "currency") // v1 fallback
+			}
 			if value != "" {
 				return typ, fmt.Sprintf("%s — %s %s", typ, value, currency)
 			}
 		}
 		if status := str(resource, "status"); status != "" {
 			return typ, fmt.Sprintf("%s — %s", typ, status)
+		}
+		if state := str(resource, "state"); state != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, state)
 		}
 	}
 	return typ, typ
@@ -565,7 +611,17 @@ func str(m map[string]any, key string) string {
 	return s
 }
 
-// formatAmount formats a cents amount to dollars.
-func formatAmount(cents float64, currency string) string {
-	return fmt.Sprintf("$%.2f %s", cents/100, currency)
+// zeroDecimalCurrencies lists Stripe currencies where amounts are already whole units.
+var zeroDecimalCurrencies = map[string]bool{
+	"BIF": true, "CLP": true, "DJF": true, "GNF": true, "JPY": true,
+	"KMF": true, "KRW": true, "MGA": true, "PYG": true, "RWF": true,
+	"UGX": true, "VND": true, "VUV": true, "XAF": true, "XOF": true, "XPF": true,
+}
+
+// formatAmount formats a Stripe amount for display.
+func formatAmount(amount float64, currency string) string {
+	if zeroDecimalCurrencies[currency] {
+		return fmt.Sprintf("%.0f %s", amount, currency)
+	}
+	return fmt.Sprintf("%.2f %s", amount/100, currency)
 }
