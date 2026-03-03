@@ -1445,7 +1445,7 @@ const docsPage = `<!DOCTYPE html>
   /* ---- CONTENT ---- */
   .docs-content {
     margin-left: 260px; flex: 1;
-    max-width: 760px; padding: 48px 48px 120px;
+    max-width: 920px; padding: 48px 48px 120px;
   }
   .docs-section { margin-bottom: 64px; scroll-margin-top: 80px; }
   .docs-section h2 {
