@@ -4040,6 +4040,7 @@ const howToPage = `<!DOCTYPE html>
   </div>
   <div class="docs-sidebar-group">
     <div class="docs-sidebar-label">Infrastructure</div>
+    <a href="#supabase">Supabase</a>
     <a href="#aws-sns">AWS SNS</a>
     <a href="#pagerduty">PagerDuty</a>
   </div>
@@ -4295,6 +4296,24 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 </ol>
 <p>Requires Manager, Admin, or Account Owner role. Max 10 webhook subscriptions per scope.</p>
 <div class="expect">Incident events show the incident title (e.g. <strong>incident.triggered &mdash; High CPU on web-prod-3</strong>).</div>
+</section>
+
+<section id="supabase" class="docs-section">
+<h2>Supabase</h2>
+<p>Supabase Database Webhooks fire when rows are inserted, updated, or deleted in your tables.</p>
+<ol>
+<li>Open your project in the <strong>Supabase Dashboard</strong></li>
+<li>Go to <strong>Database</strong> &rarr; <strong>Webhooks</strong> in the sidebar</li>
+<li>Click <strong>Create a new hook</strong></li>
+<li>Name your hook (e.g. <code>new-booking</code>) and select the <strong>table</strong> to watch</li>
+<li>Tick the events to fire on: <strong>Insert</strong>, <strong>Update</strong>, and/or <strong>Delete</strong></li>
+<li>Under <strong>Hook type</strong>, select <strong>HTTP Request</strong></li>
+<li>Set Method to <strong>POST</strong> and paste your dread webhook URL</li>
+<li>Add the header <code>Content-Type: application/json</code></li>
+<li>Click <strong>Create webhook</strong></li>
+</ol>
+<p>The payload includes the <code>type</code> (INSERT/UPDATE/DELETE), the <code>table</code> name, <code>record</code> (new row data), and <code>old_record</code> (previous row data for updates/deletes).</p>
+<div class="expect">Supabase events are detected via the <code>X-Supabase-Event-Signature</code> header and show the table name and operation type.</div>
 </section>
 
 <hr class="section-divider">
