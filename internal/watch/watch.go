@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -19,16 +21,18 @@ import (
 )
 
 // Run connects to the server via WebSocket and sends desktop notifications
-// for incoming events. It reloads the config on each reconnect so new
-// channels are picked up automatically. Shuts down on SIGINT/SIGTERM.
-// If filter is non-empty, only events matching the substring (in source,
-// type, or summary) will trigger notifications.
-func Run(serverURL string, filter string, follows []string) error {
+// for incoming events. It reloads the full config on each reconnect so new
+// channels, muting, and forwarding settings are picked up automatically.
+func Run(serverURL string, filter string, follows []string, slackOverride string, discordOverride string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	wsURL := strings.Replace(serverURL, "http://", "ws://", 1)
 	wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
+
+	alertCounters := &alertState{
+		windows: make(map[string][]time.Time),
+	}
 
 	for {
 		cfg, err := auth.Load()
@@ -69,10 +73,19 @@ func Run(serverURL string, filter string, follows []string) error {
 			nameByID[ch.ID] = ch.Name
 		}
 
+		slackURL := cfg.SlackURL
+		if slackOverride != "" {
+			slackURL = slackOverride
+		}
+		discordURL := cfg.DiscordURL
+		if discordOverride != "" {
+			discordURL = discordOverride
+		}
+
 		endpoint := wsURL + "/ws?channels=" + strings.Join(ids, ",")
 		fmt.Printf("watching %d channel(s)...\n", len(channels))
 
-		err = listen(ctx, endpoint, nameByID, filter, cfg.Sound)
+		err = listen(ctx, endpoint, nameByID, filter, cfg.Sound, cfg.Muted, slackURL, discordURL, cfg.Alerts, alertCounters)
 		if ctx.Err() != nil {
 			fmt.Println("\nshutting down")
 			return nil
@@ -97,7 +110,39 @@ func matchesFilter(filter, source, typ, summary string) bool {
 		strings.Contains(strings.ToLower(summary), lower)
 }
 
-func listen(ctx context.Context, endpoint string, names map[string]string, filter string, sound string) error {
+func matchesPattern(pattern, source, typ, summary string) bool {
+	lower := strings.ToLower(pattern)
+	return strings.Contains(strings.ToLower(source), lower) ||
+		strings.Contains(strings.ToLower(typ), lower) ||
+		strings.Contains(strings.ToLower(summary), lower)
+}
+
+// alertState tracks sliding window counters for threshold alerts.
+type alertState struct {
+	mu      sync.Mutex
+	windows map[string][]time.Time // pattern -> list of event timestamps
+}
+
+func (a *alertState) record(pattern string, now time.Time, windowMinutes int) int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	cutoff := now.Add(-time.Duration(windowMinutes) * time.Minute)
+	times := a.windows[pattern]
+
+	// Prune old entries
+	valid := times[:0]
+	for _, t := range times {
+		if t.After(cutoff) {
+			valid = append(valid, t)
+		}
+	}
+	valid = append(valid, now)
+	a.windows[pattern] = valid
+	return len(valid)
+}
+
+func listen(ctx context.Context, endpoint string, names map[string]string, filter string, sound string, muted []string, slackURL string, discordURL string, alerts []auth.AlertRule, alertCounters *alertState) error {
 	conn, _, err := websocket.Dial(ctx, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -108,6 +153,11 @@ func listen(ctx context.Context, endpoint string, names map[string]string, filte
 	_, _, err = conn.Read(ctx)
 	if err != nil {
 		return fmt.Errorf("handshake: %w", err)
+	}
+
+	mutedSet := make(map[string]bool, len(muted))
+	for _, m := range muted {
+		mutedSet[m] = true
 	}
 
 	log.Println("connected")
@@ -124,6 +174,10 @@ func listen(ctx context.Context, endpoint string, names map[string]string, filte
 		}
 
 		if msg.Type == hub.MsgTypeEvent && msg.Event != nil {
+			// Skip muted channels
+			if mutedSet[msg.Event.Channel] {
+				continue
+			}
 			if !matchesFilter(filter, msg.Event.Source, msg.Event.Type, msg.Event.Summary) {
 				continue
 			}
@@ -133,8 +187,65 @@ func listen(ctx context.Context, endpoint string, names map[string]string, filte
 			}
 			notify.Send(title, msg.Event.Summary, sound)
 			log.Printf("[%s] %s", title, msg.Event.Summary)
+
+			// Forward to Slack/Discord
+			if slackURL != "" {
+				go forwardToSlack(slackURL, title, msg.Event.Source, msg.Event.Summary)
+			}
+			if discordURL != "" {
+				go forwardToDiscord(discordURL, title, msg.Event.Source, msg.Event.Summary)
+			}
+
+			// Check threshold alerts
+			for _, rule := range alerts {
+				if matchesPattern(rule.Pattern, msg.Event.Source, msg.Event.Type, msg.Event.Summary) {
+					count := alertCounters.record(rule.Pattern, time.Now(), rule.WindowMinutes)
+					if count == rule.Threshold {
+						alertMsg := fmt.Sprintf("Alert: %d events matching %q in %dm", count, rule.Pattern, rule.WindowMinutes)
+						notify.Send("dread alert", alertMsg, sound)
+						log.Printf("[ALERT] %s", alertMsg)
+						if slackURL != "" {
+							go forwardToSlack(slackURL, "dread alert", "alert", alertMsg)
+						}
+						if discordURL != "" {
+							go forwardToDiscord(discordURL, "dread alert", "alert", alertMsg)
+						}
+					}
+				}
+			}
 		}
 	}
+}
+
+func forwardToSlack(webhookURL, channel, source, summary string) {
+	payload := map[string]any{
+		"text": fmt.Sprintf("[%s] %s", channel, summary),
+		"blocks": []map[string]any{
+			{
+				"type": "section",
+				"text": map[string]any{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*%s* (%s)\n%s", channel, source, summary),
+				},
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	http.Post(webhookURL, "application/json", bytes.NewReader(body))
+}
+
+func forwardToDiscord(webhookURL, channel, source, summary string) {
+	payload := map[string]any{
+		"embeds": []map[string]any{
+			{
+				"title":       fmt.Sprintf("%s — %s", channel, source),
+				"description": summary,
+				"color":       0xC37960, // dread brand colour
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	http.Post(webhookURL, "application/json", bytes.NewReader(body))
 }
 
 // resolveWorkspace fetches a workspace's channels from the server.

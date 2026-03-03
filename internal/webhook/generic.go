@@ -36,6 +36,26 @@ func (p *GenericProcessor) Process(source string, header http.Header, body []byt
 		ev.Type, ev.Summary = summarizeLinear(raw)
 	case "paddle":
 		ev.Type, ev.Summary = summarizePaddle(raw)
+	case "vercel":
+		ev.Type, ev.Summary = summarizeVercel(raw)
+	case "sentry":
+		ev.Type, ev.Summary = summarizeSentry(header, raw)
+	case "pagerduty":
+		ev.Type, ev.Summary = summarizePagerDuty(raw)
+	case "jira":
+		ev.Type, ev.Summary = summarizeJira(raw)
+	case "gitlab":
+		ev.Type, ev.Summary = summarizeGitLab(header, raw)
+	case "paypal":
+		ev.Type, ev.Summary = summarizePayPal(raw)
+	case "aws":
+		ev.Type, ev.Summary = summarizeAWSSNS(raw)
+	case "twitch":
+		ev.Type, ev.Summary = summarizeTwitch(header, raw)
+	case "hubspot":
+		ev.Type, ev.Summary = summarizeHubSpot(raw)
+	case "typeform":
+		ev.Type, ev.Summary = summarizeTypeform(raw)
 	default:
 		ev.Type, ev.Summary = summarizeGeneric(source, raw)
 	}
@@ -269,6 +289,229 @@ func summarizePaddle(raw map[string]any) (string, string) {
 	}
 
 	return typ, typ
+}
+
+func summarizeVercel(raw map[string]any) (string, string) {
+	typ := str(raw, "type")
+	if typ == "" {
+		return "webhook", "vercel event"
+	}
+	if payload, ok := raw["payload"].(map[string]any); ok {
+		name := str(payload, "name")
+		if name == "" {
+			name = str(payload, "url")
+		}
+		if name != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, name)
+		}
+	}
+	return typ, typ
+}
+
+func summarizeSentry(header http.Header, raw map[string]any) (string, string) {
+	resource := header.Get("Sentry-Hook-Resource")
+	if resource == "" {
+		resource = "event"
+	}
+	action := str(raw, "action")
+	typ := resource
+	if action != "" {
+		typ = resource + "." + action
+	}
+	if data, ok := raw["data"].(map[string]any); ok {
+		if issue, ok := data["issue"].(map[string]any); ok {
+			title := str(issue, "title")
+			if title != "" {
+				return typ, fmt.Sprintf("%s — %s", typ, title)
+			}
+		}
+		if ev, ok := data["event"].(map[string]any); ok {
+			title := str(ev, "title")
+			if title != "" {
+				return typ, fmt.Sprintf("%s — %s", typ, title)
+			}
+		}
+	}
+	return typ, typ
+}
+
+func summarizePagerDuty(raw map[string]any) (string, string) {
+	if messages, ok := raw["messages"].([]any); ok && len(messages) > 0 {
+		if msg, ok := messages[0].(map[string]any); ok {
+			evType := str(msg, "event")
+			if incident, ok := msg["incident"].(map[string]any); ok {
+				title := str(incident, "title")
+				if title != "" {
+					return evType, fmt.Sprintf("%s — %s", evType, title)
+				}
+			}
+			if evType != "" {
+				return evType, evType
+			}
+		}
+	}
+	return "webhook", "pagerduty event"
+}
+
+func summarizeJira(raw map[string]any) (string, string) {
+	event := str(raw, "webhookEvent")
+	if event == "" {
+		return "webhook", "jira event"
+	}
+	if issue, ok := raw["issue"].(map[string]any); ok {
+		key := str(issue, "key")
+		if fields, ok := issue["fields"].(map[string]any); ok {
+			summary := str(fields, "summary")
+			if key != "" && summary != "" {
+				return event, fmt.Sprintf("%s — %s %s", event, key, summary)
+			}
+		}
+		if key != "" {
+			return event, fmt.Sprintf("%s — %s", event, key)
+		}
+	}
+	return event, event
+}
+
+func summarizeGitLab(header http.Header, raw map[string]any) (string, string) {
+	glEvent := header.Get("X-Gitlab-Event")
+	if glEvent == "" {
+		glEvent = str(raw, "object_kind")
+	}
+	if glEvent == "" {
+		return "webhook", "gitlab event"
+	}
+	switch glEvent {
+	case "Push Hook", "push":
+		ref := str(raw, "ref")
+		branch := strings.TrimPrefix(ref, "refs/heads/")
+		user := str(raw, "user_name")
+		parts := []string{"push to " + branch}
+		if user != "" {
+			parts = append(parts, "by "+user)
+		}
+		return "push", strings.Join(parts, " ")
+	case "Merge Request Hook", "merge_request":
+		if attrs, ok := raw["object_attributes"].(map[string]any); ok {
+			title := str(attrs, "title")
+			action := str(attrs, "action")
+			if title != "" {
+				return "merge_request." + action, fmt.Sprintf("MR %s — %s", action, title)
+			}
+		}
+	case "Issue Hook", "issue":
+		if attrs, ok := raw["object_attributes"].(map[string]any); ok {
+			title := str(attrs, "title")
+			action := str(attrs, "action")
+			if title != "" {
+				return "issue." + action, fmt.Sprintf("issue %s — %s", action, title)
+			}
+		}
+	case "Pipeline Hook", "pipeline":
+		if attrs, ok := raw["object_attributes"].(map[string]any); ok {
+			status := str(attrs, "status")
+			ref := str(attrs, "ref")
+			return "pipeline", fmt.Sprintf("pipeline %s on %s", status, ref)
+		}
+	}
+	return glEvent, glEvent
+}
+
+func summarizePayPal(raw map[string]any) (string, string) {
+	typ := str(raw, "event_type")
+	if typ == "" {
+		return "webhook", "paypal event"
+	}
+	if resource, ok := raw["resource"].(map[string]any); ok {
+		if amount, ok := resource["amount"].(map[string]any); ok {
+			value := str(amount, "total")
+			if value == "" {
+				value = str(amount, "value")
+			}
+			currency := str(amount, "currency_code")
+			if value != "" {
+				return typ, fmt.Sprintf("%s — %s %s", typ, value, currency)
+			}
+		}
+		if status := str(resource, "status"); status != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, status)
+		}
+	}
+	return typ, typ
+}
+
+func summarizeAWSSNS(raw map[string]any) (string, string) {
+	typ := str(raw, "Type")
+	if typ == "" {
+		return "webhook", "aws event"
+	}
+	switch typ {
+	case "SubscriptionConfirmation":
+		topic := str(raw, "TopicArn")
+		return "subscription_confirmation", fmt.Sprintf("confirm subscription — %s", topic)
+	case "Notification":
+		subject := str(raw, "Subject")
+		if subject != "" {
+			return "notification", fmt.Sprintf("notification — %s", subject)
+		}
+		msg := str(raw, "Message")
+		if len(msg) > 80 {
+			msg = msg[:80] + "..."
+		}
+		if msg != "" {
+			return "notification", fmt.Sprintf("notification — %s", msg)
+		}
+		return "notification", "SNS notification"
+	}
+	return typ, fmt.Sprintf("SNS %s", typ)
+}
+
+func summarizeTwitch(header http.Header, raw map[string]any) (string, string) {
+	msgType := header.Get("Twitch-Eventsub-Message-Type")
+	if sub, ok := raw["subscription"].(map[string]any); ok {
+		typ := str(sub, "type")
+		if typ != "" {
+			if ev, ok := raw["event"].(map[string]any); ok {
+				broadcaster := str(ev, "broadcaster_user_name")
+				if broadcaster != "" {
+					return typ, fmt.Sprintf("%s — %s", typ, broadcaster)
+				}
+			}
+			return typ, typ
+		}
+	}
+	if msgType != "" {
+		return msgType, fmt.Sprintf("twitch %s", msgType)
+	}
+	return "webhook", "twitch event"
+}
+
+func summarizeHubSpot(raw map[string]any) (string, string) {
+	// HubSpot sends an array of events
+	if arr, ok := raw["subscriptionType"].(string); ok && arr != "" {
+		objectId := str(raw, "objectId")
+		if objectId != "" {
+			return arr, fmt.Sprintf("%s — object %s", arr, objectId)
+		}
+		return arr, arr
+	}
+	return "webhook", "hubspot event"
+}
+
+func summarizeTypeform(raw map[string]any) (string, string) {
+	eventType := str(raw, "event_type")
+	if eventType == "" {
+		return "webhook", "typeform event"
+	}
+	if formResp, ok := raw["form_response"].(map[string]any); ok {
+		if defn, ok := formResp["definition"].(map[string]any); ok {
+			title := str(defn, "title")
+			if title != "" {
+				return eventType, fmt.Sprintf("%s — %s", eventType, title)
+			}
+		}
+	}
+	return eventType, eventType
 }
 
 func summarizeGeneric(source string, raw map[string]any) (string, string) {

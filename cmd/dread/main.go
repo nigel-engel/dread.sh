@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,14 @@ func main() {
 		cmdStatus(os.Args[2:])
 	case "test":
 		cmdTest(os.Args[2:])
+	case "mute":
+		cmdMute(os.Args[2:])
+	case "unmute":
+		cmdUnmute(os.Args[2:])
+	case "digest":
+		cmdDigest(os.Args[2:])
+	case "alert":
+		cmdAlert(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -83,10 +92,20 @@ Usage:
   dread logs                     print recent events to stdout
   dread status                   show channels, last events, and service status
   dread test <channel-id>        send a test webhook event
+  dread mute <channel-id>        mute notifications for a channel
+  dread unmute <channel-id>      unmute notifications for a channel
+  dread digest                   print a summary of recent events
+  dread alert add <pat> <n> <m>  alert when >=n events match pattern in m minutes
+  dread alert list               list alert rules
+  dread alert remove <index>     remove an alert rule
 
 Flags (TUI / watch mode):
   --server <url>                 dread server URL (default: https://dread.sh)
   --filter <pattern>             only show events matching pattern
+
+Flags (watch mode):
+  --slack <url>                  forward events to Slack webhook
+  --discord <url>                forward events to Discord webhook
 
 Flags (TUI mode only):
   --forward <url>                forward webhooks to this URL`)
@@ -123,7 +142,7 @@ func runTUI() {
 		os.Exit(0)
 	}
 
-	m := tui.New(*serverURL, channels, *forwardURL, *filter, cfg.Sound)
+	m := tui.New(*serverURL, channels, *forwardURL, *filter, cfg.Sound, cfg.Muted)
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
@@ -136,6 +155,8 @@ func cmdWatch(args []string) {
 	fs := flag.NewFlagSet("watch", flag.ExitOnError)
 	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
 	filter := fs.String("filter", "", "filter events by substring match")
+	slackURL := fs.String("slack", "", "Slack webhook URL for forwarding")
+	discordURL := fs.String("discord", "", "Discord webhook URL for forwarding")
 	fs.Parse(args)
 
 	cfg, err := auth.Load()
@@ -144,7 +165,7 @@ func cmdWatch(args []string) {
 		os.Exit(1)
 	}
 
-	if err := watch.Run(*serverURL, *filter, cfg.Follows); err != nil {
+	if err := watch.Run(*serverURL, *filter, cfg.Follows, *slackURL, *discordURL); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -690,6 +711,208 @@ func cmdTest(args []string) {
 		fmt.Printf("Test event sent to %s\n", channelID)
 	} else {
 		fmt.Fprintf(os.Stderr, "server returned %d\n", resp.StatusCode)
+		os.Exit(1)
+	}
+}
+
+func cmdMute(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: dread mute <channel-id>")
+		os.Exit(1)
+	}
+	ch := args[0]
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !cfg.Mute(ch) {
+		fmt.Printf("Already muted: %s\n", ch)
+		return
+	}
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Muted: %s (%s)\n", cfg.ChannelName(ch), ch)
+}
+
+func cmdUnmute(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: dread unmute <channel-id>")
+		os.Exit(1)
+	}
+	ch := args[0]
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !cfg.Unmute(ch) {
+		fmt.Printf("Not muted: %s\n", ch)
+		return
+	}
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Unmuted: %s (%s)\n", cfg.ChannelName(ch), ch)
+}
+
+func cmdDigest(args []string) {
+	fs := flag.NewFlagSet("digest", flag.ExitOnError)
+	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
+	hours := fs.Int("hours", 24, "hours to look back")
+	fs.Parse(args)
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	channels := cfg.Channels
+	for _, wsID := range cfg.Follows {
+		remote, err := resolveWorkspace(*serverURL, wsID)
+		if err != nil {
+			continue
+		}
+		channels = mergeChannels(channels, remote)
+	}
+
+	if len(channels) == 0 {
+		fmt.Println("No channels. Create one with: dread new <name>")
+		return
+	}
+
+	ids := make([]string, len(channels))
+	for i, ch := range channels {
+		ids[i] = ch.ID
+	}
+
+	url := fmt.Sprintf("%s/api/digest?channels=%s&hours=%d", *serverURL, strings.Join(ids, ","), *hours)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error fetching digest: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	var digest struct {
+		Total  int64            `json:"total"`
+		BySrc  map[string]int64 `json:"by_source"`
+		Top    []event.Event    `json:"top"`
+		Period string           `json:"period"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&digest); err != nil {
+		fmt.Fprintf(os.Stderr, "error decoding digest: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Digest (%s)\n", digest.Period)
+	fmt.Printf("Total events: %d\n\n", digest.Total)
+
+	if len(digest.BySrc) > 0 {
+		fmt.Println("By source:")
+		for src, count := range digest.BySrc {
+			fmt.Printf("  %-20s %d\n", src, count)
+		}
+		fmt.Println()
+	}
+
+	nameByID := make(map[string]string, len(channels))
+	for _, ch := range channels {
+		nameByID[ch.ID] = ch.Name
+	}
+
+	if len(digest.Top) > 0 {
+		fmt.Println("Recent events:")
+		for _, e := range digest.Top {
+			name := nameByID[e.Channel]
+			if name == "" {
+				name = e.Channel
+			}
+			ts := e.Timestamp.Local().Format("15:04:05")
+			fmt.Printf("  [%s] [%s] %s\n", ts, name, e.Summary)
+		}
+	}
+}
+
+func cmdAlert(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: dread alert <add|list|remove> ...")
+		os.Exit(1)
+	}
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "add":
+		if len(args) < 4 {
+			fmt.Fprintln(os.Stderr, "usage: dread alert add <pattern> <threshold> <window-minutes>")
+			os.Exit(1)
+		}
+		pattern := args[1]
+		threshold, err := strconv.Atoi(args[2])
+		if err != nil || threshold <= 0 {
+			fmt.Fprintln(os.Stderr, "threshold must be a positive integer")
+			os.Exit(1)
+		}
+		window, err := strconv.Atoi(args[3])
+		if err != nil || window <= 0 {
+			fmt.Fprintln(os.Stderr, "window must be a positive integer (minutes)")
+			os.Exit(1)
+		}
+		cfg.Alerts = append(cfg.Alerts, auth.AlertRule{
+			Pattern:       pattern,
+			Threshold:     threshold,
+			WindowMinutes: window,
+		})
+		if err := cfg.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Alert added: fire when >=%d events matching %q in %d minutes\n", threshold, pattern, window)
+
+	case "list":
+		if len(cfg.Alerts) == 0 {
+			fmt.Println("No alert rules configured.")
+			return
+		}
+		fmt.Println("Alert rules:")
+		for i, a := range cfg.Alerts {
+			fmt.Printf("  [%d] pattern=%q threshold=%d window=%dm\n", i, a.Pattern, a.Threshold, a.WindowMinutes)
+		}
+
+	case "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: dread alert remove <index>")
+			os.Exit(1)
+		}
+		idx, err := strconv.Atoi(args[1])
+		if err != nil || idx < 0 || idx >= len(cfg.Alerts) {
+			fmt.Fprintln(os.Stderr, "invalid index")
+			os.Exit(1)
+		}
+		removed := cfg.Alerts[idx]
+		cfg.Alerts = append(cfg.Alerts[:idx], cfg.Alerts[idx+1:]...)
+		if err := cfg.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "error saving config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Removed alert: pattern=%q threshold=%d window=%dm\n", removed.Pattern, removed.Threshold, removed.WindowMinutes)
+
+	default:
+		fmt.Fprintln(os.Stderr, "usage: dread alert <add|list|remove> ...")
 		os.Exit(1)
 	}
 }

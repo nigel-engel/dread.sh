@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -19,6 +22,8 @@ import (
 	"dread.sh/internal/store"
 	"dread.sh/internal/webhook"
 )
+
+var serverStartTime = time.Now()
 
 func main() {
 	cfgPath := flag.String("config", "", "path to config file (optional if env vars set)")
@@ -41,9 +46,31 @@ func main() {
 	}
 	defer db.Close()
 
+	// Run retention purge on startup
+	if cfg.Server.RetentionDays > 0 {
+		maxAge := time.Duration(cfg.Server.RetentionDays) * 24 * time.Hour
+		deleted, err := db.Purge(maxAge)
+		if err != nil {
+			log.Printf("retention purge error: %v", err)
+		} else if deleted > 0 {
+			log.Printf("retention purge: deleted %d events older than %d days", deleted, cfg.Server.RetentionDays)
+		}
+	}
+
 	h := hub.New()
 
 	mux := http.NewServeMux()
+
+	// Health endpoint
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		uptime := time.Since(serverStartTime).Truncate(time.Second).String()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"status": "ok",
+			"uptime": uptime,
+			"events": db.EventCount(),
+		})
+	})
 
 	// Webhook endpoint — any channel
 	mux.HandleFunc("POST /wh/{channel}", webhook.MakeHandler(func(channel string, ev *event.Event) {
@@ -157,6 +184,151 @@ func main() {
 		w.Write([]byte(`{"channels":` + ws.Channels + `,"sound":` + soundJSON + `}`))
 	})
 
+	// Export API — download events as JSON or CSV
+	mux.HandleFunc("GET /api/export", func(w http.ResponseWriter, r *http.Request) {
+		channelsParam := r.URL.Query().Get("channels")
+		if channelsParam == "" {
+			http.Error(w, "missing channels parameter", http.StatusBadRequest)
+			return
+		}
+		channels := strings.Split(channelsParam, ",")
+		format := r.URL.Query().Get("format")
+		if format == "" {
+			format = "json"
+		}
+
+		events, err := db.List(channels, time.Time{}, 1000)
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			log.Printf("export events: %v", err)
+			return
+		}
+
+		switch format {
+		case "csv":
+			w.Header().Set("Content-Type", "text/csv")
+			w.Header().Set("Content-Disposition", "attachment; filename=dread-events.csv")
+			cw := csv.NewWriter(w)
+			cw.Write([]string{"id", "channel", "source", "type", "summary", "timestamp"})
+			for _, e := range events {
+				cw.Write([]string{e.ID, e.Channel, e.Source, e.Type, e.Summary, e.Timestamp.UTC().Format(time.RFC3339)})
+			}
+			cw.Flush()
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Disposition", "attachment; filename=dread-events.json")
+			json.NewEncoder(w).Encode(events)
+		}
+	})
+
+	// Replay API — re-forward an event to a URL
+	mux.HandleFunc("POST /api/replay", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			EventID string `json:"event_id"`
+			URL     string `json:"url"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.EventID == "" || req.URL == "" {
+			http.Error(w, "event_id and url required", http.StatusBadRequest)
+			return
+		}
+		ev, err := db.GetByID(req.EventID)
+		if err != nil {
+			http.Error(w, "event not found", http.StatusNotFound)
+			return
+		}
+		fwdReq, err := http.NewRequest("POST", req.URL, bytes.NewBufferString(ev.RawJSON))
+		if err != nil {
+			http.Error(w, "invalid URL", http.StatusBadRequest)
+			return
+		}
+		fwdReq.Header.Set("Content-Type", "application/json")
+		fwdReq.Header.Set("X-Dread-Source", ev.Source)
+		fwdReq.Header.Set("X-Dread-Event-ID", ev.ID)
+		fwdReq.Header.Set("X-Dread-Replay", "true")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(fwdReq)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		resp.Body.Close()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true, "status": resp.StatusCode})
+	})
+
+	// Digest API — summary of recent events
+	mux.HandleFunc("GET /api/digest", func(w http.ResponseWriter, r *http.Request) {
+		channelsParam := r.URL.Query().Get("channels")
+		if channelsParam == "" {
+			http.Error(w, "missing channels parameter", http.StatusBadRequest)
+			return
+		}
+		channels := strings.Split(channelsParam, ",")
+		hours := 24
+		if h := r.URL.Query().Get("hours"); h != "" {
+			if n, err := strconv.Atoi(h); err == nil && n > 0 && n <= 720 {
+				hours = n
+			}
+		}
+		since := time.Now().UTC().Add(-time.Duration(hours) * time.Hour)
+		total, bySrc, top, err := db.DigestStats(channels, since)
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			log.Printf("digest: %v", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"total":     total,
+			"by_source": bySrc,
+			"top":       top,
+			"period":    fmt.Sprintf("last %dh", hours),
+		})
+	})
+
+	// Status API — last event per channel for a workspace
+	mux.HandleFunc("GET /api/status/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		ws, err := db.GetWorkspace(id)
+		if err != nil {
+			http.Error(w, "workspace not found", http.StatusNotFound)
+			return
+		}
+		var channels []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal([]byte(ws.Channels), &channels); err != nil {
+			http.Error(w, "invalid workspace data", http.StatusInternalServerError)
+			return
+		}
+		chIDs := make([]string, len(channels))
+		for i, ch := range channels {
+			chIDs[i] = ch.ID
+		}
+		lastEvents, err := db.LastEventPerChannel(chIDs)
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			return
+		}
+		type channelStatus struct {
+			ID        string       `json:"id"`
+			Name      string       `json:"name"`
+			LastEvent *event.Event `json:"last_event,omitempty"`
+		}
+		result := make([]channelStatus, len(channels))
+		for i, ch := range channels {
+			result[i] = channelStatus{ID: ch.ID, Name: ch.Name, LastEvent: lastEvents[ch.ID]}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	})
+
 	// Install script
 	mux.HandleFunc("GET /install", func(w http.ResponseWriter, r *http.Request) {
 		db.Increment("install_downloads")
@@ -169,6 +341,8 @@ func main() {
 	builtDocs := buildPage(docsPage)
 	builtChangelog := buildPage(changelogPage)
 	builtDashboard := buildPage(dashboardPage)
+	builtHowTo := buildPage(howToPage)
+	builtStatusTemplate := buildPage(statusPage)
 
 	// Dashboard page
 	mux.HandleFunc("GET /dashboard", func(w http.ResponseWriter, r *http.Request) {
@@ -186,6 +360,20 @@ func main() {
 	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(builtDocs))
+	})
+
+	// How To page
+	mux.HandleFunc("GET /howto", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(builtHowTo))
+	})
+
+	// Status page (public, per workspace)
+	mux.HandleFunc("GET /status/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		page := strings.Replace(builtStatusTemplate, "{{WORKSPACE_ID}}", id, -1)
+		w.Write([]byte(page))
 	})
 
 	// Landing page
@@ -262,6 +450,7 @@ const navHTML = `<nav>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
       <a href="/changelog">Changelog</a>
+      <a href="/howto">How To</a>
       <a href="/dashboard">Dashboard</a>
       <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
       <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
@@ -1084,12 +1273,32 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     <div class="feat">
       <div class="feat-icon ic-violet"><i data-lucide="plug"></i></div>
       <h3>Works with everything</h3>
-      <p>Any service that sends webhooks &mdash; just paste the URL.</p>
+      <p>Auto-detects 60+ sources &mdash; Stripe, GitHub, Vercel, and more. Just paste the URL.</p>
     </div>
     <div class="feat">
       <div class="feat-icon ic-amber"><i data-lucide="layout-dashboard"></i></div>
       <h3>Web dashboard</h3>
       <p>View live events in the <a href="/dashboard" style="color:var(--amber)">browser</a> &mdash; no install needed.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-cyan"><i data-lucide="message-square"></i></div>
+      <h3>Slack / Discord</h3>
+      <p>Forward events as rich messages to Slack or Discord channels.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-rose"><i data-lucide="download"></i></div>
+      <h3>Export &amp; Digest</h3>
+      <p>Export events as JSON/CSV. Get daily digest summaries by source.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-green"><i data-lucide="activity"></i></div>
+      <h3>Status page</h3>
+      <p>Public <a href="/status/demo" style="color:var(--accent)">status page</a> per workspace with live freshness indicators.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-orange"><i data-lucide="bell-off"></i></div>
+      <h3>Mute &amp; Alerts</h3>
+      <p>Mute noisy channels. Set threshold alerts for event spikes.</p>
     </div>
   </div>
 </div>
@@ -1122,7 +1331,19 @@ dread remove &lt;id&gt;           <span class="c"># remove a channel</span></cod
     <div class="cmd-group">
       <div class="cmd-group-header">Notifications</div>
       <pre><code>dread watch                 <span class="c"># headless mode</span>
-dread watch --filter stripe <span class="c"># filtered</span></code></pre>
+dread watch --filter stripe <span class="c"># filtered</span>
+dread watch --slack &lt;url&gt;   <span class="c"># forward to Slack</span>
+dread watch --discord &lt;url&gt; <span class="c"># forward to Discord</span>
+dread mute &lt;id&gt;             <span class="c"># silence a channel</span>
+dread unmute &lt;id&gt;           <span class="c"># unmute a channel</span></code></pre>
+    </div>
+    <div class="cmd-group">
+      <div class="cmd-group-header">Data &amp; Alerts</div>
+      <pre><code>dread digest                <span class="c"># event summary (24h)</span>
+dread digest --hours 8      <span class="c"># custom window</span>
+dread alert add &lt;p&gt; &lt;n&gt; &lt;m&gt; <span class="c"># threshold alert</span>
+dread alert list            <span class="c"># list rules</span>
+dread alert remove &lt;idx&gt;    <span class="c"># remove a rule</span></code></pre>
     </div>
     <div class="cmd-group">
       <div class="cmd-group-header">Development</div>
@@ -1601,11 +1822,20 @@ const docsPage = `<!DOCTYPE html>
       <a href="#desktop-notifs">Desktop Notifications</a>
       <a href="#watch-mode">Watch Mode</a>
       <a href="#filtering">Filtering Events</a>
+      <a href="#muting">Muting Channels</a>
+      <a href="#alert-rules">Alert Rules</a>
     </div>
     <div class="docs-sidebar-group">
       <div class="docs-sidebar-label">Forwarding &amp; Replay</div>
       <a href="#forward">Forward to Localhost</a>
+      <a href="#slack-discord-fwd">Slack / Discord</a>
       <a href="#replay">Replay Past Events</a>
+    </div>
+    <div class="docs-sidebar-group">
+      <div class="docs-sidebar-label">Data &amp; Tools</div>
+      <a href="#export">Export Events</a>
+      <a href="#digest">Daily Digest</a>
+      <a href="#status-page-doc">Status Page</a>
     </div>
     <div class="docs-sidebar-group">
       <div class="docs-sidebar-label">Web Dashboard</div>
@@ -1844,21 +2074,20 @@ const docsPage = `<!DOCTYPE html>
 
     <section class="docs-section" id="supported-sources">
       <h3>Supported Sources</h3>
-      <p>dread auto-detects the following webhook sources and extracts structured event data:</p>
+      <p>dread auto-detects <strong>60+</strong> webhook sources from HTTP headers. Any unrecognised source is labelled "webhook" &mdash; or set <code>X-Dread-Source</code> to name it yourself.</p>
       <table>
-        <tr><th>Source</th><th>Detection Header</th><th>Example Summary</th></tr>
-        <tr><td>Stripe</td><td><code>Stripe-Signature</code></td><td>charge.succeeded $120.00 Visa ending 4242</td></tr>
-        <tr><td>GitHub</td><td><code>X-GitHub-Event</code></td><td>pull_request.merged #139 → main</td></tr>
-        <tr><td>Shopify</td><td><code>X-Shopify-Topic</code></td><td>orders/create Order #1042</td></tr>
-        <tr><td>Twilio</td><td><code>X-Twilio-Signature</code></td><td>SMS received from +1234567890</td></tr>
-        <tr><td>SendGrid</td><td><code>X-Twilio-Email-Event-Webhook-Signature</code></td><td>email.delivered to user@example.com</td></tr>
-        <tr><td>Slack</td><td><code>X-Slack-Signature</code></td><td>message in #deployments by nigel</td></tr>
-        <tr><td>Discord</td><td><code>X-Signature-Ed25519</code></td><td>INTERACTION_CREATE slash command</td></tr>
-        <tr><td>Linear</td><td><code>Linear-Delivery</code></td><td>Issue.update DRD-42 → In Review</td></tr>
-        <tr><td>Svix</td><td><code>Svix-Id</code></td><td>message.attempt.completed</td></tr>
-        <tr><td>Paddle</td><td><code>Paddle-Signature</code></td><td>subscription.activated sub_01h...</td></tr>
+        <tr><th>Category</th><th>Sources</th></tr>
+        <tr><td>Payment &amp; Finance</td><td>Stripe, PayPal, Square, Razorpay, Paddle, Recurly, Coinbase, Plaid, Xero, QuickBooks</td></tr>
+        <tr><td>Dev &amp; Code</td><td>GitHub, GitLab, Bitbucket, CircleCI, Travis CI, Buildkite</td></tr>
+        <tr><td>Infrastructure</td><td>Vercel, Heroku, AWS SNS, Cloudflare</td></tr>
+        <tr><td>Communication</td><td>Slack, Discord, Twilio, SendGrid, Mailchimp, Zendesk, Telegram, LINE</td></tr>
+        <tr><td>Project Management</td><td>Linear, Jira, Notion, Trello, Airtable</td></tr>
+        <tr><td>Monitoring</td><td>Sentry, PagerDuty, Grafana, Pingdom</td></tr>
+        <tr><td>CMS &amp; Commerce</td><td>Shopify, WooCommerce, Contentful, Sanity, BigCommerce</td></tr>
+        <tr><td>Auth &amp; Identity</td><td>Auth0, WorkOS, Svix (Clerk, Resend)</td></tr>
+        <tr><td>Database</td><td>Supabase, PlanetScale</td></tr>
+        <tr><td>SaaS</td><td>HubSpot, Typeform, Calendly, DocuSign, Zoom, Figma, Knock, Novu, LaunchDarkly, Customer.io, Pusher, Ably, Twitch, Zapier</td></tr>
       </table>
-      <p>Any unrecognised source is labelled "webhook" with the raw event type if available.</p>
     </section>
 
     <section class="docs-section" id="custom-webhooks">
@@ -2049,7 +2278,74 @@ const docsPage = `<!DOCTYPE html>
         <li><strong>Tab notifications</strong> &mdash; unread event count appears in the browser tab title when the tab is in the background</li>
         <li><strong>Theme toggle</strong> &mdash; dark/light theme, same as the rest of the site</li>
         <li><strong>Mobile responsive</strong> &mdash; sidebar collapses to a hamburger menu on small screens</li>
+        <li><strong>Mute toggle</strong> &mdash; per-channel mute via localStorage, suppresses browser notifications</li>
+        <li><strong>Export</strong> &mdash; download events as JSON or CSV from the toolbar</li>
+        <li><strong>Replay</strong> &mdash; re-send any event to a URL from the event detail view</li>
       </ul>
+    </section>
+
+    <!-- MUTING -->
+    <section class="docs-section" id="muting">
+      <h2>Muting Channels</h2>
+      <p>Temporarily silence a noisy channel without unsubscribing:</p>
+      <pre><code>dread mute ch_noisy_abc123
+dread unmute ch_noisy_abc123</code></pre>
+      <p>Muted channels continue receiving events server-side but won't trigger desktop notifications in watch mode or the TUI. The dashboard also offers a per-channel mute toggle saved in localStorage.</p>
+    </section>
+
+    <!-- ALERT RULES -->
+    <section class="docs-section" id="alert-rules">
+      <h2>Alert Rules</h2>
+      <p>Set threshold alerts to fire when a pattern matches too many events in a time window:</p>
+      <pre><code># Alert when 5+ sentry events in 10 minutes
+dread alert add sentry 5 10
+
+# List configured rules
+dread alert list
+
+# Remove a rule by index
+dread alert remove 0</code></pre>
+      <p>When the threshold is reached, you'll get a desktop notification. If Slack/Discord forwarding is configured, the alert is forwarded there too. Counters are in-memory and reset on restart.</p>
+    </section>
+
+    <!-- SLACK / DISCORD FORWARDING -->
+    <section class="docs-section" id="slack-discord-fwd">
+      <h2>Slack / Discord Forwarding</h2>
+      <p>Forward webhook events to Slack or Discord in real time via <code>dread watch</code>:</p>
+      <pre><code>dread watch --slack https://hooks.slack.com/services/T.../B.../xxx
+dread watch --discord https://discord.com/api/webhooks/123/abc</code></pre>
+      <p>Or set the URLs in <code>~/.config/dread/config.json</code>:</p>
+      <pre><code>{
+  "slack_url": "https://hooks.slack.com/services/...",
+  "discord_url": "https://discord.com/api/webhooks/..."
+}</code></pre>
+      <p>Forwarding runs client-side in your <code>dread watch</code> process. Events are sent as rich messages &mdash; Slack uses blocks, Discord uses embeds.</p>
+    </section>
+
+    <!-- EXPORT -->
+    <section class="docs-section" id="export">
+      <h2>Export Events</h2>
+      <p>Download events as JSON or CSV via the API (capped at 1000 per request):</p>
+      <pre><code>curl "https://dread.sh/api/export?channels=ch_xxx&amp;format=csv" -o events.csv
+curl "https://dread.sh/api/export?channels=ch_xxx&amp;format=json" -o events.json</code></pre>
+      <p>The dashboard also includes an Export button in the toolbar.</p>
+    </section>
+
+    <!-- DIGEST -->
+    <section class="docs-section" id="digest">
+      <h2>Daily Digest</h2>
+      <p>Get a summary of recent event activity:</p>
+      <pre><code>dread digest            # last 24 hours
+dread digest --hours 8  # last 8 hours</code></pre>
+      <p>Shows total event count, breakdown by source, and the 10 most recent events. Also available via API: <code>GET /api/digest?channels=ch_xxx&amp;hours=24</code></p>
+    </section>
+
+    <!-- STATUS PAGE -->
+    <section class="docs-section" id="status-page-doc">
+      <h2>Status Page</h2>
+      <p>Every workspace gets a public status page showing channel freshness:</p>
+      <pre><code>https://dread.sh/status/ws_abc123def456</code></pre>
+      <p>Channels are colour-coded by time since last event: green (&lt;5min), yellow (&lt;30min), red (&gt;30min), grey (no events). The page auto-refreshes every 30 seconds.</p>
     </section>
 
   </main>
@@ -2268,6 +2564,44 @@ const changelogPage = `<!DOCTYPE html>
 <div class="changelog">
   <h1>Changelog</h1>
   <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">10 New Features</div>
+    <ul>
+      <li><strong>Health endpoint</strong> &mdash; <code>GET /health</code> returns server status, uptime, and event count</li>
+      <li><strong>10 new payload parsers</strong> &mdash; rich summaries for Vercel, Sentry, PagerDuty, Jira, GitLab, PayPal, AWS SNS, Twitch, HubSpot, and Typeform</li>
+      <li><strong>Event retention</strong> &mdash; automatic cleanup of events older than <code>DREAD_RETENTION_DAYS</code> (default 30)</li>
+      <li><strong>Channel muting</strong> &mdash; <code>dread mute/unmute</code> to silence channels without unsubscribing; also in TUI and dashboard (localStorage)</li>
+      <li><strong>Slack/Discord forwarding</strong> &mdash; <code>dread watch --slack</code> / <code>--discord</code> to forward events as rich messages</li>
+      <li><strong>Event export</strong> &mdash; <code>GET /api/export</code> downloads events as JSON or CSV (capped at 1000); dashboard export button</li>
+      <li><strong>Webhook replay</strong> &mdash; <code>POST /api/replay</code> re-sends any event to a URL; replay button in the dashboard</li>
+      <li><strong>Daily digest</strong> &mdash; <code>dread digest</code> and <code>GET /api/digest</code> for event summaries by source</li>
+      <li><strong>Threshold alerts</strong> &mdash; <code>dread alert add</code> fires notification + Slack/Discord when a pattern exceeds N events in M minutes</li>
+      <li><strong>Status page</strong> &mdash; <code>/status/ws_xxx</code> shows live channel freshness with colour-coded cards and 30s auto-refresh</li>
+      <li><strong><a href="/howto">How To guide</a></strong> &mdash; step-by-step setup for 14+ services, team features, alerts, export, and more</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">60+ auto-detected webhook sources</div>
+    <ul>
+      <li>Auto-detects webhook sources from HTTP headers — no configuration needed</li>
+      <li>Payment: Stripe, PayPal, Square, Razorpay, Paddle, Recurly, Coinbase, Plaid, Xero, QuickBooks</li>
+      <li>Dev: GitHub, GitLab, Bitbucket, CircleCI, Travis CI, Buildkite</li>
+      <li>Infrastructure: Vercel, Heroku, AWS SNS, Cloudflare</li>
+      <li>Communication: Slack, Discord, Twilio, SendGrid, Mailchimp, Zendesk, Telegram, LINE</li>
+      <li>Project management: Linear, Jira, Notion, Trello, Airtable</li>
+      <li>Monitoring: Sentry, PagerDuty, Grafana, Pingdom</li>
+      <li>Commerce: Shopify, WooCommerce, Contentful, Sanity, BigCommerce</li>
+      <li>Auth: Auth0, WorkOS, Svix (Clerk, Resend)</li>
+      <li>Database: Supabase, PlanetScale</li>
+      <li>SaaS: HubSpot, Typeform, Calendly, DocuSign, Zoom, Figma, Twitch, LaunchDarkly, and more</li>
+      <li>User-Agent fallback detection for Zapier, Pingdom, WooCommerce, and others</li>
+      <li>Custom sources via <code>X-Dread-Source</code> header for anything else</li>
+    </ul>
+  </div>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>
@@ -2857,6 +3191,8 @@ const dashboardPage = `<!DOCTYPE html>
         <span id="status-text">Connecting...</span>
       </div>
       <button class="pause-btn" id="pause-btn" onclick="togglePause()"><i data-lucide="pause"></i><span id="pause-label">Pause</span><span class="pause-badge" id="pause-badge"></span></button>
+      <button class="pause-btn" onclick="exportEvents('json')">Export JSON</button>
+      <button class="pause-btn" onclick="exportEvents('csv')">Export CSV</button>
       <input type="text" class="filter-input" id="filter-input" placeholder="Filter by source, type, channel...">
       <span class="event-count" id="event-count"></span>
     </div>
@@ -3392,6 +3728,676 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
 }
+
+// Export events
+function exportEvents(format) {
+  if (!state.channelIds || state.channelIds.length === 0) { alert('No channels connected'); return; }
+  window.open('/api/export?channels=' + state.channelIds.join(',') + '&format=' + format, '_blank');
+}
+
+// Channel muting (localStorage)
+function getMutedChannels() {
+  try { return JSON.parse(localStorage.getItem('dread_muted') || '[]'); } catch(e) { return []; }
+}
+function setMutedChannels(list) {
+  localStorage.setItem('dread_muted', JSON.stringify(list));
+}
+function isChannelMuted(chId) {
+  return getMutedChannels().indexOf(chId) >= 0;
+}
+function toggleMuteChannel(chId) {
+  var list = getMutedChannels();
+  var idx = list.indexOf(chId);
+  if (idx >= 0) { list.splice(idx, 1); } else { list.push(chId); }
+  setMutedChannels(list);
+}
+
+// Replay event from dashboard
+function replayEvent(eventId) {
+  var url = prompt('Enter the URL to forward this event to:');
+  if (!url) return;
+  fetch('/api/replay', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({event_id: eventId, url: url})
+  }).then(function(res) { return res.json(); }).then(function(data) {
+    if (data.ok) { alert('Replayed successfully (status ' + data.status + ')'); }
+    else { alert('Replay failed: ' + (data.error || 'unknown error')); }
+  }).catch(function(e) { alert('Error: ' + e); });
+}
+</script>
+</body>
+</html>`
+
+const statusPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>Status | dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --border-subtle: oklch(18% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(65% 0.1 40);
+    --nav-bg: oklch(10% 0.003 256 / 0.85);
+    --green: oklch(72% 0.19 145);
+    --yellow: oklch(82% 0.18 90);
+    --red: oklch(65% 0.2 25);
+    --grey: oklch(50% 0.003 256);
+  }
+  :root.light {
+    --bg: oklch(98% 0.003 256); --surface: oklch(97% 0.003 256);
+    --surface-hover: oklch(94% 0.003 256); --border: oklch(85% 0.003 256);
+    --border-subtle: oklch(90% 0.003 256); --text: oklch(15% 0.003 256);
+    --text-secondary: oklch(35% 0.003 256); --text-muted: oklch(50% 0.003 256);
+    --text-dim: oklch(65% 0.003 256); --accent: oklch(50% 0.12 40);
+    --nav-bg: oklch(98% 0.003 256 / 0.85);
+    --green: oklch(45% 0.2 145); --yellow: oklch(55% 0.18 90);
+    --red: oklch(50% 0.2 25); --grey: oklch(60% 0.003 256);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 18px; }
+  body {
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text-secondary);
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
+  /*! NAV_CSS */
+  .status-wrap { max-width: 920px; margin: 0 auto; padding: 80px 24px 120px; }
+  .status-wrap h1 { font-size: 1.5rem; color: var(--text); font-weight: 700; margin-bottom: 4px; }
+  .status-wrap .sub { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 32px; }
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .status-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; transition: border-color 0.2s;
+  }
+  .status-card:hover { border-color: var(--accent); }
+  .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .card-name { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+  .card-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .card-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .card-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .card-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .card-dot.grey { background: var(--grey); }
+  .card-detail { font-size: 0.78rem; color: var(--text-muted); }
+  .card-summary { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+  .refresh-note { font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+<div class="status-wrap">
+  <h1>Channel Status</h1>
+  <p class="sub">Workspace <code>{{WORKSPACE_ID}}</code> &mdash; auto-refreshes every 30s</p>
+  <div class="status-grid" id="grid"></div>
+  <p class="refresh-note" id="note"></p>
+</div>
+<script>
+const WS_ID = '{{WORKSPACE_ID}}';
+function ago(ts) {
+  const d = Date.now() - new Date(ts).getTime();
+  if (d < 60000) return Math.floor(d/1000) + 's ago';
+  if (d < 3600000) return Math.floor(d/60000) + 'm ago';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h ago';
+  return Math.floor(d/86400000) + 'd ago';
+}
+function colour(ts) {
+  if (!ts) return 'grey';
+  const d = Date.now() - new Date(ts).getTime();
+  if (d < 300000) return 'green';
+  if (d < 1800000) return 'yellow';
+  return 'red';
+}
+async function load() {
+  try {
+    const r = await fetch('/api/status/' + WS_ID);
+    if (!r.ok) { document.getElementById('grid').innerHTML = '<p style="color:var(--text-muted)">Workspace not found</p>'; return; }
+    const channels = await r.json();
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    channels.forEach(function(ch) {
+      const le = ch.last_event;
+      const ts = le ? le.timestamp : null;
+      const c = colour(ts);
+      const card = document.createElement('div');
+      card.className = 'status-card';
+      card.innerHTML = '<div class="card-top"><span class="card-name">' + ch.name + '</span><span class="card-dot ' + c + '"></span></div>' +
+        '<div class="card-detail">' + (ts ? ago(ts) + ' &mdash; ' + (le.source || '') : 'No events yet') + '</div>' +
+        (le ? '<div class="card-summary">' + le.summary + '</div>' : '');
+      grid.appendChild(card);
+    });
+    document.getElementById('note').textContent = 'Last checked: ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('note').textContent = 'Error loading status';
+  }
+}
+load();
+setInterval(load, 30000);
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
+lucide.createIcons();
+</script>
+</body>
+</html>`
+
+const howToPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>How To | dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --border-subtle: oklch(18% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(65% 0.1 40);
+    --accent-dim: oklch(47% 0.09 36);
+    --accent-glow: oklch(55% 0.1 38 / 0.15);
+    --accent-glow-strong: oklch(55% 0.1 38 / 0.3);
+    --orange: oklch(75% 0.18 55);
+    --violet: oklch(70.2% 0.183 293.54);
+    --nav-bg: oklch(10% 0.003 256 / 0.85);
+  }
+  :root.light {
+    --bg: oklch(98% 0.003 256); --surface: oklch(97% 0.003 256);
+    --surface-hover: oklch(94% 0.003 256); --border: oklch(85% 0.003 256);
+    --border-subtle: oklch(90% 0.003 256); --text: oklch(15% 0.003 256);
+    --text-secondary: oklch(35% 0.003 256); --text-muted: oklch(50% 0.003 256);
+    --text-dim: oklch(65% 0.003 256); --accent: oklch(50% 0.12 40);
+    --accent-dim: oklch(40% 0.1 36); --accent-glow: oklch(50% 0.12 40 / 0.1);
+    --accent-glow-strong: oklch(50% 0.12 40 / 0.2);
+    --orange: oklch(55% 0.18 55); --violet: oklch(50% 0.183 293.54);
+    --nav-bg: oklch(98% 0.003 256 / 0.85);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overscroll-behavior: none; }
+  html { font-size: 18px; }
+  body {
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text-secondary);
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  code, pre, kbd { font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace; }
+  /*! NAV_CSS */
+
+  .docs-layout { display: flex; min-height: 100vh; padding-top: 56px; }
+  .docs-sidebar {
+    width: 260px; position: fixed; top: 56px; bottom: 0; left: 0;
+    border-right: 1px solid var(--border); background: var(--bg);
+    overflow-y: auto; padding: 24px 0; z-index: 50;
+  }
+  .docs-sidebar::-webkit-scrollbar { width: 4px; }
+  .docs-sidebar::-webkit-scrollbar-track { background: transparent; }
+  .docs-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .docs-sidebar-group { margin-bottom: 8px; }
+  .docs-sidebar-label {
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted);
+    padding: 8px 24px 4px; font-weight: 600;
+  }
+  .docs-sidebar a {
+    display: block; padding: 5px 24px 5px 28px;
+    font-size: 0.8rem; color: var(--text-muted);
+    text-decoration: none; transition: color 0.15s, background 0.15s;
+    border-left: 2px solid transparent; margin-left: -1px;
+  }
+  .docs-sidebar a:hover { color: var(--text); }
+  .docs-sidebar a.active { color: var(--accent); background: var(--accent-glow); border-left-color: var(--accent); }
+
+  .docs-content {
+    margin-left: 260px; flex: 1;
+    max-width: 920px; padding: 48px 48px 120px;
+  }
+  .docs-section { margin-bottom: 64px; scroll-margin-top: 80px; }
+  .docs-section h2 { font-size: 1.5rem; color: var(--text); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .docs-section h3 { font-size: 1.1rem; color: var(--text); font-weight: 600; letter-spacing: -0.01em; margin: 32px 0 12px; }
+  .docs-section h3:first-child { margin-top: 0; }
+  .docs-section p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; }
+  .docs-section ol, .docs-section ul { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7; margin: 0 0 16px 20px; }
+  .docs-section li { margin-bottom: 4px; }
+  .docs-section code { font-size: 0.8rem; background: var(--surface); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+  .code-block { position: relative; }
+  .code-block pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px; overflow-x: auto;
+    font-size: 0.8rem; margin-bottom: 16px; line-height: 1.7;
+  }
+  .code-block pre code { background: none; padding: 0; color: var(--text); border-radius: 0; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--surface-hover); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer;
+    font-size: 0.7rem; color: var(--text-muted); transition: color 0.15s;
+  }
+  .copy-btn:hover { color: var(--text); }
+  .docs-section .section-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 32px 0; }
+  .expect { background: var(--accent-glow); border: 1px solid var(--accent-glow-strong); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.83rem; }
+
+  .sidebar-overlay { display: none; }
+  @media (max-width: 768px) {
+    .docs-sidebar { display: none; }
+    .docs-sidebar.open { display: block; width: 260px; z-index: 200; }
+    .sidebar-overlay.open { display: block; position: fixed; inset: 0; z-index: 199; background: oklch(0% 0 0 / 0.5); }
+    .docs-content { margin-left: 0; padding: 24px 16px 80px; }
+    .docs-menu-btn { display: flex !important; }
+  }
+</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div class="docs-layout">
+<aside class="docs-sidebar" id="sidebar">
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Getting Started</div>
+    <a href="#quick-setup" class="active">Quick Setup</a>
+    <a href="#first-webhook">Your First Webhook</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Connect Services</div>
+    <a href="#stripe">Stripe</a>
+    <a href="#github">GitHub</a>
+    <a href="#vercel">Vercel</a>
+    <a href="#sentry">Sentry</a>
+    <a href="#shopify">Shopify</a>
+    <a href="#gitlab">GitLab</a>
+    <a href="#jira">Jira</a>
+    <a href="#pagerduty">PagerDuty</a>
+    <a href="#slack-source">Slack</a>
+    <a href="#discord-source">Discord</a>
+    <a href="#linear">Linear</a>
+    <a href="#paypal">PayPal</a>
+    <a href="#aws-sns">AWS SNS</a>
+    <a href="#custom-source">Custom / Other</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Team Features</div>
+    <a href="#workspaces">Workspaces</a>
+    <a href="#slack-discord">Slack / Discord Integration</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Notifications</div>
+    <a href="#desktop-notifs">Desktop Notifications</a>
+    <a href="#filtering">Filtering</a>
+    <a href="#muting">Muting Channels</a>
+    <a href="#alert-rules">Alert Rules</a>
+  </div>
+  <div class="docs-sidebar-group">
+    <div class="docs-sidebar-label">Data &amp; Tools</div>
+    <a href="#dashboard-usage">Dashboard</a>
+    <a href="#replay">Replay</a>
+    <a href="#export">Export</a>
+    <a href="#digest">Digest</a>
+    <a href="#status-page">Status Page</a>
+  </div>
+</aside>
+
+<main class="docs-content">
+
+<!-- GETTING STARTED -->
+<section id="quick-setup" class="docs-section">
+<h2>Quick Setup</h2>
+<p>Get dread running in under a minute.</p>
+<ol>
+<li>Install dread:</li>
+</ol>
+<div class="code-block"><pre><code>curl -fsSL https://dread.sh/install | sh</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="2">
+<li>Create your first channel:</li>
+</ol>
+<div class="code-block"><pre><code>dread new "Stripe Prod"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>This prints a webhook URL like <code>https://dread.sh/wh/ch_stripe-prod_abc123</code>. Copy it.</p>
+<ol start="3">
+<li>Start the TUI:</li>
+</ol>
+<div class="code-block"><pre><code>dread</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">You should see the dread TUI with your channel listed, waiting for events.</div>
+</section>
+
+<section id="first-webhook" class="docs-section">
+<h2>Your First Webhook</h2>
+<p>Send a test event to verify everything works:</p>
+<div class="code-block"><pre><code>dread test ch_stripe-prod_abc123</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">You should see a test event appear in the TUI and get a desktop notification.</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- CONNECT SERVICES -->
+<section id="stripe" class="docs-section">
+<h2>Connect Stripe</h2>
+<ol>
+<li>Go to <strong>Stripe Dashboard &rarr; Developers &rarr; Webhooks</strong></li>
+<li>Click <strong>Add endpoint</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select the events you want (or choose all)</li>
+<li>Click <strong>Add endpoint</strong></li>
+</ol>
+<div class="expect">Stripe events (payments, subscriptions, etc.) will appear in dread with parsed summaries showing amounts and statuses.</div>
+</section>
+
+<section id="github" class="docs-section">
+<h2>Connect GitHub</h2>
+<ol>
+<li>Go to your repo <strong>Settings &rarr; Webhooks &rarr; Add webhook</strong></li>
+<li>Paste your dread webhook URL in <strong>Payload URL</strong></li>
+<li>Set Content type to <code>application/json</code></li>
+<li>Choose which events to send (or select all)</li>
+<li>Click <strong>Add webhook</strong></li>
+</ol>
+<div class="expect">Push, PR, issue, star, and release events will show parsed summaries with branch names, PR titles, and authors.</div>
+</section>
+
+<section id="vercel" class="docs-section">
+<h2>Connect Vercel</h2>
+<ol>
+<li>Go to your project <strong>Settings &rarr; Webhooks</strong> (or account-level settings)</li>
+<li>Click <strong>Create Webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select the events you want</li>
+</ol>
+<div class="expect">Deployment and project events will appear with project names.</div>
+</section>
+
+<section id="sentry" class="docs-section">
+<h2>Connect Sentry</h2>
+<ol>
+<li>Go to <strong>Settings &rarr; Integrations &rarr; Internal Integrations</strong></li>
+<li>Create a new integration and add a <strong>Webhook URL</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Subscribe to issue and error events</li>
+</ol>
+<div class="expect">Error and issue alerts will show the issue title in the summary.</div>
+</section>
+
+<section id="shopify" class="docs-section">
+<h2>Connect Shopify</h2>
+<ol>
+<li>Go to <strong>Settings &rarr; Notifications &rarr; Webhooks</strong></li>
+<li>Click <strong>Create webhook</strong></li>
+<li>Choose event topic and paste your dread URL</li>
+<li>Set format to JSON</li>
+</ol>
+<div class="expect">Order and product events will show order numbers and totals.</div>
+</section>
+
+<section id="gitlab" class="docs-section">
+<h2>Connect GitLab</h2>
+<ol>
+<li>Go to your project <strong>Settings &rarr; Webhooks</strong></li>
+<li>Paste your dread URL</li>
+<li>Select triggers (push, MR, pipeline, etc.)</li>
+<li>Click <strong>Add webhook</strong></li>
+</ol>
+<div class="expect">Push, merge request, issue, and pipeline events will show branch names, MR titles, and pipeline statuses.</div>
+</section>
+
+<section id="jira" class="docs-section">
+<h2>Connect Jira</h2>
+<ol>
+<li>Go to <strong>Settings &rarr; System &rarr; WebHooks</strong></li>
+<li>Click <strong>Create a WebHook</strong></li>
+<li>Paste your dread URL</li>
+<li>Select issue events</li>
+</ol>
+<div class="expect">Issue events will show the Jira issue key and summary.</div>
+</section>
+
+<section id="pagerduty" class="docs-section">
+<h2>Connect PagerDuty</h2>
+<ol>
+<li>Go to <strong>Integrations &rarr; Generic Webhooks (v3)</strong></li>
+<li>Add a new subscription with your dread URL</li>
+<li>Select incident events</li>
+</ol>
+<div class="expect">Incident triggers and resolves will show the incident title.</div>
+</section>
+
+<section id="slack-source" class="docs-section">
+<h2>Connect Slack (as source)</h2>
+<ol>
+<li>Create a Slack app at <strong>api.slack.com/apps</strong></li>
+<li>Under <strong>Event Subscriptions</strong>, enable events</li>
+<li>Set your dread URL as the Request URL</li>
+<li>Subscribe to events like <code>message.channels</code></li>
+</ol>
+<div class="expect">Slack messages and events will appear with their text content.</div>
+</section>
+
+<section id="discord-source" class="docs-section">
+<h2>Connect Discord (as source)</h2>
+<ol>
+<li>Create a Discord app at <strong>discord.com/developers</strong></li>
+<li>Under <strong>General Information</strong>, set your Interactions Endpoint URL to your dread URL</li>
+</ol>
+<div class="expect">Discord interactions (commands, pings) will appear in dread.</div>
+</section>
+
+<section id="linear" class="docs-section">
+<h2>Connect Linear</h2>
+<ol>
+<li>Go to <strong>Settings &rarr; API &rarr; Webhooks</strong></li>
+<li>Click <strong>New webhook</strong></li>
+<li>Paste your dread URL and select resources</li>
+</ol>
+<div class="expect">Issue and project updates will show the identifier and title.</div>
+</section>
+
+<section id="paypal" class="docs-section">
+<h2>Connect PayPal</h2>
+<ol>
+<li>Go to <strong>Developer Dashboard &rarr; Webhooks</strong></li>
+<li>Click <strong>Add Webhook</strong></li>
+<li>Paste your dread URL and select event types</li>
+</ol>
+<div class="expect">Payment events will show amounts and statuses.</div>
+</section>
+
+<section id="aws-sns" class="docs-section">
+<h2>Connect AWS SNS</h2>
+<ol>
+<li>Go to <strong>SNS &rarr; Subscriptions &rarr; Create subscription</strong></li>
+<li>Set protocol to HTTPS</li>
+<li>Paste your dread URL as the endpoint</li>
+<li>Confirm the subscription (dread will log the confirmation)</li>
+</ol>
+<div class="expect">SNS notifications will show the subject or message content.</div>
+</section>
+
+<section id="custom-source" class="docs-section">
+<h2>Custom / Any Service</h2>
+<p>Any service that sends JSON webhooks works with dread. Just point it at your channel URL. Add a header <code>X-Dread-Source: myservice</code> for custom source labelling.</p>
+<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
+  -H "Content-Type: application/json" \
+  -H "X-Dread-Source: myapp" \
+  -d '{"type":"deploy","message":"v1.2.3 deployed"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</section>
+
+<hr class="section-divider">
+
+<!-- TEAM FEATURES -->
+<section id="workspaces" class="docs-section">
+<h2>Workspaces</h2>
+<p>Share your channels with teammates so everyone gets the same notifications.</p>
+<ol>
+<li>Share your workspace ID:</li>
+</ol>
+<div class="code-block"><pre><code>dread share</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="2">
+<li>Teammates subscribe:</li>
+</ol>
+<div class="code-block"><pre><code>dread follow ws_abc123def456</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">New channels you create are automatically synced to followers on reconnect.</div>
+</section>
+
+<section id="slack-discord" class="docs-section">
+<h2>Slack / Discord Integration</h2>
+<p>Forward webhook events to a Slack or Discord channel in real time.</p>
+<div class="code-block"><pre><code># Via CLI flags
+dread watch --slack https://hooks.slack.com/services/T.../B.../xxx
+dread watch --discord https://discord.com/api/webhooks/123/abc</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Or set them permanently in your config (<code>~/.config/dread/config.json</code>):</p>
+<div class="code-block"><pre><code>{
+  "slack_url": "https://hooks.slack.com/services/...",
+  "discord_url": "https://discord.com/api/webhooks/..."
+}</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">Events will be forwarded as rich messages to your Slack/Discord channel while <code>dread watch</code> is running.</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- NOTIFICATIONS -->
+<section id="desktop-notifs" class="docs-section">
+<h2>Desktop Notifications</h2>
+<p>Run <code>dread watch</code> in the background to get native desktop notifications for all events. The installer sets this up automatically as a system service.</p>
+<div class="code-block"><pre><code>dread watch</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</section>
+
+<section id="filtering" class="docs-section">
+<h2>Filtering</h2>
+<p>Show only events matching a pattern:</p>
+<div class="code-block"><pre><code>dread watch --filter stripe
+dread --filter "payment_intent"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Matches against source, event type, and summary.</p>
+</section>
+
+<section id="muting" class="docs-section">
+<h2>Muting Channels</h2>
+<p>Temporarily silence a noisy channel:</p>
+<div class="code-block"><pre><code>dread mute ch_noisy_abc123
+dread unmute ch_noisy_abc123</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">Muted channels still receive events server-side but won't trigger notifications in watch mode or the TUI. The dashboard has a per-channel mute toggle (saved in localStorage).</div>
+</section>
+
+<section id="alert-rules" class="docs-section">
+<h2>Alert Rules</h2>
+<p>Get alerted when a pattern exceeds a threshold in a time window:</p>
+<div class="code-block"><pre><code># Alert if 5+ sentry events in 10 minutes
+dread alert add sentry 5 10
+
+# List rules
+dread alert list
+
+# Remove rule by index
+dread alert remove 0</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">When the threshold is hit, you get a desktop notification and the alert is forwarded to Slack/Discord if configured.</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- DATA & TOOLS -->
+<section id="dashboard-usage" class="docs-section">
+<h2>Dashboard</h2>
+<p>Open <a href="/dashboard" style="color:var(--violet)">/dashboard</a> in your browser. Enter your channel IDs to see a live event feed with auto-refresh, event detail view, and replay capability.</p>
+</section>
+
+<section id="replay" class="docs-section">
+<h2>Replay Events</h2>
+<p>Re-send a past event to any URL (useful for debugging):</p>
+<div class="code-block"><pre><code>dread replay evt_abc123 --forward https://localhost:3000/webhook</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>The dashboard also has a Replay button in the event detail view.</p>
+</section>
+
+<section id="export" class="docs-section">
+<h2>Export Events</h2>
+<p>Download events as JSON or CSV:</p>
+<div class="code-block"><pre><code># JSON export
+curl "https://dread.sh/api/export?channels=ch_xxx&format=json" -o events.json
+
+# CSV export
+curl "https://dread.sh/api/export?channels=ch_xxx&format=csv" -o events.csv</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>The dashboard includes an Export button in the toolbar. Exports are capped at 1000 events per request.</p>
+</section>
+
+<section id="digest" class="docs-section">
+<h2>Daily Digest</h2>
+<p>Get a summary of recent activity:</p>
+<div class="code-block"><pre><code># Last 24 hours (default)
+dread digest
+
+# Last 8 hours
+dread digest --hours 8</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">Shows total event count, breakdown by source, and the 10 most recent events.</div>
+</section>
+
+<section id="status-page" class="docs-section">
+<h2>Status Page</h2>
+<p>Every workspace gets a public status page showing channel freshness:</p>
+<div class="code-block"><pre><code>https://dread.sh/status/ws_abc123def456</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Channels are colour-coded: <span style="color:var(--accent)">green</span> (&lt;5min), <span style="color:oklch(82% 0.18 90)">yellow</span> (&lt;30min), <span style="color:oklch(65% 0.2 25)">red</span> (&gt;30min), grey (no events). Auto-refreshes every 30 seconds.</p>
+</section>
+
+</main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const code = btn.previousElementSibling.querySelector('code');
+  navigator.clipboard.writeText(code.textContent);
+  btn.textContent = 'Copied!';
+  setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+}
+
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
+
+// Sidebar active link tracking
+var links = document.querySelectorAll('.docs-sidebar a');
+var sections = [];
+links.forEach(function(a) {
+  var id = a.getAttribute('href');
+  if (id && id.startsWith('#')) {
+    var el = document.getElementById(id.slice(1));
+    if (el) sections.push({ el: el, link: a });
+  }
+});
+function updateActive() {
+  var scrollY = window.scrollY + 100;
+  var active = sections[0];
+  sections.forEach(function(s) { if (s.el.offsetTop <= scrollY) active = s; });
+  links.forEach(function(a) { a.classList.remove('active'); });
+  if (active) active.link.classList.add('active');
+}
+window.addEventListener('scroll', updateActive);
+updateActive();
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+document.getElementById('menu-btn').addEventListener('click', toggleSidebar);
+lucide.createIcons();
 </script>
 </body>
 </html>`

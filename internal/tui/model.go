@@ -57,11 +57,12 @@ type Model struct {
 	lastForwardOK  bool
 	lastForwardErr string
 
-	sound string
-	now   time.Time
+	sound  string
+	muted  map[string]bool
+	now    time.Time
 }
 
-func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string) Model {
+func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string) Model {
 	vp := viewport.New()
 	dvp := viewport.New()
 	ids := make([]string, len(channels))
@@ -69,6 +70,10 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 	for i, ch := range channels {
 		ids[i] = ch.ID
 		names[ch.ID] = ch.Name
+	}
+	mutedSet := make(map[string]bool, len(muted))
+	for _, m := range muted {
+		mutedSet[m] = true
 	}
 	m := Model{
 		serverURL:    serverURL,
@@ -78,6 +83,7 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 		viewport:     vp,
 		detailVP:     dvp,
 		sound:        sound,
+		muted:        mutedSet,
 		now:          time.Now(),
 	}
 	if forwardURL != "" {
@@ -158,7 +164,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = len(filtered) - 1
 			}
 			m.refreshViewport()
-			notify.Send(m.displayName(msg.Event.Channel), msg.Event.Summary, m.sound)
+			if !m.muted[msg.Event.Channel] {
+				notify.Send(m.displayName(msg.Event.Channel), msg.Event.Summary, m.sound)
+			}
 			if m.forwarder != nil {
 				cmds = append(cmds, forwardEvent(m.forwarder, &msg.Event))
 			}

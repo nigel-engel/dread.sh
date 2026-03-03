@@ -16,6 +16,14 @@ type Channel struct {
 	Name string `json:"name"`
 }
 
+// AlertRule defines a threshold alert that fires when a pattern
+// matches more than Threshold events within WindowMinutes.
+type AlertRule struct {
+	Pattern       string `json:"pattern"`
+	Threshold     int    `json:"threshold"`
+	WindowMinutes int    `json:"window_minutes"`
+}
+
 // UserConfig holds the user's local dread configuration.
 type UserConfig struct {
 	Token       string    `json:"token"`
@@ -23,6 +31,10 @@ type UserConfig struct {
 	WorkspaceID string    `json:"workspace_id,omitempty"`
 	Follows     []string  `json:"follows,omitempty"`
 	Sound       string    `json:"sound,omitempty"`
+	Muted       []string  `json:"muted,omitempty"`
+	SlackURL    string    `json:"slack_url,omitempty"`
+	DiscordURL  string    `json:"discord_url,omitempty"`
+	Alerts      []AlertRule `json:"alerts,omitempty"`
 	path        string
 }
 
@@ -183,6 +195,36 @@ func (c *UserConfig) RemoveChannel(id string) bool {
 func (c *UserConfig) HasChannel(id string) bool {
 	for _, existing := range c.Channels {
 		if existing.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// IsMuted returns true if the given channel ID is muted.
+func (c *UserConfig) IsMuted(id string) bool {
+	for _, m := range c.Muted {
+		if m == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Mute adds a channel ID to the muted list. Returns false if already muted.
+func (c *UserConfig) Mute(id string) bool {
+	if c.IsMuted(id) {
+		return false
+	}
+	c.Muted = append(c.Muted, id)
+	return true
+}
+
+// Unmute removes a channel ID from the muted list. Returns false if not muted.
+func (c *UserConfig) Unmute(id string) bool {
+	for i, m := range c.Muted {
+		if m == id {
+			c.Muted = append(c.Muted[:i], c.Muted[i+1:]...)
 			return true
 		}
 	}

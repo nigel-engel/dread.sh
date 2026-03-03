@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,9 +15,10 @@ type Config struct {
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	Addr    string `yaml:"addr"`
-	DB      string `yaml:"db"`
-	BaseURL string `yaml:"base_url"`
+	Addr          string `yaml:"addr"`
+	DB            string `yaml:"db"`
+	BaseURL       string `yaml:"base_url"`
+	RetentionDays int    `yaml:"retention_days"`
 }
 
 // Load reads and parses a YAML config file.
@@ -28,9 +30,10 @@ func Load(path string) (*Config, error) {
 
 	cfg := &Config{
 		Server: ServerConfig{
-			Addr:    ":8080",
-			DB:      "dread.db",
-			BaseURL: "http://localhost:8080",
+			Addr:          ":8080",
+			DB:            "dread.db",
+			BaseURL:       "http://localhost:8080",
+			RetentionDays: 30,
 		},
 	}
 
@@ -46,9 +49,10 @@ func Load(path string) (*Config, error) {
 func LoadFromEnv() *Config {
 	cfg := &Config{
 		Server: ServerConfig{
-			Addr:    ":8080",
-			DB:      "dread.db",
-			BaseURL: "http://localhost:8080",
+			Addr:          ":8080",
+			DB:            "dread.db",
+			BaseURL:       "http://localhost:8080",
+			RetentionDays: 30,
 		},
 	}
 	applyEnv(cfg)
@@ -64,5 +68,10 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("DREAD_BASE_URL"); v != "" {
 		cfg.Server.BaseURL = v
+	}
+	if v := os.Getenv("DREAD_RETENTION_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Server.RetentionDays = n
+		}
 	}
 }

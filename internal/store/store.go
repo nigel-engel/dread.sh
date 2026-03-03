@@ -158,6 +158,109 @@ func (s *Store) GetWorkspace(id string) (*Workspace, error) {
 	return &ws, nil
 }
 
+// EventCount returns the total number of events in the database.
+func (s *Store) EventCount() int64 {
+	var count int64
+	s.db.QueryRow(`SELECT COUNT(*) FROM events`).Scan(&count)
+	return count
+}
+
+// Purge deletes events older than maxAge.
+func (s *Store) Purge(maxAge time.Duration) (int64, error) {
+	cutoff := time.Now().UTC().Add(-maxAge)
+	result, err := s.db.Exec(`DELETE FROM events WHERE timestamp < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// DigestStats returns aggregate stats for the given channels since the given time.
+func (s *Store) DigestStats(channels []string, since time.Time) (total int64, bySrc map[string]int64, top []event.Event, err error) {
+	if len(channels) == 0 {
+		return 0, nil, nil, nil
+	}
+
+	placeholders := make([]string, len(channels))
+	args := make([]interface{}, len(channels))
+	for i, ch := range channels {
+		placeholders[i] = "?"
+		args[i] = ch
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	// Total count
+	var countArgs []interface{}
+	countArgs = append(countArgs, args...)
+	countArgs = append(countArgs, since.UTC())
+	s.db.QueryRow(
+		fmt.Sprintf(`SELECT COUNT(*) FROM events WHERE channel IN (%s) AND timestamp >= ?`, inClause),
+		countArgs...,
+	).Scan(&total)
+
+	// By source
+	bySrc = make(map[string]int64)
+	var srcArgs []interface{}
+	srcArgs = append(srcArgs, args...)
+	srcArgs = append(srcArgs, since.UTC())
+	rows, err := s.db.Query(
+		fmt.Sprintf(`SELECT source, COUNT(*) FROM events WHERE channel IN (%s) AND timestamp >= ? GROUP BY source ORDER BY COUNT(*) DESC`, inClause),
+		srcArgs...,
+	)
+	if err != nil {
+		return total, nil, nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var src string
+		var cnt int64
+		if rows.Scan(&src, &cnt) == nil {
+			bySrc[src] = cnt
+		}
+	}
+
+	// Top 10 events
+	var topArgs []interface{}
+	topArgs = append(topArgs, args...)
+	topArgs = append(topArgs, since.UTC())
+	rows2, err := s.db.Query(
+		fmt.Sprintf(`SELECT id, channel, source, type, summary, raw_json, timestamp FROM events WHERE channel IN (%s) AND timestamp >= ? ORDER BY timestamp DESC LIMIT 10`, inClause),
+		topArgs...,
+	)
+	if err != nil {
+		return total, bySrc, nil, err
+	}
+	defer rows2.Close()
+	for rows2.Next() {
+		var e event.Event
+		if rows2.Scan(&e.ID, &e.Channel, &e.Source, &e.Type, &e.Summary, &e.RawJSON, &e.Timestamp) == nil {
+			top = append(top, e)
+		}
+	}
+
+	return total, bySrc, top, nil
+}
+
+// LastEventPerChannel returns the most recent event for each of the given channels.
+func (s *Store) LastEventPerChannel(channels []string) (map[string]*event.Event, error) {
+	if len(channels) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]*event.Event, len(channels))
+	for _, ch := range channels {
+		var e event.Event
+		err := s.db.QueryRow(
+			`SELECT id, channel, source, type, summary, raw_json, timestamp FROM events WHERE channel = ? ORDER BY timestamp DESC LIMIT 1`,
+			ch,
+		).Scan(&e.ID, &e.Channel, &e.Source, &e.Type, &e.Summary, &e.RawJSON, &e.Timestamp)
+		if err == nil {
+			result[ch] = &e
+		}
+	}
+	return result, nil
+}
+
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()
