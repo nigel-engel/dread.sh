@@ -2283,6 +2283,17 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>
+    <div class="changelog-title">Changelog, GitHub star button, and install improvements</div>
+    <ul>
+      <li>Added changelog page at dread.sh/changelog</li>
+      <li>Replaced GitHub nav link with a star button showing live star count</li>
+      <li>Install script now uses ~/.local/bin — no more sudo password prompt</li>
+      <li>Updated README with install instructions, CLI reference, and project links</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 3, 2026</div>
     <div class="changelog-title">Landing page redesign</div>
     <ul>
       <li>Redesigned landing page with live terminal preview and use cases section</li>
