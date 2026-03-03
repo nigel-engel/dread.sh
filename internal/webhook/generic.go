@@ -56,6 +56,8 @@ func (p *GenericProcessor) Process(source string, header http.Header, body []byt
 		ev.Type, ev.Summary = summarizeHubSpot(raw)
 	case "typeform":
 		ev.Type, ev.Summary = summarizeTypeform(raw)
+	case "supabase":
+		ev.Type, ev.Summary = summarizeSupabase(raw)
 	default:
 		ev.Type, ev.Summary = summarizeGeneric(source, raw)
 	}
@@ -512,6 +514,18 @@ func summarizeTypeform(raw map[string]any) (string, string) {
 		}
 	}
 	return eventType, eventType
+}
+
+func summarizeSupabase(raw map[string]any) (string, string) {
+	typ := strings.ToLower(str(raw, "type")) // INSERT, UPDATE, DELETE
+	table := str(raw, "table")
+	if typ == "" {
+		typ = "webhook"
+	}
+	if table != "" {
+		return typ, fmt.Sprintf("%s — %s", table, typ)
+	}
+	return typ, fmt.Sprintf("supabase %s", typ)
 }
 
 func summarizeGeneric(source string, raw map[string]any) (string, string) {
