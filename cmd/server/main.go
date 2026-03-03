@@ -164,28 +164,34 @@ func main() {
 		w.Write([]byte(installScript))
 	})
 
+	// Build pages with shared nav component
+	builtLanding := buildPage(landingPage)
+	builtDocs := buildPage(docsPage)
+	builtChangelog := buildPage(changelogPage)
+	builtDashboard := buildPage(dashboardPage)
+
 	// Dashboard page
 	mux.HandleFunc("GET /dashboard", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(dashboardPage))
+		w.Write([]byte(builtDashboard))
 	})
 
 	// Changelog page
 	mux.HandleFunc("GET /changelog", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(changelogPage))
+		w.Write([]byte(builtChangelog))
 	})
 
 	// Documentation page
 	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(docsPage))
+		w.Write([]byte(builtDocs))
 	})
 
 	// Landing page
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(landingPage))
+		w.Write([]byte(builtLanding))
 	})
 
 	server := &http.Server{
@@ -206,6 +212,67 @@ func main() {
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("server: %v", err)
 	}
+}
+
+const navCSS = `
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--border);
+    background: var(--nav-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .nav-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 24px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 1.05rem; font-weight: 600; color: var(--text);
+    text-decoration: none; letter-spacing: -0.02em;
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a {
+    font-size: 0.85rem; color: var(--text-muted);
+    text-decoration: none; transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); display: flex; align-items: center;
+    justify-content: center; padding: 6px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--surface); }
+  .nav-btn svg { width: 18px; height: 18px; }
+  .docs-menu-btn {
+    display: none; background: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; cursor: pointer;
+    color: var(--text-muted); align-items: center; justify-content: center;
+    margin-right: 12px;
+  }
+  .docs-menu-btn svg { width: 18px; height: 18px; }
+  .docs-menu-btn:hover { color: var(--text); background: var(--surface); }
+`
+
+const navHTML = `<nav>
+  <div class="nav-inner">
+    <button class="docs-menu-btn" id="menu-btn" aria-label="Toggle menu"><i data-lucide="menu"></i></button>
+    <a href="/" class="nav-brand">dread.sh</a>
+    <div class="nav-links">
+      <a href="/docs">Documentation</a>
+      <a href="/changelog">Changelog</a>
+      <a href="/dashboard">Dashboard</a>
+      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
+      <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
+    </div>
+  </div>
+</nav>`
+
+func buildPage(template string) string {
+	s := strings.Replace(template, "/*! NAV_CSS */", navCSS, 1)
+	s = strings.Replace(s, "<!-- NAV_HTML -->", navHTML, 1)
+	return s
 }
 
 const landingPage = `<!DOCTYPE html>
@@ -293,37 +360,7 @@ const landingPage = `<!DOCTYPE html>
     font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   }
 
-  /* ---- NAV ---- */
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    border-bottom: 1px solid var(--border);
-    background: var(--nav-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  .nav-inner {
-    max-width: 1080px; margin: 0 auto;
-    padding: 0 24px; height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .nav-brand {
-    font-size: 1.05rem; font-weight: 600; color: var(--text);
-    text-decoration: none; letter-spacing: -0.02em;
-  }
-  .nav-links { display: flex; gap: 24px; align-items: center; }
-  .nav-links a {
-    font-size: 0.85rem; color: var(--text-muted);
-    text-decoration: none; transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--text); }
-  .nav-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-muted); display: flex; align-items: center;
-    justify-content: center; padding: 6px; border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .nav-btn:hover { color: var(--text); background: var(--surface); }
-  .nav-btn svg { width: 18px; height: 18px; }
+  /*! NAV_CSS */
 
   /* ---- HERO ---- */
   .hero {
@@ -785,18 +822,7 @@ const landingPage = `<!DOCTYPE html>
 <body>
 
 <!-- NAV -->
-<nav>
-  <div class="nav-inner">
-    <a href="/" class="nav-brand">dread.sh</a>
-    <div class="nav-links">
-      <a href="/docs">Documentation</a>
-      <a href="/changelog">Changelog</a>
-      <a href="/dashboard">Dashboard</a>
-      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
-      <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
-    </div>
-  </div>
-</nav>
+<!-- NAV_HTML -->
 
 <!-- HERO -->
 <div class="hero">
@@ -1376,6 +1402,8 @@ const docsPage = `<!DOCTYPE html>
 
   html, body { overscroll-behavior: none; }
 
+  html { font-size: 18px; }
+
   body {
     font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg);
@@ -1388,37 +1416,7 @@ const docsPage = `<!DOCTYPE html>
     font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   }
 
-  /* ---- NAV ---- */
-  nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    border-bottom: 1px solid var(--border);
-    background: var(--nav-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    height: 56px;
-  }
-  .nav-inner {
-    max-width: 1080px; margin: 0 auto; padding: 0 24px; height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .nav-brand {
-    font-size: 1.05rem; font-weight: 600; color: var(--text);
-    text-decoration: none; letter-spacing: -0.02em;
-  }
-  .nav-links { display: flex; gap: 24px; align-items: center; }
-  .nav-links a {
-    font-size: 0.85rem; color: var(--text-muted);
-    text-decoration: none; transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--text); }
-  .nav-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-muted); display: flex; align-items: center;
-    justify-content: center; padding: 6px; border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .nav-btn:hover { color: var(--text); background: var(--surface); }
-  .nav-btn svg { width: 18px; height: 18px; }
+  /*! NAV_CSS */
 
   /* ---- DOCS LAYOUT ---- */
   .docs-layout {
@@ -1538,16 +1536,6 @@ const docsPage = `<!DOCTYPE html>
   .copy-btn svg { width: 14px; height: 14px; pointer-events: none; }
   .copy-btn.copied { color: var(--accent); }
 
-  /* ---- MOBILE MENU BUTTON ---- */
-  .docs-menu-btn {
-    display: none; background: none; border: 1px solid var(--border);
-    border-radius: 6px; padding: 6px 8px; cursor: pointer;
-    color: var(--text-muted); align-items: center; justify-content: center;
-    margin-right: 12px;
-  }
-  .docs-menu-btn svg { width: 18px; height: 18px; }
-  .docs-menu-btn:hover { color: var(--text); background: var(--surface); }
-
   .docs-overlay {
     display: none; position: fixed; inset: 0; top: 56px;
     background: oklch(0% 0 0 / 0.5); z-index: 40;
@@ -1569,22 +1557,7 @@ const docsPage = `<!DOCTYPE html>
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <div class="nav-inner">
-    <div style="display:flex;align-items:center;">
-      <button class="docs-menu-btn" id="menu-btn" aria-label="Toggle menu"><i data-lucide="menu"></i></button>
-      <a href="/" class="nav-brand">dread.sh</a>
-    </div>
-    <div class="nav-links">
-      <a href="/docs">Documentation</a>
-      <a href="/changelog">Changelog</a>
-      <a href="/dashboard">Dashboard</a>
-      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
-      <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
-    </div>
-  </div>
-</nav>
+<!-- NAV_HTML -->
 
 <div class="docs-overlay" id="docs-overlay"></div>
 
@@ -2242,36 +2215,7 @@ const changelogPage = `<!DOCTYPE html>
     font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   }
 
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    border-bottom: 1px solid var(--border);
-    background: var(--nav-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  .nav-inner {
-    max-width: 1080px; margin: 0 auto;
-    padding: 0 24px; height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .nav-brand {
-    font-size: 1.05rem; font-weight: 600; color: var(--text);
-    text-decoration: none; letter-spacing: -0.02em;
-  }
-  .nav-links { display: flex; gap: 24px; align-items: center; }
-  .nav-links a {
-    font-size: 0.85rem; color: var(--text-muted);
-    text-decoration: none; transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--text); }
-  .nav-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-muted); display: flex; align-items: center;
-    justify-content: center; padding: 6px; border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .nav-btn:hover { color: var(--text); background: var(--surface-hover); }
-  .nav-btn svg { width: 18px; height: 18px; }
+  /*! NAV_CSS */
 
   .changelog {
     max-width: 720px; margin: 0 auto;
@@ -2314,18 +2258,7 @@ const changelogPage = `<!DOCTYPE html>
 </head>
 <body>
 
-<nav>
-  <div class="nav-inner">
-    <a href="/" class="nav-brand">dread.sh</a>
-    <div class="nav-links">
-      <a href="/docs">Documentation</a>
-      <a href="/changelog">Changelog</a>
-      <a href="/dashboard">Dashboard</a>
-      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
-      <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
-    </div>
-  </div>
-</nav>
+<!-- NAV_HTML -->
 
 <div class="changelog">
   <h1>Changelog</h1>
@@ -2534,36 +2467,7 @@ const dashboardPage = `<!DOCTYPE html>
   }
 
   /* NAV */
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    border-bottom: 1px solid var(--border);
-    background: var(--nav-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  .nav-inner {
-    max-width: 1080px; margin: 0 auto;
-    padding: 0 24px; height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .nav-brand {
-    font-size: 1.05rem; font-weight: 600; color: var(--text);
-    text-decoration: none; letter-spacing: -0.02em;
-  }
-  .nav-links { display: flex; gap: 24px; align-items: center; }
-  .nav-links a {
-    font-size: 0.85rem; color: var(--text-muted);
-    text-decoration: none; transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--text); }
-  .nav-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-muted); display: flex; align-items: center;
-    justify-content: center; padding: 6px; border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .nav-btn:hover { color: var(--text); background: var(--surface); }
-  .nav-btn svg { width: 18px; height: 18px; }
+  /*! NAV_CSS */
 
   /* CONNECT SCREEN */
   .connect-screen {
@@ -2893,18 +2797,7 @@ const dashboardPage = `<!DOCTYPE html>
 </head>
 <body>
 
-<nav>
-  <div class="nav-inner">
-    <a href="/" class="nav-brand">dread.sh</a>
-    <div class="nav-links">
-      <a href="/docs">Documentation</a>
-      <a href="/changelog">Changelog</a>
-      <a href="/dashboard">Dashboard</a>
-      <button class="nav-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i data-lucide="moon" id="theme-icon"></i></button>
-      <iframe src="https://ghbtns.com/github-btn.html?user=nigel-engel&repo=dread.sh&type=star&count=true" frameborder="0" scrolling="0" width="150" height="20" title="GitHub" style="vertical-align:middle;"></iframe>
-    </div>
-  </div>
-</nav>
+<!-- NAV_HTML -->
 
 <!-- CONNECT SCREEN -->
 <div class="connect-screen" id="connect-screen">
