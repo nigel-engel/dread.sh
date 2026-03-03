@@ -3432,6 +3432,7 @@ document.addEventListener('visibilitychange', function() {
 // Sound selector
 function changeSound(sound) {
   state.sound = sound;
+  previewSound(sound || 'Glass');
   // Save to workspace via API
   var channels = state.channels;
   fetch('/api/workspaces/' + encodeURIComponent(state.workspaceId), {
@@ -3445,6 +3446,44 @@ function changeSound(sound) {
       setTimeout(function() { el.classList.remove('show'); }, 1500);
     }
   }).catch(function() {});
+}
+
+// Synthesize a short preview tone for each sound name using Web Audio API.
+// Each sound gets a distinct frequency/envelope so the user can hear a difference.
+var soundProfiles = {
+  Basso:     {freq: 130, dur: 0.25, type: 'sine'},
+  Blow:      {freq: 440, dur: 0.4,  type: 'sine'},
+  Bottle:    {freq: 880, dur: 0.3,  type: 'sine'},
+  Frog:      {freq: 220, dur: 0.2,  type: 'square'},
+  Funk:      {freq: 330, dur: 0.15, type: 'square'},
+  Glass:     {freq: 1200, dur: 0.15, type: 'sine'},
+  Hero:      {freq: 523, dur: 0.5,  type: 'triangle'},
+  Morse:     {freq: 800, dur: 0.08, type: 'square'},
+  Ping:      {freq: 1000, dur: 0.12, type: 'sine'},
+  Pop:       {freq: 600, dur: 0.06, type: 'sine'},
+  Purr:      {freq: 180, dur: 0.35, type: 'sine'},
+  Sosumi:    {freq: 740, dur: 0.3,  type: 'triangle'},
+  Submarine: {freq: 260, dur: 0.5,  type: 'sine'},
+  Tink:      {freq: 1400, dur: 0.05, type: 'sine'}
+};
+
+function previewSound(name) {
+  var p = soundProfiles[name];
+  if (!p) return;
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = p.type;
+    osc.frequency.value = p.freq;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + p.dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + p.dur);
+    setTimeout(function() { ctx.close(); }, (p.dur + 0.1) * 1000);
+  } catch(_) {}
 }
 
 // Mobile sidebar
