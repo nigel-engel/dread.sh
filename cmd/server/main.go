@@ -1635,10 +1635,11 @@ const docsPage = `<!DOCTYPE html>
       <p>This will:</p>
       <ul>
         <li>Download the <code>dread</code> binary to <code>~/.local/bin</code></li>
+        <li>Automatically add <code>~/.local/bin</code> to your PATH (no sudo required)</li>
         <li>Set up a background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux) for desktop notifications</li>
         <li>Start listening for webhook events immediately</li>
       </ul>
-      <p>Supported platforms: macOS and Linux (amd64 and arm64).</p>
+      <p>Supported platforms: macOS and Linux (amd64 and arm64). Re-run the same command to update to the latest version.</p>
     </section>
 
     <section class="docs-section" id="first-channel">
@@ -2261,12 +2262,15 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>
-    <div class="changelog-title">Changelog, GitHub star button, and install improvements</div>
+    <div class="changelog-title">Changelog, GitHub stars, and install improvements</div>
     <ul>
       <li>Added changelog page at dread.sh/changelog</li>
-      <li>Replaced GitHub nav link with a star button showing live star count</li>
-      <li>Install script now uses ~/.local/bin — no more sudo password prompt</li>
+      <li>Added GitHub star button to navigation and GitHub link to footer</li>
+      <li>Install script now uses <code>~/.local/bin</code> — no sudo required</li>
+      <li>Installer automatically adds <code>~/.local/bin</code> to your shell PATH</li>
+      <li>Re-running the installer updates to the latest version</li>
       <li>Updated README with install instructions, CLI reference, and project links</li>
+      <li>Updated documentation with new install details</li>
     </ul>
   </div>
 
