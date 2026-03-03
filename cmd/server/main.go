@@ -204,7 +204,7 @@ const landingPage = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>dread — webhooks to desktop notifications</title>
+<title>dread.sh</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -1178,7 +1178,7 @@ set -e
 
 REPO="nigel-engel/dread.sh"
 BINARY="dread"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.local/bin"
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
@@ -1204,12 +1204,8 @@ echo "Downloading dread for ${OS}/${ARCH}..."
 curl -sL "$URL" -o "$TMPDIR/$TARBALL"
 tar -xzf "$TMPDIR/$TARBALL" -C "$TMPDIR"
 
-if [ -w "$INSTALL_DIR" ]; then
-  mv "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY"
-else
-  echo "Installing to $INSTALL_DIR (requires sudo)..."
-  sudo mv "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY"
-fi
+mkdir -p "$INSTALL_DIR"
+mv "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY"
 
 chmod +x "$INSTALL_DIR/$BINARY"
 echo "Installed dread to $INSTALL_DIR/$BINARY"
@@ -1227,7 +1223,7 @@ if [ "$OS" = "darwin" ]; then
 	<string>dev.dread.watch</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/dread</string>
+		<string>$HOME/.local/bin/dread</string>
 		<string>watch</string>
 	</array>
 	<key>KeepAlive</key>
@@ -1254,7 +1250,7 @@ Description=dread webhook notifications
 After=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/dread watch
+ExecStart=%h/.local/bin/dread watch
 Restart=always
 RestartSec=3
 
@@ -1270,6 +1266,12 @@ fi
 curl -sS -X POST https://dread.sh/api/installed >/dev/null 2>&1 &
 
 echo ""
+case ":$PATH:" in
+  *":$INSTALL_DIR:"*) ;;
+  *) echo "Add ~/.local/bin to your PATH:"
+     echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+     echo "" ;;
+esac
 echo "Next: dread new \"My Channel\""
 `
 
@@ -1281,7 +1283,7 @@ const docsPage = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Documentation — dread.sh</title>
+<title>Documentation | dread.sh</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -2092,7 +2094,7 @@ const changelogPage = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Changelog — dread.sh</title>
+<title>Changelog | dread.sh</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
