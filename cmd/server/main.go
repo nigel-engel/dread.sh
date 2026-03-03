@@ -2165,7 +2165,7 @@ const docsPage = `<!DOCTYPE html>
       </ul>
       <p>The install script sets this up as a <code>launchd</code> service (macOS) or <code>systemd</code> user service (Linux) that starts at login.</p>
       <h4 style="margin-top:24px;">Custom notification sound</h4>
-      <p>Set the <code>"sound"</code> field in your config to change the notification sound (default: <code>Glass</code>):</p>
+      <p>Set the <code>"sound"</code> field in your config to change the notification sound (default: <code>Sosumi</code>):</p>
       <div class="copy-wrap">
         <pre><code>{
   "token": "dk_...",
@@ -3162,7 +3162,7 @@ const dashboardPage = `<!DOCTYPE html>
     <div class="sound-section">
       <div class="sound-section-label">Notification Sound</div>
       <select class="sound-select" id="sound-select" onchange="changeSound(this.value)">
-        <option value="">Default (Glass)</option>
+        <option value="">Default (Sosumi)</option>
         <option value="Basso">Basso</option>
         <option value="Blow">Blow</option>
         <option value="Bottle">Bottle</option>
@@ -3669,7 +3669,7 @@ document.addEventListener('visibilitychange', function() {
 // Sound selector
 function changeSound(sound) {
   state.sound = sound;
-  previewSound(sound || 'Glass');
+  previewSound(sound || 'Sosumi');
   // Save to workspace via API
   var channels = state.channels;
   fetch('/api/workspaces/' + encodeURIComponent(state.workspaceId), {

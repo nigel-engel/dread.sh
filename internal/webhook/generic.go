@@ -66,6 +66,62 @@ func (p *GenericProcessor) Process(source string, header http.Header, body []byt
 		ev.Type, ev.Summary = summarizeTypeform(raw)
 	case "supabase":
 		ev.Type, ev.Summary = summarizeSupabase(raw)
+	case "postmark":
+		ev.Type, ev.Summary = summarizePostmark(raw)
+	case "mailgun":
+		ev.Type, ev.Summary = summarizeMailgun(raw)
+	case "meta":
+		ev.Type, ev.Summary = summarizeMeta(raw)
+	case "intercom":
+		ev.Type, ev.Summary = summarizeIntercom(raw)
+	case "lemonsqueezy":
+		ev.Type, ev.Summary = summarizeLemonSqueezy(raw)
+	case "netlify":
+		ev.Type, ev.Summary = summarizeNetlify(raw)
+	case "render":
+		ev.Type, ev.Summary = summarizeRender(raw)
+	case "newrelic":
+		ev.Type, ev.Summary = summarizeNewRelic(raw)
+	case "gumroad":
+		ev.Type, ev.Summary = summarizeGumroad(raw)
+	case "clickup":
+		ev.Type, ev.Summary = summarizeClickUp(raw)
+	case "railway":
+		ev.Type, ev.Summary = summarizeRailway(raw)
+	case "brevo":
+		ev.Type, ev.Summary = summarizeBrevo(raw)
+	case "datadog":
+		ev.Type, ev.Summary = summarizeDatadog(raw)
+	case "tiktok":
+		ev.Type, ev.Summary = summarizeTikTok(raw)
+	case "pipedrive":
+		ev.Type, ev.Summary = summarizePipedrive(raw)
+	case "asana":
+		ev.Type, ev.Summary = summarizeAsana(raw)
+	case "webflow":
+		ev.Type, ev.Summary = summarizeWebflow(raw)
+	case "klaviyo":
+		ev.Type, ev.Summary = summarizeKlaviyo(raw)
+	case "squarespace":
+		ev.Type, ev.Summary = summarizeSquarespace(raw)
+	case "ecwid":
+		ev.Type, ev.Summary = summarizeEcwid(raw)
+	case "box":
+		ev.Type, ev.Summary = summarizeBox(raw)
+	case "helpscout":
+		ev.Type, ev.Summary = summarizeHelpScout(raw)
+	case "smartsheet":
+		ev.Type, ev.Summary = summarizeSmartsheet(raw)
+	case "calcom":
+		ev.Type, ev.Summary = summarizeCalcom(raw)
+	case "monday":
+		ev.Type, ev.Summary = summarizeMonday(raw)
+	case "chargebee":
+		ev.Type, ev.Summary = summarizeChargebee(raw)
+	case "activecampaign":
+		ev.Type, ev.Summary = summarizeActiveCampaign(raw)
+	case "basecamp":
+		ev.Type, ev.Summary = summarizeBasecamp(raw)
 	default:
 		ev.Type, ev.Summary = summarizeGeneric(source, raw)
 	}
@@ -572,6 +628,530 @@ func summarizeSupabase(raw map[string]any) (string, string) {
 		return typ, fmt.Sprintf("%s — %s", table, typ)
 	}
 	return typ, fmt.Sprintf("supabase %s", typ)
+}
+
+func summarizePostmark(raw map[string]any) (string, string) {
+	recordType := str(raw, "RecordType")
+	if recordType == "" {
+		return "webhook", "postmark event"
+	}
+	recipient := str(raw, "Recipient")
+	if recipient == "" {
+		recipient = str(raw, "Email")
+	}
+	if recipient != "" {
+		return recordType, fmt.Sprintf("%s — %s", recordType, recipient)
+	}
+	return recordType, recordType
+}
+
+func summarizeMailgun(raw map[string]any) (string, string) {
+	if eventData, ok := raw["event-data"].(map[string]any); ok {
+		event := str(eventData, "event")
+		recipient := str(eventData, "recipient")
+		if event != "" && recipient != "" {
+			return event, fmt.Sprintf("%s — %s", event, recipient)
+		}
+		if event != "" {
+			return event, event
+		}
+	}
+	event := str(raw, "event")
+	if event != "" {
+		recipient := str(raw, "recipient")
+		if recipient != "" {
+			return event, fmt.Sprintf("%s — %s", event, recipient)
+		}
+		return event, event
+	}
+	return "webhook", "mailgun event"
+}
+
+func summarizeMeta(raw map[string]any) (string, string) {
+	object := str(raw, "object")
+	if object == "" {
+		object = "meta"
+	}
+	if entries, ok := raw["entry"].([]any); ok && len(entries) > 0 {
+		if entry, ok := entries[0].(map[string]any); ok {
+			if changes, ok := entry["changes"].([]any); ok && len(changes) > 0 {
+				if change, ok := changes[0].(map[string]any); ok {
+					field := str(change, "field")
+					if field != "" {
+						return object, fmt.Sprintf("%s — %s changed", object, field)
+					}
+				}
+			}
+			if _, ok := entry["messaging"].([]any); ok {
+				return object, fmt.Sprintf("%s — new message", object)
+			}
+		}
+	}
+	return object, fmt.Sprintf("%s webhook", object)
+}
+
+func summarizeIntercom(raw map[string]any) (string, string) {
+	topic := str(raw, "topic")
+	if topic == "" {
+		return "webhook", "intercom event"
+	}
+	if data, ok := raw["data"].(map[string]any); ok {
+		if item, ok := data["item"].(map[string]any); ok {
+			for _, key := range []string{"title", "name", "subject", "body"} {
+				if v := str(item, key); v != "" {
+					if len(v) > 60 {
+						v = v[:60] + "..."
+					}
+					return topic, fmt.Sprintf("%s — %s", topic, v)
+				}
+			}
+		}
+	}
+	return topic, topic
+}
+
+func summarizeLemonSqueezy(raw map[string]any) (string, string) {
+	eventName := ""
+	if meta, ok := raw["meta"].(map[string]any); ok {
+		eventName = str(meta, "event_name")
+	}
+	if eventName == "" {
+		return "webhook", "lemonsqueezy event"
+	}
+	if data, ok := raw["data"].(map[string]any); ok {
+		if attrs, ok := data["attributes"].(map[string]any); ok {
+			if total := str(attrs, "total_formatted"); total != "" {
+				return eventName, fmt.Sprintf("%s — %s", eventName, total)
+			}
+			if name := str(attrs, "product_name"); name != "" {
+				return eventName, fmt.Sprintf("%s — %s", eventName, name)
+			}
+			if status := str(attrs, "status"); status != "" {
+				return eventName, fmt.Sprintf("%s — %s", eventName, status)
+			}
+		}
+	}
+	return eventName, eventName
+}
+
+func summarizeNetlify(raw map[string]any) (string, string) {
+	state := str(raw, "state")
+	name := str(raw, "name")
+	title := str(raw, "title")
+	branch := str(raw, "branch")
+	if state == "" && name == "" {
+		return "webhook", "netlify event"
+	}
+	typ := "deploy"
+	if state != "" {
+		typ = state
+	}
+	parts := []string{typ}
+	if name != "" {
+		parts = append(parts, name)
+	}
+	if branch != "" {
+		parts = append(parts, "on "+branch)
+	}
+	if title != "" && len(title) <= 60 {
+		parts = append(parts, "— "+title)
+	}
+	return typ, strings.Join(parts, " ")
+}
+
+func summarizeRender(raw map[string]any) (string, string) {
+	typ := str(raw, "type")
+	if typ == "" {
+		return "webhook", "render event"
+	}
+	if data, ok := raw["data"].(map[string]any); ok {
+		serviceName := str(data, "serviceName")
+		if serviceName == "" {
+			if svc, ok := data["service"].(map[string]any); ok {
+				serviceName = str(svc, "name")
+			}
+		}
+		status := str(data, "status")
+		if serviceName != "" && status != "" {
+			return typ, fmt.Sprintf("%s — %s %s", typ, serviceName, status)
+		}
+		if serviceName != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, serviceName)
+		}
+	}
+	return typ, typ
+}
+
+func summarizeNewRelic(raw map[string]any) (string, string) {
+	conditionName := str(raw, "condition_name")
+	currentState := str(raw, "current_state")
+	severity := str(raw, "severity")
+	if conditionName == "" && currentState == "" {
+		if targets, ok := raw["targets"].([]any); ok && len(targets) > 0 {
+			if t, ok := targets[0].(map[string]any); ok {
+				name := str(t, "name")
+				if name != "" {
+					return "alert", fmt.Sprintf("alert — %s", name)
+				}
+			}
+		}
+		return "webhook", "newrelic event"
+	}
+	typ := "alert"
+	if currentState != "" {
+		typ = currentState
+	}
+	parts := []string{}
+	if conditionName != "" {
+		parts = append(parts, conditionName)
+	}
+	if severity != "" {
+		parts = append(parts, fmt.Sprintf("[%s]", severity))
+	}
+	if currentState != "" && conditionName != "" {
+		parts = append(parts, "— "+currentState)
+	}
+	if len(parts) > 0 {
+		return typ, strings.Join(parts, " ")
+	}
+	return typ, typ
+}
+
+func summarizeGumroad(raw map[string]any) (string, string) {
+	resourceName := str(raw, "resource_name")
+	productName := str(raw, "product_name")
+	if resourceName == "" {
+		resourceName = "sale"
+	}
+	if productName != "" {
+		if priceVal, ok := raw["price"].(float64); ok && priceVal > 0 {
+			return resourceName, fmt.Sprintf("%s — %s ($%.2f)", resourceName, productName, priceVal/100)
+		}
+		return resourceName, fmt.Sprintf("%s — %s", resourceName, productName)
+	}
+	if email := str(raw, "email"); email != "" {
+		return resourceName, fmt.Sprintf("%s — %s", resourceName, email)
+	}
+	return resourceName, fmt.Sprintf("gumroad %s", resourceName)
+}
+
+func summarizeClickUp(raw map[string]any) (string, string) {
+	event := str(raw, "event")
+	if event == "" {
+		return "webhook", "clickup event"
+	}
+	taskID := str(raw, "task_id")
+	if taskID != "" {
+		return event, fmt.Sprintf("%s — task %s", event, taskID)
+	}
+	return event, event
+}
+
+func summarizeRailway(raw map[string]any) (string, string) {
+	typ := str(raw, "type")
+	if typ == "" {
+		return "webhook", "railway event"
+	}
+	status := str(raw, "status")
+	if project, ok := raw["project"].(map[string]any); ok {
+		name := str(project, "name")
+		if name != "" && status != "" {
+			return typ, fmt.Sprintf("%s — %s %s", typ, name, status)
+		}
+		if name != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, name)
+		}
+	}
+	if status != "" {
+		return typ, fmt.Sprintf("%s — %s", typ, status)
+	}
+	return typ, typ
+}
+
+func summarizeBrevo(raw map[string]any) (string, string) {
+	event := str(raw, "event")
+	if event == "" {
+		return "webhook", "brevo event"
+	}
+	email := str(raw, "email")
+	subject := str(raw, "subject")
+	if email != "" && subject != "" {
+		if len(subject) > 40 {
+			subject = subject[:40] + "..."
+		}
+		return event, fmt.Sprintf("%s — %s (%s)", event, email, subject)
+	}
+	if email != "" {
+		return event, fmt.Sprintf("%s — %s", event, email)
+	}
+	return event, event
+}
+
+func summarizeDatadog(raw map[string]any) (string, string) {
+	title := str(raw, "title")
+	if title == "" {
+		title = str(raw, "alert_title")
+	}
+	alertType := str(raw, "alert_type")
+	if alertType == "" {
+		alertType = "alert"
+	}
+	if title != "" {
+		if len(title) > 80 {
+			title = title[:80] + "..."
+		}
+		return alertType, fmt.Sprintf("%s — %s", alertType, title)
+	}
+	body := str(raw, "body")
+	if body == "" {
+		body = str(raw, "text")
+	}
+	if body != "" {
+		if len(body) > 80 {
+			body = body[:80] + "..."
+		}
+		return alertType, fmt.Sprintf("%s — %s", alertType, body)
+	}
+	return alertType, fmt.Sprintf("datadog %s", alertType)
+}
+
+func summarizeTikTok(raw map[string]any) (string, string) {
+	event := str(raw, "event")
+	if event == "" {
+		return "webhook", "tiktok event"
+	}
+	return event, fmt.Sprintf("tiktok %s", event)
+}
+
+func summarizePipedrive(raw map[string]any) (string, string) {
+	if meta, ok := raw["meta"].(map[string]any); ok {
+		action := str(meta, "action")
+		entity := str(meta, "entity")
+		if action != "" && entity != "" {
+			return action, fmt.Sprintf("%s %s", entity, action)
+		}
+		if action != "" {
+			return action, fmt.Sprintf("pipedrive %s", action)
+		}
+	}
+	if current, ok := raw["current"].(map[string]any); ok {
+		if title := str(current, "title"); title != "" {
+			return "updated", fmt.Sprintf("updated — %s", title)
+		}
+		if name := str(current, "name"); name != "" {
+			return "updated", fmt.Sprintf("updated — %s", name)
+		}
+	}
+	return "webhook", "pipedrive event"
+}
+
+func summarizeAsana(raw map[string]any) (string, string) {
+	if events, ok := raw["events"].([]any); ok && len(events) > 0 {
+		if ev, ok := events[0].(map[string]any); ok {
+			action := str(ev, "action")
+			resType := ""
+			if res, ok := ev["resource"].(map[string]any); ok {
+				resType = str(res, "resource_type")
+			}
+			if action != "" && resType != "" {
+				return action, fmt.Sprintf("%s %s", resType, action)
+			}
+			if action != "" {
+				return action, fmt.Sprintf("asana %s", action)
+			}
+		}
+	}
+	return "webhook", "asana event"
+}
+
+func summarizeWebflow(raw map[string]any) (string, string) {
+	triggerType := str(raw, "triggerType")
+	if triggerType == "" {
+		return "webhook", "webflow event"
+	}
+	if payload, ok := raw["payload"].(map[string]any); ok {
+		if name := str(payload, "name"); name != "" {
+			return triggerType, fmt.Sprintf("%s — %s", triggerType, name)
+		}
+		if slug := str(payload, "slug"); slug != "" {
+			return triggerType, fmt.Sprintf("%s — %s", triggerType, slug)
+		}
+	}
+	return triggerType, triggerType
+}
+
+func summarizeKlaviyo(raw map[string]any) (string, string) {
+	topic := str(raw, "topic")
+	if topic == "" {
+		return "webhook", "klaviyo event"
+	}
+	if data, ok := raw["data"].(map[string]any); ok {
+		if email := str(data, "email"); email != "" {
+			return topic, fmt.Sprintf("%s — %s", topic, email)
+		}
+	}
+	return topic, topic
+}
+
+func summarizeSquarespace(raw map[string]any) (string, string) {
+	topic := str(raw, "topic")
+	if topic == "" {
+		return "webhook", "squarespace event"
+	}
+	if data, ok := raw["data"].(map[string]any); ok {
+		if orderNum := str(data, "orderNumber"); orderNum != "" {
+			return topic, fmt.Sprintf("%s — order #%s", topic, orderNum)
+		}
+	}
+	return topic, topic
+}
+
+func summarizeEcwid(raw map[string]any) (string, string) {
+	eventType := str(raw, "eventType")
+	if eventType == "" {
+		return "webhook", "ecwid event"
+	}
+	entityID := str(raw, "entityId")
+	if entityID != "" {
+		return eventType, fmt.Sprintf("%s — #%s", eventType, entityID)
+	}
+	return eventType, eventType
+}
+
+func summarizeBox(raw map[string]any) (string, string) {
+	trigger := str(raw, "trigger")
+	if trigger == "" {
+		return "webhook", "box event"
+	}
+	if source, ok := raw["source"].(map[string]any); ok {
+		name := str(source, "name")
+		srcType := str(source, "type")
+		if name != "" {
+			return trigger, fmt.Sprintf("%s — %s %s", trigger, srcType, name)
+		}
+	}
+	return trigger, trigger
+}
+
+func summarizeHelpScout(raw map[string]any) (string, string) {
+	topic := str(raw, "topic")
+	if topic == "" {
+		return "webhook", "helpscout event"
+	}
+	if payload, ok := raw["payload"].(map[string]any); ok {
+		if subject := str(payload, "subject"); subject != "" {
+			if len(subject) > 60 {
+				subject = subject[:60] + "..."
+			}
+			return topic, fmt.Sprintf("%s — %s", topic, subject)
+		}
+	}
+	return topic, topic
+}
+
+func summarizeSmartsheet(raw map[string]any) (string, string) {
+	if events, ok := raw["events"].([]any); ok && len(events) > 0 {
+		if ev, ok := events[0].(map[string]any); ok {
+			objType := str(ev, "objectType")
+			evtType := str(ev, "eventType")
+			if objType != "" && evtType != "" {
+				return evtType, fmt.Sprintf("%s %s", objType, evtType)
+			}
+		}
+	}
+	scope := str(raw, "scopeObjectId")
+	if scope != "" {
+		return "change", fmt.Sprintf("sheet %s changed", scope)
+	}
+	return "webhook", "smartsheet event"
+}
+
+func summarizeCalcom(raw map[string]any) (string, string) {
+	triggerEvent := str(raw, "triggerEvent")
+	if triggerEvent == "" {
+		return "webhook", "calcom event"
+	}
+	if payload, ok := raw["payload"].(map[string]any); ok {
+		title := str(payload, "title")
+		if title != "" {
+			return triggerEvent, fmt.Sprintf("%s — %s", triggerEvent, title)
+		}
+		if start := str(payload, "startTime"); start != "" {
+			return triggerEvent, fmt.Sprintf("%s — %s", triggerEvent, start)
+		}
+	}
+	return triggerEvent, triggerEvent
+}
+
+func summarizeMonday(raw map[string]any) (string, string) {
+	if ev, ok := raw["event"].(map[string]any); ok {
+		typ := str(ev, "type")
+		boardID := str(ev, "boardId")
+		if typ != "" && boardID != "" {
+			return typ, fmt.Sprintf("%s — board %s", typ, boardID)
+		}
+		if typ != "" {
+			return typ, fmt.Sprintf("monday %s", typ)
+		}
+	}
+	return "webhook", "monday event"
+}
+
+func summarizeChargebee(raw map[string]any) (string, string) {
+	eventType := str(raw, "event_type")
+	if eventType == "" {
+		return "webhook", "chargebee event"
+	}
+	if content, ok := raw["content"].(map[string]any); ok {
+		if sub, ok := content["subscription"].(map[string]any); ok {
+			if status := str(sub, "status"); status != "" {
+				return eventType, fmt.Sprintf("%s — %s", eventType, status)
+			}
+			if planID := str(sub, "plan_id"); planID != "" {
+				return eventType, fmt.Sprintf("%s — %s", eventType, planID)
+			}
+		}
+		if customer, ok := content["customer"].(map[string]any); ok {
+			if email := str(customer, "email"); email != "" {
+				return eventType, fmt.Sprintf("%s — %s", eventType, email)
+			}
+		}
+	}
+	return eventType, eventType
+}
+
+func summarizeActiveCampaign(raw map[string]any) (string, string) {
+	typ := str(raw, "type")
+	if typ == "" {
+		return "webhook", "activecampaign event"
+	}
+	if contact, ok := raw["contact"].(map[string]any); ok {
+		email := str(contact, "email")
+		if email != "" {
+			return typ, fmt.Sprintf("%s — %s", typ, email)
+		}
+	}
+	return typ, typ
+}
+
+func summarizeBasecamp(raw map[string]any) (string, string) {
+	kind := str(raw, "kind")
+	if kind == "" {
+		return "webhook", "basecamp event"
+	}
+	if recording, ok := raw["recording"].(map[string]any); ok {
+		title := str(recording, "title")
+		if title != "" {
+			return kind, fmt.Sprintf("%s — %s", kind, title)
+		}
+	}
+	if creator, ok := raw["creator"].(map[string]any); ok {
+		name := str(creator, "name")
+		if name != "" {
+			return kind, fmt.Sprintf("%s by %s", kind, name)
+		}
+	}
+	return kind, kind
 }
 
 func summarizeGeneric(source string, raw map[string]any) (string, string) {

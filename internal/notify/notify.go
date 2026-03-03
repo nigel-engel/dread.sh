@@ -2,7 +2,7 @@ package notify
 
 // DefaultSound is the default notification sound.
 // macOS: system sound name. Linux: freedesktop sound name.
-const DefaultSound = "Glass"
+const DefaultSound = "Sosumi"
 
 // Send sends a desktop notification with the given title, body, and sound.
 // Pass an empty string for sound to use the default.

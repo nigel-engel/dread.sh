@@ -158,6 +158,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case newEventMsg:
 		if msg.Event.ID != "" {
+			// Deduplicate: skip if already present
+			dup := false
+			for _, e := range m.events {
+				if e.ID == msg.Event.ID {
+					dup = true
+					break
+				}
+			}
+			if dup {
+				if m.wsConn != nil {
+					cmds = append(cmds, listenWS(m.wsConn))
+				}
+				return m, tea.Batch(cmds...)
+			}
 			m.events = append(m.events, msg.Event)
 			filtered := m.filteredEvents()
 			if m.cursor >= len(filtered)-2 {
@@ -182,12 +196,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, e := range msg.Events {
 			reversed[len(msg.Events)-1-i] = e
 		}
+		// Deduplicate: only prepend events not already present
+		seen := make(map[string]bool, len(m.events))
+		for _, e := range m.events {
+			seen[e.ID] = true
+		}
+		var fresh []event.Event
+		for _, e := range reversed {
+			if !seen[e.ID] {
+				fresh = append(fresh, e)
+			}
+		}
 		oldLen := len(m.events)
-		m.events = append(reversed, m.events...)
+		m.events = append(fresh, m.events...)
 		if oldLen == 0 {
 			m.cursor = len(m.filteredEvents()) - 1
 		} else {
-			m.cursor += len(reversed)
+			m.cursor += len(fresh)
 		}
 		m.refreshViewport()
 		if oldLen == 0 {

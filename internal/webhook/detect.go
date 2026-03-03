@@ -38,6 +38,10 @@ func DetectSource(header http.Header) string {
 	if header.Get("X-Cc-Webhook-Signature") != "" {
 		return "coinbase"
 	}
+	// Lemon Squeezy
+	if header.Get("X-Event-Name") != "" {
+		return "lemonsqueezy"
+	}
 	// Plaid
 	if header.Get("Plaid-Verification") != "" {
 		return "plaid"
@@ -49,6 +53,18 @@ func DetectSource(header http.Header) string {
 	// QuickBooks / Intuit
 	if header.Get("Intuit-Signature") != "" {
 		return "quickbooks"
+	}
+	// FreshBooks
+	if header.Get("X-Freshbooks-Hmac-Sha256") != "" {
+		return "freshbooks"
+	}
+	// Wave
+	if header.Get("Wave-Signature") != "" {
+		return "wave"
+	}
+	// Chargebee
+	if header.Get("X-Chargebee-Webhook-Api-Version") != "" {
+		return "chargebee"
 	}
 
 	// --- Dev / Code ---
@@ -96,6 +112,18 @@ func DetectSource(header http.Header) string {
 	if header.Get("Cf-Webhook-Auth") != "" {
 		return "cloudflare"
 	}
+	// Webflow
+	if header.Get("X-Webflow-Signature") != "" {
+		return "webflow"
+	}
+	// Squarespace
+	if header.Get("Squarespace-Signature") != "" {
+		return "squarespace"
+	}
+	// Netlify (deploy notifications)
+	if header.Get("X-Netlify-Event") != "" {
+		return "netlify"
+	}
 
 	// --- Communication ---
 
@@ -132,6 +160,17 @@ func DetectSource(header http.Header) string {
 		return "line"
 	}
 
+	// --- Social Media ---
+
+	// TikTok
+	if header.Get("Tiktok-Signature") != "" {
+		return "tiktok"
+	}
+	// Hootsuite
+	if header.Get("X-Hootsuite-Signature") != "" {
+		return "hootsuite"
+	}
+
 	// --- Project Management ---
 
 	// Linear
@@ -153,6 +192,22 @@ func DetectSource(header http.Header) string {
 	// Airtable
 	if header.Get("X-Airtable-Content-Mac") != "" {
 		return "airtable"
+	}
+	// Asana
+	if header.Get("X-Hook-Signature") != "" {
+		return "asana"
+	}
+	// Teamwork
+	if header.Get("X-Projects-Signature") != "" {
+		return "teamwork"
+	}
+	// Smartsheet
+	if header.Get("Smartsheet-Hmac-Sha256") != "" {
+		return "smartsheet"
+	}
+	// Miro
+	if header.Get("X-Miro-Signature") != "" {
+		return "miro"
 	}
 
 	// --- Monitoring ---
@@ -192,6 +247,10 @@ func DetectSource(header http.Header) string {
 	if header.Get("X-Bc-Webhook-Signature") != "" {
 		return "bigcommerce"
 	}
+	// Ecwid
+	if header.Get("X-Ecwid-Webhook-Signature") != "" {
+		return "ecwid"
+	}
 
 	// --- Auth / Identity ---
 
@@ -213,6 +272,95 @@ func DetectSource(header http.Header) string {
 	// PlanetScale
 	if header.Get("X-Planetscale-Signature") != "" {
 		return "planetscale"
+	}
+
+	// --- File Storage ---
+
+	// Dropbox
+	if header.Get("X-Dropbox-Signature") != "" {
+		return "dropbox"
+	}
+	// Box
+	if header.Get("Box-Signature-Primary") != "" {
+		return "box"
+	}
+
+	// --- CRM / Sales ---
+
+	// Pipedrive
+	if header.Get("X-Pipedrive-Signature") != "" {
+		return "pipedrive"
+	}
+	// Zoho
+	if header.Get("X-Zoho-Webhook-Signature") != "" {
+		return "zoho"
+	}
+	// Keap / Infusionsoft
+	if header.Get("X-Keap-Signature") != "" {
+		return "keap"
+	}
+	// Close CRM
+	if header.Get("Close-Sig-Hash") != "" {
+		return "close"
+	}
+	// Copper CRM
+	if header.Get("X-Pw-Application") != "" {
+		return "copper"
+	}
+
+	// --- Customer Support ---
+
+	// Help Scout
+	if header.Get("X-Helpscout-Signature") != "" {
+		return "helpscout"
+	}
+	// Crisp
+	if header.Get("X-Crisp-Signature") != "" {
+		return "crisp"
+	}
+	// Drift
+	if header.Get("X-Drift-Signature") != "" {
+		return "drift"
+	}
+
+	// --- Email Marketing ---
+
+	// Klaviyo
+	if header.Get("Klaviyo-Signature") != "" {
+		return "klaviyo"
+	}
+	// MailerLite
+	if header.Get("X-Mailerlite-Signature") != "" {
+		return "mailerlite"
+	}
+
+	// --- HR / Recruiting ---
+
+	// BambooHR
+	if header.Get("X-Bamboohr-Signature") != "" {
+		return "bamboohr"
+	}
+
+	// --- Forms / Surveys ---
+
+	// Tally
+	if header.Get("Tally-Signature") != "" {
+		return "tally"
+	}
+	// SurveyMonkey
+	if header.Get("Sm-Signature") != "" {
+		return "surveymonkey"
+	}
+
+	// --- Scheduling ---
+
+	// Cal.com
+	if header.Get("X-Cal-Signature-256") != "" {
+		return "calcom"
+	}
+	// Acuity Scheduling
+	if header.Get("X-Acuity-Signature") != "" {
+		return "acuity"
 	}
 
 	// --- SaaS ---
@@ -297,6 +445,80 @@ func DetectSource(header http.Header) string {
 		return "pingdom"
 	case strings.Contains(ua, "zapier"):
 		return "zapier"
+	case strings.Contains(ua, "postmark"):
+		return "postmark"
+	case strings.Contains(ua, "mailgun"):
+		return "mailgun"
+	case strings.Contains(ua, "intercom"):
+		return "intercom"
+	case strings.Contains(ua, "netlify"):
+		return "netlify"
+	case strings.Contains(ua, "clickup"):
+		return "clickup"
+	case strings.Contains(ua, "convertkit"):
+		return "convertkit"
+	case strings.Contains(ua, "brevo"):
+		return "brevo"
+	case strings.Contains(ua, "sendinblue"):
+		return "brevo"
+	case strings.Contains(ua, "freshdesk"):
+		return "freshdesk"
+	case strings.Contains(ua, "freshworks"):
+		return "freshdesk"
+	case strings.Contains(ua, "railway"):
+		return "railway"
+	case strings.Contains(ua, "datadog"):
+		return "datadog"
+	case strings.Contains(ua, "newrelic"):
+		return "newrelic"
+	case strings.Contains(ua, "tiktok"):
+		return "tiktok"
+	case strings.Contains(ua, "facebook"):
+		return "meta"
+	case strings.Contains(ua, "basecamp"):
+		return "basecamp"
+	case strings.Contains(ua, "activecampaign"):
+		return "activecampaign"
+	case strings.Contains(ua, "monday"):
+		return "monday"
+	case strings.Contains(ua, "chargebee"):
+		return "chargebee"
+	case strings.Contains(ua, "salesforce"):
+		return "salesforce"
+	case strings.Contains(ua, "pipedrive"):
+		return "pipedrive"
+	case strings.Contains(ua, "asana"):
+		return "asana"
+	case strings.Contains(ua, "webflow"):
+		return "webflow"
+	case strings.Contains(ua, "squarespace"):
+		return "squarespace"
+	case strings.Contains(ua, "klaviyo"):
+		return "klaviyo"
+	case strings.Contains(ua, "freshbooks"):
+		return "freshbooks"
+	case strings.Contains(ua, "helpscout"):
+		return "helpscout"
+	case strings.Contains(ua, "zoho"):
+		return "zoho"
+	case strings.Contains(ua, "mailerlite"):
+		return "mailerlite"
+	case strings.Contains(ua, "bamboohr"):
+		return "bamboohr"
+	case strings.Contains(ua, "miro"):
+		return "miro"
+	case strings.Contains(ua, "drift"):
+		return "drift"
+	case strings.Contains(ua, "crisp"):
+		return "crisp"
+	case strings.Contains(ua, "smartsheet"):
+		return "smartsheet"
+	case strings.Contains(ua, "hootsuite"):
+		return "hootsuite"
+	case strings.Contains(ua, "dropbox"):
+		return "dropbox"
+	case strings.Contains(ua, "ecwid"):
+		return "ecwid"
 	}
 
 	// X-Dread-Source custom header
