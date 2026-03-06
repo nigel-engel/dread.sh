@@ -2674,13 +2674,14 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
-    <div class="changelog-title">Background service command</div>
+    <div class="changelog-title">Background service command, 50+ How To guides</div>
     <ul>
       <li><strong><code>dread service install</code></strong> &mdash; installs a background service so notifications continue even after the terminal is closed</li>
       <li><strong><code>dread service uninstall</code></strong> &mdash; stops and removes the background service</li>
       <li><strong>macOS</strong> &mdash; uses <code>launchd</code> with auto-restart and login start. Logs to <code>~/Library/Logs/dread.log</code></li>
       <li><strong>Linux</strong> &mdash; uses <code>systemd</code> user service. Logs via <code>journalctl</code></li>
       <li><code>dread status</code> shows whether the background service is running</li>
+      <li><strong>50+ How To guides</strong> &mdash; 10 per category: Payments (Square, Razorpay, Recurly, Chargebee, Coinbase Commerce, LemonSqueezy), Developer Tools (Bitbucket, CircleCI, Buildkite, Netlify), Infrastructure (Grafana, Datadog, Cloudflare, Heroku, Pingdom, UptimeRobot, New Relic), Communication (Mailchimp, Zendesk, Intercom, Postmark, Mailgun, Telegram), SaaS (Zapier, Calendly, DocuSign, Auth0, LaunchDarkly, Figma)</li>
     </ul>
   </div>
 
@@ -2709,7 +2710,7 @@ const changelogPage = `<!DOCTYPE html>
       <li><strong>Daily digest</strong> &mdash; <code>dread digest</code> and <code>GET /api/digest</code> for event summaries by source</li>
       <li><strong>Threshold alerts</strong> &mdash; <code>dread alert add</code> fires notification + Slack/Discord when a pattern exceeds N events in M minutes</li>
       <li><strong>Status page</strong> &mdash; <code>/status/ws_xxx</code> shows live channel freshness with colour-coded cards and 30s auto-refresh</li>
-      <li><strong><a href="/howto">How To guide</a></strong> &mdash; step-by-step setup for 14+ services, team features, alerts, export, and more</li>
+      <li><strong><a href="/howto">How To guide</a></strong> &mdash; step-by-step setup for 50+ services, team features, alerts, export, and more</li>
     </ul>
   </div>
 
@@ -4158,6 +4159,12 @@ const howToPage = `<!DOCTYPE html>
     <a href="#paypal">PayPal</a>
     <a href="#paddle">Paddle</a>
     <a href="#shopify">Shopify</a>
+    <a href="#square">Square</a>
+    <a href="#razorpay">Razorpay</a>
+    <a href="#recurly">Recurly</a>
+    <a href="#chargebee">Chargebee</a>
+    <a href="#coinbase">Coinbase Commerce</a>
+    <a href="#lemonsqueezy">LemonSqueezy</a>
   </div>
   <div class="docs-sidebar-group">
     <div class="docs-sidebar-label">Developer Tools</div>
@@ -4167,12 +4174,23 @@ const howToPage = `<!DOCTYPE html>
     <a href="#sentry">Sentry</a>
     <a href="#linear">Linear</a>
     <a href="#jira">Jira</a>
+    <a href="#bitbucket">Bitbucket</a>
+    <a href="#circleci">CircleCI</a>
+    <a href="#buildkite">Buildkite</a>
+    <a href="#netlify">Netlify</a>
   </div>
   <div class="docs-sidebar-group">
     <div class="docs-sidebar-label">Infrastructure</div>
     <a href="#supabase">Supabase</a>
     <a href="#aws-sns">AWS SNS</a>
     <a href="#pagerduty">PagerDuty</a>
+    <a href="#grafana">Grafana</a>
+    <a href="#datadog">Datadog</a>
+    <a href="#cloudflare">Cloudflare</a>
+    <a href="#heroku">Heroku</a>
+    <a href="#pingdom">Pingdom</a>
+    <a href="#uptimerobot">UptimeRobot</a>
+    <a href="#newrelic">New Relic</a>
   </div>
   <div class="docs-sidebar-group">
     <div class="docs-sidebar-label">Communication</div>
@@ -4180,6 +4198,12 @@ const howToPage = `<!DOCTYPE html>
     <a href="#discord-source">Discord</a>
     <a href="#twilio">Twilio</a>
     <a href="#sendgrid">SendGrid</a>
+    <a href="#mailchimp">Mailchimp</a>
+    <a href="#zendesk">Zendesk</a>
+    <a href="#intercom">Intercom</a>
+    <a href="#postmark">Postmark</a>
+    <a href="#mailgun">Mailgun</a>
+    <a href="#telegram">Telegram</a>
   </div>
   <div class="docs-sidebar-group">
     <div class="docs-sidebar-label">SaaS</div>
@@ -4187,6 +4211,12 @@ const howToPage = `<!DOCTYPE html>
     <a href="#typeform">Typeform</a>
     <a href="#clerk">Clerk</a>
     <a href="#twitch">Twitch</a>
+    <a href="#zapier">Zapier</a>
+    <a href="#calendly">Calendly</a>
+    <a href="#docusign">DocuSign</a>
+    <a href="#auth0">Auth0</a>
+    <a href="#launchdarkly">LaunchDarkly</a>
+    <a href="#figma">Figma</a>
     <a href="#custom-source">Custom / Other</a>
   </div>
 </aside>
@@ -4316,6 +4346,95 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <div class="expect">Order events will show order numbers and totals (e.g. <strong>orders/create &mdash; order #1042 ($79.00)</strong>).</div>
 </section>
 
+<section id="square" class="docs-section">
+<h2>Square</h2>
+<ol>
+<li>Log in to <strong>developer.squareup.com</strong> &rarr; open your application</li>
+<li>Click <strong>Webhooks</strong> in the left sidebar</li>
+<li>Click <strong>Add subscription</strong></li>
+<li>Enter a name for the subscription</li>
+<li>Paste your dread webhook URL in the <strong>URL</strong> field</li>
+<li>Select event types: <code>payment.completed</code>, <code>order.created</code>, <code>refund.created</code>, <code>invoice.published</code>, etc.</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Use the <strong>Send test event</strong> button to verify. Square signs all webhooks with a signature in the <code>x-square-hmacsha256-signature</code> header.</p>
+<div class="expect">Payment events show the amount and status (e.g. <strong>payment.completed &mdash; $45.00 GBP</strong>).</div>
+</section>
+
+<section id="razorpay" class="docs-section">
+<h2>Razorpay</h2>
+<ol>
+<li>Log in to the <strong>Razorpay Dashboard</strong></li>
+<li>Go to <strong>Account &amp; Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Add New Webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Enter a <strong>Secret</strong> (used to verify webhook signatures)</li>
+<li>Select events: <code>payment.captured</code>, <code>payment.failed</code>, <code>order.paid</code>, <code>subscription.activated</code>, <code>refund.processed</code>, etc.</li>
+<li>Click <strong>Create Webhook</strong></li>
+</ol>
+<p>Razorpay sends events in both test and live modes. Toggle between modes in the dashboard to configure webhooks for each.</p>
+<div class="expect">Payment events show the event type and amount (e.g. <strong>payment.captured &mdash; ₹2,499 INR</strong>).</div>
+</section>
+
+<section id="recurly" class="docs-section">
+<h2>Recurly</h2>
+<ol>
+<li>Log in to the <strong>Recurly Dashboard</strong></li>
+<li>Go to <strong>Integrations</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Configure</strong></li>
+<li>Click <strong>New Endpoint</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select notification types: <code>new_subscription</code>, <code>successful_payment</code>, <code>failed_payment</code>, <code>canceled_subscription</code>, etc.</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Recurly sends XML payloads by default. dread will detect the source via the <code>X-Recurly-Notification-Type</code> header.</p>
+<div class="expect">Subscription events show the notification type (e.g. <strong>successful_payment &mdash; invoice 1234</strong>).</div>
+</section>
+
+<section id="chargebee" class="docs-section">
+<h2>Chargebee</h2>
+<ol>
+<li>Log in to <strong>Chargebee</strong> &rarr; go to <strong>Settings</strong> &rarr; <strong>Configure Chargebee</strong></li>
+<li>Select <strong>Webhooks</strong> under API &amp; Webhooks</li>
+<li>Click <strong>Add Webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select <strong>V2</strong> API version</li>
+<li>Choose event types: <code>subscription_created</code>, <code>payment_succeeded</code>, <code>payment_failed</code>, <code>invoice_generated</code>, etc.</li>
+<li>Click <strong>Create</strong></li>
+</ol>
+<p>Use the <strong>Test Webhook</strong> button to send a sample event. Chargebee retries failed deliveries automatically.</p>
+<div class="expect">Chargebee events show the event type and object (e.g. <strong>subscription_created &mdash; plan Enterprise</strong>).</div>
+</section>
+
+<section id="coinbase" class="docs-section">
+<h2>Coinbase Commerce</h2>
+<ol>
+<li>Log in to <strong>commerce.coinbase.com</strong></li>
+<li>Go to <strong>Settings</strong> &rarr; <strong>Webhook subscriptions</strong></li>
+<li>Click <strong>Add an endpoint</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Click <strong>Save</strong></li>
+<li>Copy the <strong>Shared Secret</strong> displayed (used for signature verification)</li>
+</ol>
+<p>Coinbase Commerce sends events for charges: <code>charge:created</code>, <code>charge:confirmed</code>, <code>charge:failed</code>, <code>charge:pending</code>, <code>charge:resolved</code>.</p>
+<div class="expect">Charge events show the event type and amount (e.g. <strong>charge:confirmed &mdash; 0.005 BTC</strong>).</div>
+</section>
+
+<section id="lemonsqueezy" class="docs-section">
+<h2>LemonSqueezy</h2>
+<ol>
+<li>Log in to <strong>app.lemonsqueezy.com</strong></li>
+<li>Go to <strong>Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Add webhook</strong> (the <strong>+</strong> button)</li>
+<li>Paste your dread webhook URL in the <strong>Callback URL</strong> field</li>
+<li>Enter a <strong>Signing secret</strong></li>
+<li>Select events: <code>order_created</code>, <code>subscription_created</code>, <code>subscription_payment_success</code>, <code>license_key_created</code>, etc.</li>
+<li>Click <strong>Save webhook</strong></li>
+</ol>
+<p>LemonSqueezy signs payloads with HMAC-SHA256 using the signing secret in the <code>X-Signature</code> header.</p>
+<div class="expect">Order events show the event type and product (e.g. <strong>order_created &mdash; Pro Plan ($49.00)</strong>).</div>
+</section>
+
 <hr class="section-divider">
 
 <!-- DEVELOPER TOOLS -->
@@ -4403,6 +4522,63 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <div class="expect">Issue events show the key and summary (e.g. <strong>jira:issue_updated &mdash; PROD-245 Update payment timeout</strong>).</div>
 </section>
 
+<section id="bitbucket" class="docs-section">
+<h2>Bitbucket</h2>
+<ol>
+<li>Open your repository in Bitbucket</li>
+<li>Go to <strong>Repository settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Add webhook</strong></li>
+<li>Enter a title and paste your dread webhook URL</li>
+<li>Under <strong>Triggers</strong>, select events: push, pull request (created, updated, merged, declined), issue events, etc.</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Bitbucket sends a unique <code>X-Hook-UUID</code> header with each delivery. Use <strong>View requests</strong> on the webhook to see delivery history.</p>
+<div class="expect">Push events show the branch and author. PRs show the title and action (e.g. <strong>pullrequest:created &mdash; Add dark mode</strong>).</div>
+</section>
+
+<section id="circleci" class="docs-section">
+<h2>CircleCI</h2>
+<ol>
+<li>Open your project in <strong>CircleCI</strong></li>
+<li>Go to <strong>Project Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Add Webhook</strong></li>
+<li>Enter a name for the webhook</li>
+<li>Paste your dread webhook URL in the <strong>Receiver URL</strong> field</li>
+<li>Select events: <code>workflow-completed</code> and/or <code>job-completed</code></li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>CircleCI includes a <code>circleci-signature</code> header for verification. Payloads include pipeline, workflow, and job details.</p>
+<div class="expect">Workflow events show the status and name (e.g. <strong>workflow-completed &mdash; build-and-deploy (success)</strong>).</div>
+</section>
+
+<section id="buildkite" class="docs-section">
+<h2>Buildkite</h2>
+<ol>
+<li>Go to your <strong>Organisation Settings</strong> &rarr; <strong>Notification Services</strong></li>
+<li>Click <strong>Add</strong> next to <strong>Webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select events: <code>build.scheduled</code>, <code>build.running</code>, <code>build.finished</code>, <code>job.started</code>, <code>agent.connected</code>, etc.</li>
+<li>Optionally filter by pipeline</li>
+<li>Click <strong>Add Webhook Notification</strong></li>
+</ol>
+<p>Buildkite sends a <code>X-Buildkite-Event</code> header with every delivery. Use the <strong>Send test</strong> button to verify.</p>
+<div class="expect">Build events show the pipeline and status (e.g. <strong>build.finished &mdash; deploy-prod (passed)</strong>).</div>
+</section>
+
+<section id="netlify" class="docs-section">
+<h2>Netlify</h2>
+<ol>
+<li>Open your site in <strong>Netlify</strong></li>
+<li>Go to <strong>Site configuration</strong> &rarr; <strong>Notifications</strong></li>
+<li>Click <strong>Add notification</strong> &rarr; <strong>Outgoing webhook</strong></li>
+<li>Select an event: <code>Deploy started</code>, <code>Deploy succeeded</code>, <code>Deploy failed</code>, <code>Form submission</code>, etc.</li>
+<li>Paste your dread webhook URL</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Note: Netlify creates one notification per event type. Repeat the steps for each event you want to receive.</p>
+<div class="expect">Deploy events show the site name and status (e.g. <strong>deploy succeeded &mdash; my-app.netlify.app</strong>).</div>
+</section>
+
 <hr class="section-divider">
 
 <!-- INFRASTRUCTURE -->
@@ -4451,6 +4627,125 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 </ol>
 <p>The payload includes the <code>type</code> (INSERT/UPDATE/DELETE), the <code>table</code> name, <code>record</code> (new row data), and <code>old_record</code> (previous row data for updates/deletes).</p>
 <div class="expect">Supabase events are detected via the <code>X-Supabase-Event-Signature</code> header and show the table name and operation type.</div>
+</section>
+
+<section id="grafana" class="docs-section">
+<h2>Grafana</h2>
+<ol>
+<li>Open <strong>Grafana</strong> &rarr; go to <strong>Alerting</strong> &rarr; <strong>Contact points</strong></li>
+<li>Click <strong>Add contact point</strong></li>
+<li>Enter a name and select <strong>Webhook</strong> as the integration type</li>
+<li>Paste your dread webhook URL</li>
+<li>Set HTTP method to <strong>POST</strong></li>
+<li>Optionally add a <code>username</code> and <code>password</code> for basic auth</li>
+<li>Click <strong>Save contact point</strong></li>
+<li>Go to <strong>Notification policies</strong> and route alerts to your new contact point</li>
+</ol>
+<p>Grafana sends alerts with labels, annotations, and the alert state (firing or resolved).</p>
+<div class="expect">Alert events show the alert name and status (e.g. <strong>alerting &mdash; High CPU Usage [FIRING]</strong>).</div>
+</section>
+
+<section id="datadog" class="docs-section">
+<h2>Datadog</h2>
+<ol>
+<li>Log in to <strong>Datadog</strong></li>
+<li>Go to <strong>Integrations</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>New</strong> (or <strong>+ New</strong>)</li>
+<li>Enter a name for the webhook</li>
+<li>Paste your dread webhook URL</li>
+<li>Optionally customise the <strong>Payload</strong> JSON template using Datadog variables (<code>$EVENT_TITLE</code>, <code>$ALERT_STATUS</code>, etc.)</li>
+<li>Click <strong>Save</strong></li>
+<li>Use the webhook in monitor notifications by adding <code>@webhook-your-name</code> to the alert message</li>
+</ol>
+<p>The webhook only fires when referenced in a monitor &mdash; it won't send events on its own.</p>
+<div class="expect">Monitor events show the alert title and status (e.g. <strong>webhook &mdash; CPU above 90% on web-prod [Triggered]</strong>).</div>
+</section>
+
+<section id="cloudflare" class="docs-section">
+<h2>Cloudflare</h2>
+<ol>
+<li>Log in to the <strong>Cloudflare Dashboard</strong></li>
+<li>Go to <strong>Notifications</strong> in the left sidebar</li>
+<li>Click the <strong>Destinations</strong> tab</li>
+<li>Under <strong>Webhooks</strong>, click <strong>Create</strong></li>
+<li>Enter a name and paste your dread webhook URL</li>
+<li>Click <strong>Save and Test</strong> &mdash; Cloudflare sends a verification request</li>
+<li>Go to the <strong>Notifications</strong> tab and create a notification</li>
+<li>Select an alert type (e.g. <code>Origin Error Rate Alert</code>, <code>DDoS Attack Alert</code>, <code>SSL Certificate Expiration</code>)</li>
+<li>Choose the webhook as the delivery destination</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<div class="expect">Alert events show the notification type and zone (e.g. <strong>cloudflare &mdash; Origin 5xx Error Rate Alert for example.com</strong>).</div>
+</section>
+
+<section id="heroku" class="docs-section">
+<h2>Heroku</h2>
+<p>Heroku uses the <strong>app-webhooks</strong> add-on for webhook notifications.</p>
+<ol>
+<li>Install the CLI plugin: <code>heroku plugins:install @heroku-cli/plugin-webhooks</code></li>
+<li>Create a webhook:</li>
+</ol>
+<div class="code-block"><pre><code>heroku webhooks:add \
+  --app your-app-name \
+  --url https://dread.sh/wh/ch_xxx \
+  --include api:release api:build api:dyno \
+  --level notify</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="3">
+<li>Verify with <code>heroku webhooks --app your-app-name</code></li>
+</ol>
+<p>Events include <code>api:release</code>, <code>api:build</code>, <code>api:dyno</code>, <code>api:formation</code>, and <code>api:addon</code>. Set <code>--level sync</code> for guaranteed delivery (slower) or <code>--level notify</code> for best-effort (faster).</p>
+<div class="expect">Release events show the action and version (e.g. <strong>api:release &mdash; v42 deployed</strong>).</div>
+</section>
+
+<section id="pingdom" class="docs-section">
+<h2>Pingdom</h2>
+<ol>
+<li>Log in to <strong>my.pingdom.com</strong></li>
+<li>Go to <strong>Settings</strong> &rarr; <strong>Integrations</strong></li>
+<li>Click <strong>Add integration</strong></li>
+<li>Select <strong>Webhook</strong> as the type</li>
+<li>Enter a name and paste your dread webhook URL</li>
+<li>Click <strong>Save integration</strong></li>
+<li>Go to <strong>Monitoring</strong> &rarr; select a check &rarr; <strong>Edit</strong></li>
+<li>Under <strong>Connect integrations</strong>, select your webhook</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Pingdom sends alerts when checks go up or down, including the check name, status, and response time.</p>
+<div class="expect">Uptime events show the check name and status (e.g. <strong>pingdom &mdash; api.example.com is DOWN</strong>).</div>
+</section>
+
+<section id="uptimerobot" class="docs-section">
+<h2>UptimeRobot</h2>
+<ol>
+<li>Log in to <strong>uptimerobot.com</strong></li>
+<li>Go to <strong>My Settings</strong> (top right)</li>
+<li>Scroll to <strong>Alert Contacts</strong> and click <strong>Add Alert Contact</strong></li>
+<li>Select <strong>Webhook</strong> as the alert contact type</li>
+<li>Paste your dread webhook URL</li>
+<li>Select <strong>POST</strong> as the method</li>
+<li>Optionally enable <strong>Send as JSON</strong> (recommended)</li>
+<li>Click <strong>Create Alert Contact</strong></li>
+<li>Go to your monitor and add the new alert contact under <strong>Alert Contacts To Notify</strong></li>
+</ol>
+<div class="expect">Monitor events show the monitor name and status (e.g. <strong>webhook &mdash; api.example.com is down</strong>).</div>
+</section>
+
+<section id="newrelic" class="docs-section">
+<h2>New Relic</h2>
+<ol>
+<li>Log in to <strong>New Relic</strong></li>
+<li>Go to <strong>Alerts &amp; AI</strong> &rarr; <strong>Destinations</strong></li>
+<li>Click <strong>Add a destination</strong> &rarr; select <strong>Webhook</strong></li>
+<li>Enter a name and paste your dread webhook URL</li>
+<li>Click <strong>Save destination</strong></li>
+<li>Go to <strong>Workflows</strong> &rarr; <strong>Add a workflow</strong></li>
+<li>Set your filter (e.g. policy name, priority, condition)</li>
+<li>Under <strong>Notify</strong>, select <strong>Webhook</strong> and choose your destination</li>
+<li>Customise the payload template if needed</li>
+<li>Click <strong>Activate workflow</strong></li>
+</ol>
+<p>New Relic sends alert notifications with issue details, condition name, and violation details.</p>
+<div class="expect">Alert events show the condition and status (e.g. <strong>webhook &mdash; High Error Rate [ACTIVATED]</strong>).</div>
 </section>
 
 <hr class="section-divider">
@@ -4512,6 +4807,99 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 </ol>
 <p>Use <strong>Test Your Integration</strong> to send a sample payload and verify.</p>
 <div class="expect">SendGrid events show as generic webhook events with delivery status information.</div>
+</section>
+
+<section id="mailchimp" class="docs-section">
+<h2>Mailchimp</h2>
+<ol>
+<li>Log in to <strong>Mailchimp</strong></li>
+<li>Go to your <strong>Audience</strong> &rarr; <strong>Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Create New Webhook</strong></li>
+<li>Paste your dread webhook URL in the <strong>Callback URL</strong> field</li>
+<li>Select events: <code>subscribes</code>, <code>unsubscribes</code>, <code>profile updates</code>, <code>cleaned</code>, <code>email changed</code>, <code>campaign sent</code></li>
+<li>Choose whether to fire for API-initiated changes, admin changes, or subscriber-initiated changes</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Mailchimp sends form-encoded POST data (not JSON). dread handles both formats automatically.</p>
+<div class="expect">Audience events show the event type and email (e.g. <strong>mailchimp &mdash; subscribe user@example.com</strong>).</div>
+</section>
+
+<section id="zendesk" class="docs-section">
+<h2>Zendesk</h2>
+<p>Requires Admin access. Zendesk uses <strong>Webhooks</strong> (destination) paired with <strong>Triggers</strong> (rules) to send events.</p>
+<ol>
+<li>Go to <strong>Admin Centre</strong> &rarr; <strong>Apps and integrations</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Create webhook</strong></li>
+<li>Select <strong>Trigger or automation</strong> as the connection method</li>
+<li>Enter a name and paste your dread webhook URL</li>
+<li>Set request method to <strong>POST</strong> and format to <strong>JSON</strong></li>
+<li>Click <strong>Create webhook</strong></li>
+<li>Go to <strong>Business rules</strong> &rarr; <strong>Triggers</strong> &rarr; <strong>Add trigger</strong></li>
+<li>Set conditions (e.g. ticket created, status changed)</li>
+<li>Under <strong>Actions</strong>, select <strong>Notify webhook</strong> and choose your webhook</li>
+<li>Define the JSON body using placeholders (<code>{{ticket.id}}</code>, <code>{{ticket.title}}</code>)</li>
+</ol>
+<div class="expect">Ticket events show the trigger action and ticket info (e.g. <strong>zendesk &mdash; Ticket #4521 created: Cannot log in</strong>).</div>
+</section>
+
+<section id="intercom" class="docs-section">
+<h2>Intercom</h2>
+<ol>
+<li>Log in to <strong>Intercom</strong></li>
+<li>Go to <strong>Settings</strong> &rarr; <strong>Integrations</strong> &rarr; <strong>Developer Hub</strong></li>
+<li>Select your app (or create one) &rarr; click <strong>Webhooks</strong></li>
+<li>Paste your dread webhook URL in the <strong>Webhook URL</strong> field</li>
+<li>Select topics: <code>conversation.created</code>, <code>conversation.user.replied</code>, <code>contact.created</code>, <code>ticket.created</code>, etc.</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Intercom signs webhooks with HMAC-SHA1 using your app's client secret. The signature is in the <code>X-Hub-Signature</code> header.</p>
+<div class="expect">Conversation events show the topic and user (e.g. <strong>intercom &mdash; conversation.user.replied by alice@example.com</strong>).</div>
+</section>
+
+<section id="postmark" class="docs-section">
+<h2>Postmark</h2>
+<ol>
+<li>Log in to <strong>account.postmarkapp.com</strong></li>
+<li>Select your <strong>Server</strong> &rarr; go to <strong>Settings</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Click <strong>Add webhook</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Select message events: <code>Delivery</code>, <code>Bounce</code>, <code>Spam Complaint</code>, <code>Open</code>, <code>Click</code>, <code>Subscription Change</code></li>
+<li>Optionally enable <strong>Include message content</strong></li>
+<li>Click <strong>Save webhook</strong></li>
+</ol>
+<p>Use the <strong>Send test</strong> button on each event type to verify delivery. Postmark sends a <code>X-Postmark-Webhooks-Auth</code> header if you set an HTTP Auth username/password.</p>
+<div class="expect">Email events show the event type and recipient (e.g. <strong>postmark &mdash; Bounce: user@example.com (hard bounce)</strong>).</div>
+</section>
+
+<section id="mailgun" class="docs-section">
+<h2>Mailgun</h2>
+<ol>
+<li>Log in to <strong>app.mailgun.com</strong></li>
+<li>Go to <strong>Sending</strong> &rarr; <strong>Webhooks</strong></li>
+<li>Select your domain from the dropdown</li>
+<li>Click on an event type: <code>Delivered</code>, <code>Opened</code>, <code>Clicked</code>, <code>Bounced</code>, <code>Complained</code>, <code>Unsubscribed</code>, or <code>Failed</code></li>
+<li>Paste your dread webhook URL and click <strong>Create webhook</strong></li>
+<li>Repeat for each event type you want</li>
+</ol>
+<p>Mailgun signs webhooks using your domain's API key. The signature is in the POST body as <code>signature.token</code>, <code>signature.timestamp</code>, and <code>signature.signature</code>.</p>
+<div class="expect">Email events show the event type and recipient (e.g. <strong>mailgun &mdash; delivered to user@example.com</strong>).</div>
+</section>
+
+<section id="telegram" class="docs-section">
+<h2>Telegram</h2>
+<p>Telegram uses <strong>Bot API webhooks</strong> to push updates to your URL instead of polling.</p>
+<ol>
+<li>Create a bot via <strong>@BotFather</strong> on Telegram and note the bot token</li>
+<li>Set the webhook URL using the Telegram API:</li>
+</ol>
+<div class="code-block"><pre><code>curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setWebhook" \
+  -d "url=https://dread.sh/wh/ch_xxx"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="3">
+<li>Verify the webhook is set:</li>
+</ol>
+<div class="code-block"><pre><code>curl "https://api.telegram.org/botYOUR_BOT_TOKEN/getWebhookInfo"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Telegram sends updates for messages, edited messages, channel posts, callback queries, and inline queries.</p>
+<div class="expect">Message events show the sender and text (e.g. <strong>telegram &mdash; message from alice: Deploy ready?</strong>).</div>
 </section>
 
 <hr class="section-divider">
@@ -4594,6 +4982,126 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <li>Twitch sends a verification challenge &mdash; dread responds automatically</li>
 </ol>
 <div class="expect">Twitch events show the subscription type and broadcaster name (e.g. <strong>channel.follow &mdash; ninja</strong>).</div>
+</section>
+
+<section id="zapier" class="docs-section">
+<h2>Zapier</h2>
+<p>Zapier can connect <strong>7,000+ apps</strong> to dread &mdash; even services that don't have native webhooks. Use a Zap to trigger from any supported service and POST to your dread channel.</p>
+<ol>
+<li>Log in to <strong>zapier.com</strong> &rarr; click <strong>Create</strong> &rarr; <strong>Zaps</strong></li>
+<li>Choose your <strong>Trigger</strong> app (e.g. Google Sheets, Notion, Airtable, QuickBooks, Monday.com &mdash; anything Zapier supports)</li>
+<li>Configure the trigger event (e.g. "New Row in Spreadsheet", "New Database Item")</li>
+<li>Connect your account and test the trigger</li>
+<li>Add an <strong>Action</strong> step &rarr; search for <strong>Webhooks by Zapier</strong></li>
+<li>Select <strong>POST</strong> as the action event</li>
+<li>Set the URL to your dread webhook URL</li>
+<li>Set <strong>Payload Type</strong> to <strong>Json</strong></li>
+<li>Map fields from the trigger into the payload data (e.g. <code>type</code> = "row.added", <code>message</code> = the row data)</li>
+<li>Add a custom header: <code>X-Dread-Source</code> with the value of your source name (e.g. "google-sheets")</li>
+<li>Test the action and turn on the Zap</li>
+</ol>
+<p>This is the best way to connect services that don't support webhooks natively &mdash; Notion databases, Google Sheets, Airtable, Monday.com, Trello, and thousands more.</p>
+<div class="expect">Events show the source you set and the mapped message (e.g. <strong>google-sheets &mdash; New row: Order #1042 from alice@example.com</strong>).</div>
+</section>
+
+<section id="calendly" class="docs-section">
+<h2>Calendly</h2>
+<ol>
+<li>Log in to <strong>calendly.com</strong></li>
+<li>Go to <strong>Integrations &amp; apps</strong></li>
+<li>Scroll to <strong>Webhooks</strong> (under API &amp; connectors) and click <strong>Learn more</strong></li>
+<li>You'll need to use the <strong>Calendly API</strong> to create a webhook subscription:</li>
+</ol>
+<div class="code-block"><pre><code>curl -X POST "https://api.calendly.com/webhook_subscriptions" \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://dread.sh/wh/ch_xxx",
+    "events": ["invitee.created", "invitee.canceled"],
+    "organization": "https://api.calendly.com/organizations/YOUR_ORG_UUID",
+    "scope": "organization"
+  }'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="5">
+<li>Get your API token from <strong>Integrations &amp; apps</strong> &rarr; <strong>API &amp; connectors</strong> &rarr; <strong>Personal access tokens</strong></li>
+<li>Get your organisation UUID from <code>GET /users/me</code></li>
+</ol>
+<p>Events: <code>invitee.created</code> (new booking), <code>invitee.canceled</code> (cancelled booking), <code>routing_form_submission.created</code>.</p>
+<div class="expect">Booking events show the event type and invitee (e.g. <strong>calendly &mdash; invitee.created: alice@example.com booked 30-Min Meeting</strong>).</div>
+</section>
+
+<section id="docusign" class="docs-section">
+<h2>DocuSign</h2>
+<p>DocuSign Connect sends real-time envelope status updates.</p>
+<ol>
+<li>Log in to <strong>DocuSign Admin</strong></li>
+<li>Go to <strong>Settings</strong> &rarr; <strong>Connect</strong></li>
+<li>Click <strong>Add Configuration</strong> &rarr; <strong>Custom</strong></li>
+<li>Enter a name for the configuration</li>
+<li>Paste your dread webhook URL in the <strong>URL to Publish</strong> field</li>
+<li>Under <strong>Trigger events</strong>, select envelope events: <code>Sent</code>, <code>Delivered</code>, <code>Completed</code>, <code>Declined</code>, <code>Voided</code></li>
+<li>Set data format to <strong>JSON</strong></li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Requires DocuSign Admin or Account Administrator role. Use <strong>Logs</strong> in the Connect settings to debug delivery issues.</p>
+<div class="expect">Envelope events show the status and subject (e.g. <strong>docusign &mdash; Completed: NDA Agreement with Acme Corp</strong>).</div>
+</section>
+
+<section id="auth0" class="docs-section">
+<h2>Auth0</h2>
+<p>Auth0 uses <strong>Log Streams</strong> to send authentication events via webhook.</p>
+<ol>
+<li>Log in to the <strong>Auth0 Dashboard</strong></li>
+<li>Go to <strong>Monitoring</strong> &rarr; <strong>Streams</strong></li>
+<li>Click <strong>Create Log Stream</strong></li>
+<li>Select <strong>Custom Webhook</strong></li>
+<li>Enter a name and paste your dread webhook URL</li>
+<li>Set <strong>Content Type</strong> to <code>application/json</code></li>
+<li>Optionally set an <strong>Authorization Token</strong> (sent as a Bearer token)</li>
+<li>Under <strong>Filter by Event Category</strong>, select categories: login success, login failure, signup, password change, etc.</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>Auth0 sends events in batches. Each delivery may contain multiple log entries.</p>
+<div class="expect">Auth events show the event type and user (e.g. <strong>auth0 &mdash; Successful login: alice@example.com</strong>).</div>
+</section>
+
+<section id="launchdarkly" class="docs-section">
+<h2>LaunchDarkly</h2>
+<ol>
+<li>Log in to <strong>LaunchDarkly</strong></li>
+<li>Go to <strong>Integrations</strong> in the left sidebar</li>
+<li>Find <strong>Webhooks</strong> and click <strong>Add integration</strong></li>
+<li>Paste your dread webhook URL</li>
+<li>Optionally check <strong>Sign this webhook</strong> and note the generated secret</li>
+<li>Select a <strong>Policy</strong> to filter which events trigger the webhook (or leave blank for all events)</li>
+<li>Toggle the webhook <strong>On</strong></li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p>LaunchDarkly sends events for flag changes, project updates, environment changes, and member actions. Use policy filters to narrow to specific projects or flags.</p>
+<div class="expect">Flag events show the action and flag key (e.g. <strong>launchdarkly &mdash; flag.updated: enable-new-checkout</strong>).</div>
+</section>
+
+<section id="figma" class="docs-section">
+<h2>Figma</h2>
+<p>Figma webhooks are created via the <strong>Figma API</strong> (no dashboard UI).</p>
+<ol>
+<li>Generate a <strong>Personal Access Token</strong> at <strong>figma.com/developers</strong> &rarr; <strong>Manage personal access tokens</strong></li>
+<li>Find your <strong>Team ID</strong> from the URL when viewing a team page (e.g. <code>figma.com/files/team/123456</code>)</li>
+<li>Create a webhook subscription:</li>
+</ol>
+<div class="code-block"><pre><code>curl -X POST "https://api.figma.com/v2/webhooks" \
+  -H "Authorization: Bearer YOUR_FIGMA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "FILE_UPDATE",
+    "team_id": "123456",
+    "endpoint": "https://dread.sh/wh/ch_xxx",
+    "passcode": "your-secret"
+  }'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<ol start="4">
+<li>Available event types: <code>FILE_UPDATE</code>, <code>FILE_DELETE</code>, <code>FILE_VERSION_UPDATE</code>, <code>FILE_COMMENT</code>, <code>LIBRARY_PUBLISH</code></li>
+</ol>
+<p>Figma sends events for all files within the specified team. The passcode is included in every payload for verification.</p>
+<div class="expect">File events show the event type and file name (e.g. <strong>figma &mdash; FILE_COMMENT on Homepage Redesign v2</strong>).</div>
 </section>
 
 <section id="custom-source" class="docs-section">
