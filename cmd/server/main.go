@@ -2712,14 +2712,18 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
-    <div class="changelog-title">Background service command, 50+ How To guides</div>
+    <div class="changelog-title">URL-based source labelling, background service, 50+ How To guides</div>
     <ul>
+      <li><strong><code>?source=name</code> URL parameter</strong> &mdash; append to any webhook URL to label events from services that aren't auto-detected (e.g. <code>?source=trigger.dev</code>). No custom headers needed</li>
+      <li><strong>trigger.dev</strong> &mdash; dedicated summariser and colour in both dashboard and TUI</li>
+      <li><strong>Per-source dashboard colours</strong> &mdash; 30+ named source colours using OKLCH, with hash-based fallback for unknown sources</li>
+      <li><strong>Full-width dashboard</strong> &mdash; removed max-width constraint for better use of screen space</li>
       <li><strong><code>dread service install</code></strong> &mdash; installs a background service so notifications continue even after the terminal is closed</li>
       <li><strong><code>dread service uninstall</code></strong> &mdash; stops and removes the background service</li>
       <li><strong>macOS</strong> &mdash; uses <code>launchd</code> with auto-restart and login start. Logs to <code>~/Library/Logs/dread.log</code></li>
       <li><strong>Linux</strong> &mdash; uses <code>systemd</code> user service. Logs via <code>journalctl</code></li>
       <li><code>dread status</code> shows whether the background service is running</li>
-      <li><strong>50+ How To guides</strong> &mdash; 10 per category: Payments (Square, Razorpay, Recurly, Chargebee, Coinbase Commerce, LemonSqueezy), Developer Tools (Bitbucket, CircleCI, Buildkite, Netlify), Infrastructure (Grafana, Datadog, Cloudflare, Heroku, Pingdom, UptimeRobot, New Relic), Communication (Mailchimp, Zendesk, Intercom, Postmark, Mailgun, Telegram), SaaS (Zapier, Calendly, DocuSign, Auth0, LaunchDarkly, Figma)</li>
+      <li><strong>50+ How To guides</strong> &mdash; 10 per category: Payments, Developer Tools, Infrastructure, Communication, SaaS</li>
     </ul>
   </div>
 
