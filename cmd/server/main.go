@@ -1698,7 +1698,12 @@ const landingPage = `<!DOCTYPE html>
       <p>GitHub push → Vercel <code>deployment.ready</code> or <code>deployment.error</code>. The whole team sees deploys in real time without watching GitHub Actions or the Vercel dashboard.</p>
     </div>
     <div class="use-card">
-      <div class="use-icon ic-green"><i data-lucide="code"></i></div>
+      <div class="use-icon ic-green"><i data-lucide="zap"></i></div>
+      <h3>Quick webhook testing</h3>
+      <p>Just added a webhook to your app? Run <code>dread init</code>, paste the URL, trigger an event. Instantly see the full payload, headers, and status in your terminal &mdash; no Postman, no <code>curl</code>, no log digging. Test it works before you ship.</p>
+    </div>
+    <div class="use-card">
+      <div class="use-icon ic-cyan"><i data-lucide="code"></i></div>
       <h3>Local development</h3>
       <p>Building a webhook handler? <code>dread --forward http://localhost:3000/webhook</code> sends every real event to your local server. No ngrok, no tunnel config. Replay past events with one command.</p>
     </div>
