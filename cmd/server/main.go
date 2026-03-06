@@ -3017,10 +3017,7 @@ const dashboardPage = `<!DOCTYPE html>
   .dashboard { display: none; }
   .dashboard.active { display: flex; }
   .dashboard {
-    max-width: 1280px; margin: 0 auto;
     min-height: calc(100vh - 57px);
-    border-left: 1px solid var(--border-subtle);
-    border-right: 1px solid var(--border-subtle);
   }
 
   /* SIDEBAR */
@@ -3152,7 +3149,7 @@ const dashboardPage = `<!DOCTYPE html>
     width: 140px;
   }
   .col-source {
-    font-weight: 500; color: var(--blue); width: 100px;
+    font-weight: 500; width: 100px;
   }
   .col-type {
     color: var(--violet); width: 160px;
@@ -3678,7 +3675,7 @@ function createEventRow(ev, isLive) {
   tr.innerHTML =
     '<td class="col-time">' + formatTime(ev.timestamp) + '</td>' +
     '<td class="col-channel">' + esc(chName) + '</td>' +
-    '<td class="col-source">' + esc(ev.source) + '</td>' +
+    '<td class="col-source" style="color:' + sourceColour(ev.source) + '">' + esc(ev.source) + '</td>' +
     '<td class="col-type">' + esc(ev.type) + '</td>' +
     '<td class="col-summary">' + esc(ev.summary) + '</td>';
   return tr;
@@ -3735,6 +3732,61 @@ function syntaxHighlight(json) {
     }
     return '<span class="' + cls + '">' + match + '</span>';
   });
+}
+
+var SOURCE_COLOURS = {
+  stripe: 'oklch(65% 0.18 293)',
+  github: 'oklch(72% 0.17 142)',
+  gitlab: 'oklch(72% 0.18 30)',
+  vercel: 'oklch(75% 0.0 0)',
+  sentry: 'oklch(70% 0.18 25)',
+  linear: 'oklch(65% 0.18 270)',
+  jira: 'oklch(65% 0.17 255)',
+  slack: 'oklch(70% 0.15 155)',
+  discord: 'oklch(68% 0.18 280)',
+  paypal: 'oklch(65% 0.17 250)',
+  shopify: 'oklch(70% 0.18 145)',
+  twilio: 'oklch(65% 0.15 15)',
+  sendgrid: 'oklch(65% 0.17 240)',
+  pagerduty: 'oklch(70% 0.18 140)',
+  hubspot: 'oklch(70% 0.18 30)',
+  typeform: 'oklch(65% 0.15 320)',
+  paddle: 'oklch(65% 0.15 230)',
+  supabase: 'oklch(70% 0.18 155)',
+  aws: 'oklch(72% 0.18 55)',
+  cloudflare: 'oklch(72% 0.18 55)',
+  grafana: 'oklch(72% 0.18 55)',
+  datadog: 'oklch(65% 0.18 290)',
+  mailchimp: 'oklch(72% 0.18 80)',
+  zendesk: 'oklch(68% 0.15 160)',
+  intercom: 'oklch(65% 0.17 240)',
+  postmark: 'oklch(72% 0.18 80)',
+  telegram: 'oklch(65% 0.17 230)',
+  figma: 'oklch(65% 0.18 340)',
+  zapier: 'oklch(72% 0.18 40)',
+  test: 'oklch(70% 0.15 200)',
+  webhook: 'oklch(70.7% 0.165 254.62)'
+};
+var SOURCE_COLOUR_POOL = [
+  'oklch(70.7% 0.165 254.62)',
+  'oklch(70.2% 0.183 293.54)',
+  'oklch(75% 0.18 55)',
+  'oklch(78.9% 0.154 211.53)',
+  'oklch(71.2% 0.194 13.43)',
+  'oklch(72% 0.17 142)',
+  'oklch(82.8% 0.189 84.43)',
+  'oklch(65% 0.18 320)'
+];
+var sourceColourCache = {};
+function sourceColour(src) {
+  if (!src) return 'var(--text-muted)';
+  var lower = src.toLowerCase();
+  if (SOURCE_COLOURS[lower]) return SOURCE_COLOURS[lower];
+  if (sourceColourCache[lower]) return sourceColourCache[lower];
+  var hash = 0;
+  for (var i = 0; i < lower.length; i++) hash = ((hash << 5) - hash) + lower.charCodeAt(i);
+  sourceColourCache[lower] = SOURCE_COLOUR_POOL[Math.abs(hash) % SOURCE_COLOUR_POOL.length];
+  return sourceColourCache[lower];
 }
 
 function esc(s) {
