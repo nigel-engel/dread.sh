@@ -1177,17 +1177,14 @@ const landingPage = `<!DOCTYPE html>
     <div class="live-stat-card">
       <div class="live-stat-value"><span class="accent" id="ls-channels">—</span></div>
       <div class="live-stat-label"><span class="live-stat-dot"></span>channels active</div>
-      <div class="live-stat-detail">last 7 days</div>
     </div>
     <div class="live-stat-card">
       <div class="live-stat-value" id="ls-events">—</div>
       <div class="live-stat-label">webhooks this week</div>
-      <div class="live-stat-detail">last 7 days</div>
     </div>
     <div class="live-stat-card">
       <div class="live-stat-value" id="ls-sources">—</div>
       <div class="live-stat-label">services connected</div>
-      <div class="live-stat-detail" id="ls-source-list"></div>
     </div>
   </div>
   <div class="hero-actions">
@@ -1622,17 +1619,9 @@ function toggleTheme() {
       var ch = document.getElementById('ls-channels');
       var ev = document.getElementById('ls-events');
       var sr = document.getElementById('ls-sources');
-      var sl = document.getElementById('ls-source-list');
       if (ch) ch.textContent = d.ActiveChannels || 0;
       if (ev) ev.textContent = fmt(d.EventsToday || 0);
       if (sr) sr.textContent = (d.TopSources || []).length;
-      if (sl && d.TopSources && d.TopSources.length > 0) {
-        var show = d.TopSources.slice(0, 4);
-        var rest = d.TopSources.length - show.length;
-        var txt = show.join(', ');
-        if (rest > 0) txt += ' + ' + rest + ' more';
-        sl.textContent = txt;
-      }
     }).catch(function() {});
   }
   load();
