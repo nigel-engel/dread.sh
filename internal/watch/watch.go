@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"sync"
@@ -16,6 +18,8 @@ import (
 	"dread.sh/internal/auth"
 	"dread.sh/internal/hub"
 	"dread.sh/internal/notify"
+	"dread.sh/internal/selfupdate"
+	"dread.sh/internal/tui"
 
 	"github.com/coder/websocket"
 )
@@ -35,6 +39,17 @@ func Run(serverURL string, filter string, follows []string, slackOverride string
 	}
 
 	for {
+		// Auto-update check on each reconnect cycle
+		if selfupdate.Check(serverURL, tui.Version) {
+			// Binary was replaced — re-exec ourselves
+			exe, _ := os.Executable()
+			cmd := exec.Command(exe, os.Args[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Run()
+			return nil
+		}
+
 		cfg, err := auth.Load()
 		if err != nil {
 			log.Printf("config error: %v — retrying in 3s", err)

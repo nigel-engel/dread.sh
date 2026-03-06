@@ -1519,7 +1519,18 @@ func (m Model) renderChannels() string {
 				}
 			}
 			if count > 0 {
-				sb.WriteString("    " + dimInfoStyle.Render(fmt.Sprintf("%d events · last: %s", count, relativeTime(lastTime, m.now))) + "\n")
+				ago := m.now.Sub(lastTime).Truncate(time.Minute)
+				var agoStr string
+				if ago < time.Minute {
+					agoStr = "just now"
+				} else if ago < time.Hour {
+					agoStr = fmt.Sprintf("%dm ago", int(ago.Minutes()))
+				} else if ago < 24*time.Hour {
+					agoStr = fmt.Sprintf("%dh ago", int(ago.Hours()))
+				} else {
+					agoStr = fmt.Sprintf("%dd ago", int(ago.Hours()/24))
+				}
+				sb.WriteString("    " + dimInfoStyle.Render(fmt.Sprintf("%d events · last: %s", count, agoStr)) + "\n")
 			} else {
 				sb.WriteString("    " + dimInfoStyle.Render("no events yet") + "\n")
 			}
@@ -1527,19 +1538,7 @@ func (m Model) renderChannels() string {
 		}
 	}
 
-	// Per-source sparklines
-	if len(m.events) > 0 {
-		sparkLines := m.perSourceSparklines()
-		if len(sparkLines) > 0 {
-			sb.WriteString("  " + statsLabelStyle.Render("Source Activity (last hour)") + "\n\n")
-			for _, line := range sparkLines {
-				sb.WriteString("  " + line + "\n")
-			}
-			sb.WriteString("\n")
-		}
-	}
-
-	// Per-channel sparklines
+	// Per-channel activity timeline (last 2 hours, 5-min buckets = 24 slots)
 	if len(m.events) > 0 && len(m.webhookURLs) > 0 {
 		maxNameLen := 0
 		for ch := range m.webhookURLs {
@@ -1548,15 +1547,17 @@ func (m Model) renderChannels() string {
 				maxNameLen = n
 			}
 		}
-		if maxNameLen < 8 {
-			maxNameLen = 8
+		if maxNameLen < 10 {
+			maxNameLen = 10
 		}
-		sb.WriteString("  " + statsLabelStyle.Render("Channel Activity (last hour)") + "\n\n")
+		sb.WriteString("  " + statsLabelStyle.Render("Activity (last 2 hours)") + "\n\n")
+		// Truncate now to 5-min boundary so the timeline doesn't shift every second
+		nowTrunc := m.now.Truncate(5 * time.Minute)
 		for ch := range m.webhookURLs {
 			name := m.displayName(ch)
-			spark := m.sparklineForChannel(ch)
 			label := channelStyle.Width(maxNameLen + 2).Render(name)
-			sb.WriteString("  " + label + sparkStyle.Render(spark) + "\n")
+			lane := m.channelTimeline(ch, nowTrunc, 24, 5*time.Minute)
+			sb.WriteString("  " + label + lane + "\n")
 		}
 	}
 
@@ -1599,6 +1600,32 @@ func (m Model) sparklineForChannel(channelID string) string {
 		} else {
 			idx := (c * (len(sparkBlocks) - 1)) / maxCount
 			sb.WriteRune(sparkBlocks[idx])
+		}
+	}
+	return sb.String()
+}
+
+// channelTimeline renders a fixed-width swimlane for a channel using ▮/▯ blocks.
+// nowTrunc should be pre-truncated to bucketDur to prevent jitter.
+func (m Model) channelTimeline(channelID string, nowTrunc time.Time, slots int, bucketDur time.Duration) string {
+	counts := make([]int, slots)
+	cutoff := nowTrunc.Add(-time.Duration(slots) * bucketDur)
+	for _, e := range m.events {
+		if e.Channel != channelID || e.Timestamp.Before(cutoff) {
+			continue
+		}
+		idx := int(nowTrunc.Sub(e.Timestamp) / bucketDur)
+		if idx >= slots {
+			idx = slots - 1
+		}
+		counts[slots-1-idx]++
+	}
+	var sb strings.Builder
+	for _, c := range counts {
+		if c > 0 {
+			sb.WriteString(swimlaneActiveStyle.Render("▮"))
+		} else {
+			sb.WriteString(swimlaneEmptyStyle.Render("▯"))
 		}
 	}
 	return sb.String()
