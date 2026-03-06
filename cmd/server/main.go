@@ -1178,7 +1178,7 @@ const landingPage = `<!DOCTYPE html>
 <!-- HERO -->
 <div class="hero">
   <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
-  <h1>Webhooks to your<br>terminal and desktop</h1>
+  <h1>Webhook Notifications</h1>
   <p class="hero-sub">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
   <div class="hero-actions">
     <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
