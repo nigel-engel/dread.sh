@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"net/http"
 	"time"
 
 	"dread.sh/internal/event"
@@ -31,6 +32,9 @@ type tickMsg time.Time
 type forwardResultMsg struct {
 	EventID    string
 	StatusCode int
+	Headers    http.Header
+	Body       string
+	Duration   time.Duration
 	Err        error
 }
 
@@ -41,3 +45,10 @@ type clipboardMsg struct {
 type updateCheckMsg struct {
 	Latest string
 }
+
+type exportDoneMsg struct {
+	Path string
+	Err  error
+}
+
+type ntfySentMsg struct{}

@@ -114,7 +114,8 @@ Flags (watch mode):
   --discord <url>                forward events to Discord webhook
 
 Flags (TUI mode only):
-  --forward <url>                forward webhooks to this URL`)
+  --forward <url>                forward webhooks to this URL
+  --ntfy <topic>                 push notifications via ntfy.sh`)
 }
 
 func runTUI() {
@@ -122,6 +123,7 @@ func runTUI() {
 	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
 	forwardURL := fs.String("forward", "", "forward webhooks to this URL")
 	filter := fs.String("filter", "", "filter events by substring match")
+	ntfyTopic := fs.String("ntfy", "", "ntfy.sh topic for push notifications")
 	fs.Parse(os.Args[1:])
 
 	cfg, err := auth.Load()
@@ -148,7 +150,7 @@ func runTUI() {
 		os.Exit(0)
 	}
 
-	m := tui.New(*serverURL, channels, *forwardURL, *filter, cfg.Sound, cfg.Muted)
+	m := tui.New(*serverURL, channels, *forwardURL, *filter, cfg.Sound, cfg.Muted, *ntfyTopic)
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {

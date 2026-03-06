@@ -35,6 +35,10 @@ var commandTips = []string{
 	"1 live · 2 errors · 3 stats",
 	"source:stripe — filter by source",
 	"!error — exclude matching events",
+	"f bookmark · F view bookmarks",
+	"d diff with previous event",
+	"Ctrl+P command palette",
+	"click events · scroll to navigate",
 }
 
 // classifyEvent returns "success", "failure", or "neutral" based on event type/summary.
@@ -272,6 +276,45 @@ var (
 
 	statsBarBgStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#333333"))
+
+	bookmarkStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E5C07B"))
+
+	groupBadgeStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#C678DD")).
+			Bold(true)
+
+	diffAddStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#98C379"))
+
+	diffRemStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E06C75"))
+
+	diffModStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E5C07B"))
+
+	fwdStatusOKStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#98C379"))
+
+	fwdStatusErrStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#E06C75"))
+
+	swimlaneActiveStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#B5835A"))
+
+	swimlaneEmptyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#2C313A"))
+
+	paletteInputStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#98C379")).
+				Bold(true)
+
+	paletteItemStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#ABB2BF"))
+
+	paletteSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#B5835A")).
+				Bold(true)
 )
 
 func sourceStyle(source string) lipgloss.Style {

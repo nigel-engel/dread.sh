@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -49,11 +51,50 @@ type toast struct {
 	expires time.Time
 }
 
+type displayItem struct {
+	events []event.Event
+}
+
+type paletteAction int
+
+const (
+	palFilter paletteAction = iota
+	palSplit
+	palPause
+	palCopyURL
+	palLive
+	palErrors
+	palStats
+	palExport
+	palBookmarks
+	palGroup
+	palHelp
+)
+
+type palCmd struct {
+	name   string
+	action paletteAction
+}
+
+var paletteCommands = []palCmd{
+	{"Filter events", palFilter},
+	{"Toggle split pane", palSplit},
+	{"Pause / Resume", palPause},
+	{"Copy webhook URL", palCopyURL},
+	{"Live events", palLive},
+	{"Errors only", palErrors},
+	{"Statistics", palStats},
+	{"Export session as HTML", palExport},
+	{"Toggle bookmarks view", palBookmarks},
+	{"Toggle event grouping", palGroup},
+	{"Show help", palHelp},
+}
+
 type Model struct {
 	serverURL    string
 	channelIDs   []string
-	channelNames map[string]string // channel ID -> display name
-	webhookURLs  map[string]string // channel ID -> URL
+	channelNames map[string]string
+	webhookURLs  map[string]string
 	wsConn       *websocket.Conn
 	connected    bool
 	err          error
@@ -70,7 +111,7 @@ type Model struct {
 	filtering     bool
 	filterText    string
 	filterHistory []string
-	filterHistIdx int // -1 = current input
+	filterHistIdx int
 
 	hasMore bool
 	loading bool
@@ -102,9 +143,30 @@ type Model struct {
 
 	// Split pane
 	splitView bool
+
+	// Bookmarks
+	bookmarks     map[string]bool
+	showBookmarks bool
+
+	// Forward results per event
+	forwardResults map[string]forward.Result
+
+	// Command palette
+	showPalette   bool
+	paletteInput  string
+	paletteCursor int
+
+	// Event grouping
+	groupEvents bool
+
+	// Diff view in detail
+	showDiff bool
+
+	// ntfy push notifications
+	ntfyTopic string
 }
 
-func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string) Model {
+func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string, ntfyTopic string) Model {
 	vp := viewport.New()
 	dvp := viewport.New()
 	ids := make([]string, len(channels))
@@ -118,18 +180,21 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 		mutedSet[m] = true
 	}
 	m := Model{
-		serverURL:    serverURL,
-		channelIDs:   ids,
-		channelNames: names,
-		filterText:   filter,
-		filterHistIdx: -1,
-		viewport:     vp,
-		detailVP:     dvp,
-		sound:        sound,
-		muted:        mutedSet,
-		now:          time.Now(),
-		startedAt:    time.Now(),
-		activeTab:    tabLive,
+		serverURL:      serverURL,
+		channelIDs:     ids,
+		channelNames:   names,
+		filterText:     filter,
+		filterHistIdx:  -1,
+		viewport:       vp,
+		detailVP:       dvp,
+		sound:          sound,
+		muted:          mutedSet,
+		now:            time.Now(),
+		startedAt:      time.Now(),
+		activeTab:      tabLive,
+		bookmarks:      make(map[string]bool),
+		forwardResults: make(map[string]forward.Result),
+		ntfyTopic:      ntfyTopic,
 	}
 	if forwardURL != "" {
 		m.forwarder = forward.New(forwardURL)
@@ -137,7 +202,6 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 	return m
 }
 
-// displayName returns the human-readable name for a channel ID.
 func (m Model) displayName(channelID string) string {
 	if name, ok := m.channelNames[channelID]; ok {
 		return name
@@ -154,6 +218,58 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
+// displayItems returns grouped or ungrouped event list for rendering.
+func (m Model) displayItems() []displayItem {
+	filtered := m.filteredEvents()
+	if !m.groupEvents || len(filtered) < 3 {
+		items := make([]displayItem, len(filtered))
+		for i, e := range filtered {
+			items[i] = displayItem{events: []event.Event{e}}
+		}
+		return items
+	}
+
+	var items []displayItem
+	i := 0
+	for i < len(filtered) {
+		j := i + 1
+		for j < len(filtered) &&
+			filtered[j].Source == filtered[i].Source &&
+			filtered[j].Type == filtered[i].Type &&
+			absDuration(filtered[j].Timestamp.Sub(filtered[i].Timestamp)) < 60*time.Second {
+			j++
+		}
+		if j-i >= 3 {
+			group := make([]event.Event, j-i)
+			copy(group, filtered[i:j])
+			items = append(items, displayItem{events: group})
+		} else {
+			for k := i; k < j; k++ {
+				items = append(items, displayItem{events: []event.Event{filtered[k]}})
+			}
+		}
+		i = j
+	}
+	return items
+}
+
+func absDuration(d time.Duration) time.Duration {
+	if d < 0 {
+		return -d
+	}
+	return d
+}
+
+// cursorEvent returns the event under the cursor.
+func (m Model) cursorEvent() (event.Event, bool) {
+	items := m.displayItems()
+	if m.cursor >= 0 && m.cursor < len(items) {
+		evs := items[m.cursor].events
+		return evs[len(evs)-1], true
+	}
+	return event.Event{}, false
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -166,7 +282,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		m.now = time.Time(msg)
-		// Expire old toasts
 		var active []toast
 		for _, t := range m.toasts {
 			if m.now.Before(t.expires) {
@@ -183,12 +298,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 
+	case tea.MouseClickMsg:
+		cmd := m.handleMouse(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+
 	case wsConnectedMsg:
 		m.connected = true
 		m.err = nil
 		m.wsConn = msg.conn
 		m.webhookURLs = msg.webhookURLs
-		// Copy first webhook URL to clipboard
 		for _, url := range msg.webhookURLs {
 			cmds = append(cmds, copyToClipboard(url))
 			break
@@ -209,7 +329,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case newEventMsg:
 		if msg.Event.ID != "" {
-			// Deduplicate: skip if already present
 			dup := false
 			for _, e := range m.events {
 				if e.ID == msg.Event.ID {
@@ -225,19 +344,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if m.paused {
-				// Buffer while paused
 				m.pauseBuffer = append(m.pauseBuffer, msg.Event)
 				m.pauseCounter++
 			} else {
 				m.events = append(m.events, msg.Event)
-				filtered := m.filteredEvents()
-				if m.cursor >= len(filtered)-2 {
-					m.cursor = len(filtered) - 1
+				items := m.displayItems()
+				if m.cursor >= len(items)-2 {
+					m.cursor = len(items) - 1
 				}
 				m.refreshViewport()
 			}
 
-			// Toast for failure events
 			if classifyEvent(msg.Event.Type, msg.Event.Summary) == "failure" {
 				t := toast{
 					text:    fmt.Sprintf("%s: %s", msg.Event.Source, msg.Event.Summary),
@@ -255,6 +372,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.forwarder != nil {
 				cmds = append(cmds, forwardEvent(m.forwarder, &msg.Event))
 			}
+			if m.ntfyTopic != "" {
+				cmds = append(cmds, sendNtfy(m.ntfyTopic, msg.Event.Source+": "+msg.Event.Type, msg.Event.Summary))
+			}
 		}
 		if m.wsConn != nil {
 			cmds = append(cmds, listenWS(m.wsConn))
@@ -267,7 +387,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, e := range msg.Events {
 			reversed[len(msg.Events)-1-i] = e
 		}
-		// Deduplicate: only prepend events not already present
 		seen := make(map[string]bool, len(m.events))
 		for _, e := range m.events {
 			seen[e.ID] = true
@@ -281,8 +400,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		oldLen := len(m.events)
 		m.events = append(fresh, m.events...)
 		if oldLen == 0 {
-			m.cursor = len(m.filteredEvents()) - 1
+			items := m.displayItems()
+			m.cursor = len(items) - 1
 		} else {
+			// Adjust cursor for prepended items
+			oldItems := len(m.displayItems()) // recompute
+			_ = oldItems
 			m.cursor += len(fresh)
 		}
 		m.refreshViewport()
@@ -303,6 +426,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastForwardOK = true
 			m.lastForwardErr = ""
 		}
+		// Store per-event result
+		if msg.EventID != "" {
+			m.forwardResults[msg.EventID] = forward.Result{
+				StatusCode: msg.StatusCode,
+				Headers:    msg.Headers,
+				Body:       msg.Body,
+				Duration:   msg.Duration,
+				Err:        msg.Err,
+			}
+		}
+
+	case exportDoneMsg:
+		if msg.Err != nil {
+			m.toasts = append(m.toasts, toast{
+				text:    "Export failed: " + msg.Err.Error(),
+				expires: m.now.Add(toastDuration),
+			})
+		} else {
+			m.toasts = append(m.toasts, toast{
+				text:    "Exported to " + msg.Path,
+				expires: m.now.Add(toastDuration),
+			})
+		}
+
+	case ntfySentMsg:
+		// silent
 	}
 
 	if m.mode == viewDetail {
@@ -327,10 +476,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *Model) handleMouse(msg tea.MouseClickMsg) tea.Cmd {
+	if m.showHelp || m.showPalette || m.filtering {
+		return nil
+	}
+	if m.mode == viewDetail && !m.splitView {
+		return nil
+	}
+
+	// Calculate which event line was clicked
+	hdrH := m.headerHeight()
+	if msg.Y >= hdrH && msg.Y < m.height-1 {
+		contentLine := msg.Y - hdrH + m.viewport.YOffset()
+		items := m.displayItems()
+		if contentLine >= 0 && contentLine < len(items) {
+			m.cursor = contentLine
+			m.refreshViewport()
+			// Double-click effect: if already selected, open detail
+			if m.splitView {
+				if ev, ok := m.cursorEvent(); ok {
+					m.renderDetail(ev)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	key := msg.String()
 
-	// Help overlay takes priority
+	// Help overlay
 	if m.showHelp {
 		switch key {
 		case "?", "esc", "q":
@@ -339,28 +515,34 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
+	// Command palette
+	if m.showPalette {
+		return m.handlePaletteKey(key)
+	}
+
+	// Filter input
 	if m.filtering {
 		switch key {
 		case "esc":
 			m.filtering = false
 			m.filterText = ""
 			m.filterHistIdx = -1
-			m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
+			items := m.displayItems()
+			m.cursor = clamp(m.cursor, 0, len(items)-1)
 			m.refreshViewport()
 		case "enter":
 			m.filtering = false
 			if m.filterText != "" {
-				// Save to filter history
 				m.filterHistory = append(m.filterHistory, m.filterText)
 				if len(m.filterHistory) > maxFilterHistory {
 					m.filterHistory = m.filterHistory[len(m.filterHistory)-maxFilterHistory:]
 				}
 			}
 			m.filterHistIdx = -1
-			m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
+			items := m.displayItems()
+			m.cursor = clamp(m.cursor, 0, len(items)-1)
 			m.refreshViewport()
 		case "up":
-			// Browse filter history
 			if len(m.filterHistory) > 0 {
 				if m.filterHistIdx == -1 {
 					m.filterHistIdx = len(m.filterHistory) - 1
@@ -399,28 +581,39 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
+	// Detail view
 	if m.mode == viewDetail {
 		switch key {
 		case "esc", "backspace":
 			m.mode = viewList
+			m.showDiff = false
 			m.refreshViewport()
 		case "q":
 			m.mode = viewList
+			m.showDiff = false
 			m.refreshViewport()
 		case "r":
 			if m.forwarder != nil {
-				filtered := m.filteredEvents()
-				if m.cursor >= 0 && m.cursor < len(filtered) {
-					ev := filtered[m.cursor]
+				if ev, ok := m.cursorEvent(); ok {
 					return forwardEvent(m.forwarder, &ev)
 				}
 			}
 		case "c":
-			// Copy payload to clipboard
-			filtered := m.filteredEvents()
-			if m.cursor >= 0 && m.cursor < len(filtered) {
-				ev := filtered[m.cursor]
+			if ev, ok := m.cursorEvent(); ok {
 				return copyToClipboard(PrettyJSON(ev.RawJSON))
+			}
+		case "d":
+			m.showDiff = !m.showDiff
+			if ev, ok := m.cursorEvent(); ok {
+				m.renderDetail(ev)
+			}
+		case "f":
+			if ev, ok := m.cursorEvent(); ok {
+				m.bookmarks[ev.ID] = !m.bookmarks[ev.ID]
+				if !m.bookmarks[ev.ID] {
+					delete(m.bookmarks, ev.ID)
+				}
+				m.renderDetail(ev)
 			}
 		case "ctrl+c":
 			return tea.Quit
@@ -428,6 +621,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
+	// List view
 	switch key {
 	case "q", "ctrl+c":
 		if m.wsConn != nil {
@@ -436,6 +630,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return tea.Quit
 	case "?":
 		m.showHelp = true
+	case "ctrl+p":
+		m.showPalette = true
+		m.paletteInput = ""
+		m.paletteCursor = 0
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -443,21 +641,20 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.ensureCursorVisible()
 		}
 	case "down", "j":
-		filtered := m.filteredEvents()
-		if m.cursor < len(filtered)-1 {
+		items := m.displayItems()
+		if m.cursor < len(items)-1 {
 			m.cursor++
 			m.refreshViewport()
 			m.ensureCursorVisible()
 		}
 	case "enter":
-		filtered := m.filteredEvents()
-		if m.cursor >= 0 && m.cursor < len(filtered) {
+		if ev, ok := m.cursorEvent(); ok {
 			if m.splitView {
-				// In split view, just update the detail pane
-				m.renderDetail(filtered[m.cursor])
+				m.renderDetail(ev)
 			} else {
 				m.mode = viewDetail
-				m.renderDetail(filtered[m.cursor])
+				m.showDiff = false
+				m.renderDetail(ev)
 			}
 		}
 	case "/":
@@ -465,35 +662,33 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.filterHistIdx = -1
 	case "r":
 		if m.forwarder != nil {
-			filtered := m.filteredEvents()
-			if m.cursor >= 0 && m.cursor < len(filtered) {
-				ev := filtered[m.cursor]
+			if ev, ok := m.cursorEvent(); ok {
 				return forwardEvent(m.forwarder, &ev)
 			}
 		}
 	case "c":
-		// Copy webhook URL
 		for _, url := range m.webhookURLs {
 			return copyToClipboard(url)
 		}
 	case "p", " ":
 		m.paused = !m.paused
 		if !m.paused {
-			// Flush buffered events
 			m.events = append(m.events, m.pauseBuffer...)
 			m.pauseBuffer = nil
 			m.pauseCounter = 0
-			filtered := m.filteredEvents()
-			m.cursor = len(filtered) - 1
+			items := m.displayItems()
+			m.cursor = len(items) - 1
 			m.refreshViewport()
 		}
 	case "1":
 		m.activeTab = tabLive
-		m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
+		items := m.displayItems()
+		m.cursor = clamp(m.cursor, 0, len(items)-1)
 		m.refreshViewport()
 	case "2":
 		m.activeTab = tabErrors
-		m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
+		items := m.displayItems()
+		m.cursor = clamp(m.cursor, 0, len(items)-1)
 		m.refreshViewport()
 	case "3":
 		m.activeTab = tabStats
@@ -502,13 +697,130 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.splitView = !m.splitView
 		m.recalcViewports()
 		m.refreshViewport()
-		// If enabling split and we have a selection, show its detail
 		if m.splitView {
-			filtered := m.filteredEvents()
-			if m.cursor >= 0 && m.cursor < len(filtered) {
-				m.renderDetail(filtered[m.cursor])
+			if ev, ok := m.cursorEvent(); ok {
+				m.renderDetail(ev)
 			}
 		}
+	case "f":
+		if ev, ok := m.cursorEvent(); ok {
+			m.bookmarks[ev.ID] = !m.bookmarks[ev.ID]
+			if !m.bookmarks[ev.ID] {
+				delete(m.bookmarks, ev.ID)
+			}
+			m.refreshViewport()
+		}
+	case "F":
+		m.showBookmarks = !m.showBookmarks
+		items := m.displayItems()
+		m.cursor = clamp(m.cursor, 0, len(items)-1)
+		m.refreshViewport()
+	case "d":
+		if ev, ok := m.cursorEvent(); ok {
+			m.showDiff = true
+			m.mode = viewDetail
+			m.renderDetail(ev)
+		}
+	case "g":
+		m.groupEvents = !m.groupEvents
+		items := m.displayItems()
+		m.cursor = clamp(m.cursor, 0, len(items)-1)
+		m.refreshViewport()
+	case "x":
+		return exportSessionHTML(m.filteredEvents())
+	}
+	return nil
+}
+
+func (m *Model) handlePaletteKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.showPalette = false
+	case "enter":
+		m.showPalette = false
+		filtered := m.filteredPaletteCommands()
+		if m.paletteCursor >= 0 && m.paletteCursor < len(filtered) {
+			return m.executePaletteCmd(filtered[m.paletteCursor].action)
+		}
+	case "up":
+		if m.paletteCursor > 0 {
+			m.paletteCursor--
+		}
+	case "down":
+		filtered := m.filteredPaletteCommands()
+		if m.paletteCursor < len(filtered)-1 {
+			m.paletteCursor++
+		}
+	case "backspace":
+		if len(m.paletteInput) > 0 {
+			m.paletteInput = m.paletteInput[:len(m.paletteInput)-1]
+			m.paletteCursor = 0
+		}
+	default:
+		if len(key) == 1 {
+			m.paletteInput += key
+			m.paletteCursor = 0
+		}
+	}
+	return nil
+}
+
+func (m Model) filteredPaletteCommands() []palCmd {
+	if m.paletteInput == "" {
+		return paletteCommands
+	}
+	lower := strings.ToLower(m.paletteInput)
+	var result []palCmd
+	for _, cmd := range paletteCommands {
+		if strings.Contains(strings.ToLower(cmd.name), lower) {
+			result = append(result, cmd)
+		}
+	}
+	return result
+}
+
+func (m *Model) executePaletteCmd(action paletteAction) tea.Cmd {
+	switch action {
+	case palFilter:
+		m.filtering = true
+		m.filterHistIdx = -1
+	case palSplit:
+		m.splitView = !m.splitView
+		m.recalcViewports()
+		m.refreshViewport()
+	case palPause:
+		m.paused = !m.paused
+		if !m.paused {
+			m.events = append(m.events, m.pauseBuffer...)
+			m.pauseBuffer = nil
+			m.pauseCounter = 0
+			items := m.displayItems()
+			m.cursor = len(items) - 1
+			m.refreshViewport()
+		}
+	case palCopyURL:
+		for _, url := range m.webhookURLs {
+			return copyToClipboard(url)
+		}
+	case palLive:
+		m.activeTab = tabLive
+		m.refreshViewport()
+	case palErrors:
+		m.activeTab = tabErrors
+		m.refreshViewport()
+	case palStats:
+		m.activeTab = tabStats
+		m.refreshViewport()
+	case palExport:
+		return exportSessionHTML(m.filteredEvents())
+	case palBookmarks:
+		m.showBookmarks = !m.showBookmarks
+		m.refreshViewport()
+	case palGroup:
+		m.groupEvents = !m.groupEvents
+		m.refreshViewport()
+	case palHelp:
+		m.showHelp = true
 	}
 	return nil
 }
@@ -535,17 +847,24 @@ func (m Model) View() tea.View {
 	if m.showHelp {
 		v := tea.NewView(m.renderHelp())
 		v.AltScreen = true
+		v.MouseMode = tea.MouseModeCellMotion
+		return v
+	}
+
+	// Command palette overlay
+	if m.showPalette {
+		v := tea.NewView(m.renderPalette())
+		v.AltScreen = true
+		v.MouseMode = tea.MouseModeCellMotion
 		return v
 	}
 
 	var b strings.Builder
 
-	// Header: three-column layout — logo | stats | activity
+	// Header
 	left := logoStyle.Render(dreadLogo)
 
-	// Column 2: status & connection
 	var col2Lines []string
-
 	session := m.now.Sub(m.startedAt).Truncate(time.Second)
 	greet := greeting(m.now.Hour())
 	col2Lines = append(col2Lines, greetingStyle.Render(greet))
@@ -567,28 +886,25 @@ func (m Model) View() tea.View {
 		col2Lines = append(col2Lines, dimInfoStyle.Render("● connecting..."))
 	}
 
-	// Channels with health dots
 	col2Lines = append(col2Lines, detailValueStyle.Render(fmt.Sprintf("%d channels ", len(m.channelIDs)))+m.channelHealthDots())
 
-	// Success / failure breakdown
 	success, failure, neutral := m.eventStatusCounts()
 	statusLine := successCountStyle.Render(fmt.Sprintf("✓ %d", success)) + "  " +
 		failureCountStyle.Render(fmt.Sprintf("✗ %d", failure)) + "  " +
 		neutralCountStyle.Render(fmt.Sprintf("○ %d", neutral))
+	if len(m.bookmarks) > 0 {
+		statusLine += "  " + bookmarkStyle.Render(fmt.Sprintf("★ %d", len(m.bookmarks)))
+	}
 	col2Lines = append(col2Lines, statusLine)
 
-	// Version + update
 	verLine := versionStyle.Render("v" + Version)
 	if m.latestVersion != "" {
 		verLine += " " + updateStyle.Render("↑ v"+m.latestVersion)
 	}
 	col2Lines = append(col2Lines, verLine)
 
-	// Column 3: activity & tips
 	var col3Lines []string
-
 	filtered := m.filteredEvents()
-	// Event count + source breakdown
 	counts := m.sourceCounts()
 	evLine := fmt.Sprintf("%d events", len(filtered))
 	if len(counts) > 0 {
@@ -600,7 +916,6 @@ func (m Model) View() tea.View {
 	}
 	col3Lines = append(col3Lines, detailValueStyle.Render(evLine))
 
-	// Event rate
 	if session > 0 {
 		rate := float64(len(m.events)) / session.Hours()
 		if rate >= 1 {
@@ -612,10 +927,8 @@ func (m Model) View() tea.View {
 		col3Lines = append(col3Lines, dimInfoStyle.Render(""))
 	}
 
-	// Per-source sparklines (top 3)
 	col3Lines = append(col3Lines, m.perSourceSparklines()...)
 
-	// Last event
 	if len(m.events) > 0 {
 		last := m.events[len(m.events)-1]
 		col3Lines = append(col3Lines, dimInfoStyle.Render("last: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
@@ -623,7 +936,6 @@ func (m Model) View() tea.View {
 		col3Lines = append(col3Lines, dimInfoStyle.Render("waiting for first event..."))
 	}
 
-	// Rotating tip
 	tip := commandTips[int(m.now.Unix()/10)%len(commandTips)]
 	col3Lines = append(col3Lines, tipStyle.Render(tip))
 
@@ -633,7 +945,7 @@ func (m Model) View() tea.View {
 	b.WriteString(headerBoxStyle.Render(header))
 	b.WriteString("\n")
 
-	// Channel webhook URLs
+	// Webhook URLs
 	if len(m.webhookURLs) > 0 {
 		for ch, url := range m.webhookURLs {
 			name := m.displayName(ch)
@@ -652,6 +964,8 @@ func (m Model) View() tea.View {
 		fwd := forwardStyle.Render(fmt.Sprintf("  forwarding to: %s", m.forwarder.URL))
 		if m.lastForwardErr != "" {
 			fwd += " " + forwardErrStyle.Render("(err: "+m.lastForwardErr+")")
+		} else if m.lastForwardOK {
+			fwd += " " + fwdStatusOKStyle.Render("✓")
 		}
 		b.WriteString(fwd + "\n")
 	}
@@ -660,13 +974,12 @@ func (m Model) View() tea.View {
 	b.WriteString(m.renderTabBar())
 	b.WriteString("\n")
 
-	// Viewport content based on active tab
+	// Content
 	if m.activeTab == tabStats {
 		b.WriteString(m.renderStats())
 	} else if m.mode == viewDetail && !m.splitView {
 		b.WriteString(m.detailVP.View())
 	} else if m.splitView {
-		// Side-by-side: list | detail
 		listView := m.viewport.View()
 		detailView := m.detailVP.View()
 		split := lipgloss.JoinHorizontal(lipgloss.Top, listView, detailView)
@@ -676,7 +989,7 @@ func (m Model) View() tea.View {
 	}
 	b.WriteString("\n")
 
-	// Toast notifications (overlay at bottom above footer)
+	// Toasts
 	for _, t := range m.toasts {
 		b.WriteString(toastStyle.Render("  ⚠ "+t.text) + "\n")
 	}
@@ -692,15 +1005,18 @@ func (m Model) View() tea.View {
 		}
 		footerText = filterPromptStyle.Render("/"+mode+":") + filterTextStyle.Render(m.filterText) + filterPromptStyle.Render("_") + "  esc clear · ↑↓ history"
 	} else if m.mode == viewDetail {
-		footerText = "esc back · c copy payload"
+		footerText = "esc back · c copy · d diff"
 		if m.forwarder != nil {
 			footerText += " · r replay"
 		}
-		footerText += " · ↑↓ scroll"
+		footerText += " · f bookmark · ↑↓ scroll"
 	} else {
-		footerText = "q quit · ↑↓ navigate · enter detail · / filter · ? help · p pause · s split · 1-3 tabs"
-		if m.forwarder != nil {
-			footerText += " · r replay"
+		footerText = "q quit · ↑↓ navigate · enter detail · / filter · ? help · Ctrl+P palette"
+		if m.showBookmarks {
+			footerText = "F bookmarks ON · " + footerText
+		}
+		if m.groupEvents {
+			footerText += " · g:grouped"
 		}
 	}
 	footer := statusBarStyle.Width(m.width).Render(footerText)
@@ -708,6 +1024,7 @@ func (m Model) View() tea.View {
 
 	v := tea.NewView(b.String())
 	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 
@@ -734,13 +1051,18 @@ func (m Model) renderTabBar() string {
 	if m.splitView {
 		tabLine += "  " + dimInfoStyle.Render("[split]")
 	}
+	if m.showBookmarks {
+		tabLine += "  " + bookmarkStyle.Render("[★ bookmarks]")
+	}
+	if m.groupEvents {
+		tabLine += "  " + groupBadgeStyle.Render("[grouped]")
+	}
 	return tabLine
 }
 
 func (m Model) renderHelp() string {
 	var b strings.Builder
 
-	// Fill background
 	title := helpSectionStyle.Render("  DREAD — Keybindings")
 	b.WriteString("\n" + title + "\n\n")
 
@@ -753,7 +1075,7 @@ func (m Model) renderHelp() string {
 			{"↓/j", "Move cursor down"},
 			{"enter", "View event detail"},
 			{"esc", "Back / clear filter"},
-			{"g/G", "Go to top / bottom"},
+			{"click", "Select event (mouse)"},
 		}},
 		{"Actions", []struct{ key, desc string }{
 			{"/", "Filter events"},
@@ -761,13 +1083,19 @@ func (m Model) renderHelp() string {
 			{"c", "Copy URL / payload"},
 			{"p / Space", "Pause / resume feed"},
 			{"s", "Toggle split pane"},
+			{"f", "Bookmark / unbookmark event"},
+			{"F", "Toggle bookmarks view"},
+			{"d", "Diff with previous same-source event"},
+			{"g", "Toggle event grouping"},
+			{"x", "Export session as HTML"},
+			{"Ctrl+P", "Command palette"},
 			{"?", "Toggle this help"},
 			{"q", "Quit"},
 		}},
 		{"Tabs", []struct{ key, desc string }{
 			{"1", "Live events"},
 			{"2", "Errors only"},
-			{"3", "Stats view"},
+			{"3", "Stats + swimlane"},
 		}},
 		{"Filter Syntax", []struct{ key, desc string }{
 			{"text", "Substring match"},
@@ -788,17 +1116,44 @@ func (m Model) renderHelp() string {
 
 	b.WriteString("  " + dimInfoStyle.Render("Press ? or esc to close"))
 
-	// Center in terminal
 	content := helpOverlayStyle.Width(50).Render(b.String())
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
+func (m Model) renderPalette() string {
+	var b strings.Builder
+
+	b.WriteString("\n  " + helpSectionStyle.Render("Command Palette") + "\n\n")
+	b.WriteString("  " + paletteInputStyle.Render("> "+m.paletteInput) + filterPromptStyle.Render("_") + "\n\n")
+
+	cmds := m.filteredPaletteCommands()
+	for i, cmd := range cmds {
+		if i >= 10 {
+			break
+		}
+		if i == m.paletteCursor {
+			b.WriteString("  " + paletteSelectedStyle.Render("▸ "+cmd.name) + "\n")
+		} else {
+			b.WriteString("  " + paletteItemStyle.Render("  "+cmd.name) + "\n")
+		}
+	}
+
+	if len(cmds) == 0 {
+		b.WriteString("  " + dimInfoStyle.Render("No matching commands") + "\n")
+	}
+
+	b.WriteString("\n  " + dimInfoStyle.Render("↑↓ navigate · enter select · esc close"))
+
+	content := helpOverlayStyle.Width(44).Render(b.String())
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+}
+
 func (m Model) headerHeight() int {
-	h := 11 // logo (6) + box border (2) + box padding (2) + 1 trailing newline
+	h := 11
 	if len(m.webhookURLs) > 0 {
 		h += len(m.webhookURLs)
 	} else {
-		h += 1 // "connecting..." or "no channels"
+		h += 1
 	}
 	if m.forwarder != nil {
 		h++
@@ -812,9 +1167,8 @@ func (m *Model) refreshViewport() {
 	if m.mode == viewList || m.splitView {
 		m.viewport.SetContent(m.renderEvents())
 		if m.splitView {
-			filtered := m.filteredEvents()
-			if m.cursor >= 0 && m.cursor < len(filtered) {
-				m.renderDetail(filtered[m.cursor])
+			if ev, ok := m.cursorEvent(); ok {
+				m.renderDetail(ev)
 			}
 		}
 	}
@@ -834,20 +1188,29 @@ func (m Model) filteredEvents() []event.Event {
 		events = errs
 	}
 
+	// Bookmark filter
+	if m.showBookmarks {
+		var bookmarked []event.Event
+		for _, e := range events {
+			if m.bookmarks[e.ID] {
+				bookmarked = append(bookmarked, e)
+			}
+		}
+		events = bookmarked
+	}
+
 	if m.filterText == "" {
 		return events
 	}
 
 	filterStr := m.filterText
 
-	// Exclusion filter: !term
 	exclude := false
 	if strings.HasPrefix(filterStr, "!") {
 		exclude = true
 		filterStr = filterStr[1:]
 	}
 
-	// Field-specific filter: field:value
 	var fieldFilter, valueFilter string
 	if idx := strings.Index(filterStr, ":"); idx > 0 {
 		candidate := strings.ToLower(filterStr[:idx])
@@ -900,8 +1263,11 @@ func (m Model) sourceCounts() map[string]int {
 }
 
 func (m Model) renderEvents() string {
-	filtered := m.filteredEvents()
-	if len(filtered) == 0 {
+	items := m.displayItems()
+	if len(items) == 0 {
+		if m.showBookmarks {
+			return "\n  " + bookmarkStyle.Render("No bookmarked events") + "\n\n  " + dimInfoStyle.Render("Press f to bookmark an event, F to exit bookmark view")
+		}
 		if m.filterText != "" {
 			return "\n  No events match filter: " + filterTextStyle.Render(m.filterText)
 		}
@@ -919,9 +1285,12 @@ func (m Model) renderEvents() string {
 	if m.splitView {
 		maxW = m.width / 2
 	}
-	for i, e := range filtered {
+	for i, item := range items {
+		ev := item.events[len(item.events)-1]
+		isGroup := len(item.events) > 1
+
 		var dot string
-		switch classifyEvent(e.Type, e.Summary) {
+		switch classifyEvent(ev.Type, ev.Summary) {
 		case "success":
 			dot = successCountStyle.Render("●")
 		case "failure":
@@ -929,10 +1298,32 @@ func (m Model) renderEvents() string {
 		default:
 			dot = neutralCountStyle.Render("●")
 		}
-		ts := timestampStyle.Render(fmt.Sprintf("%-8s", relativeTime(e.Timestamp, m.now)))
-		src := sourceStyle(e.Source).Width(12).Render(e.Source)
-		summary := summaryStyle.Render(e.Summary)
-		line := fmt.Sprintf("  %s %s  %s  %s", dot, ts, src, summary)
+
+		bookmark := " "
+		if m.bookmarks[ev.ID] {
+			bookmark = bookmarkStyle.Render("★")
+		}
+
+		ts := timestampStyle.Render(fmt.Sprintf("%-8s", relativeTime(ev.Timestamp, m.now)))
+		src := sourceStyle(ev.Source).Width(12).Render(ev.Source)
+		summary := summaryStyle.Render(ev.Summary)
+
+		// Forward result badge
+		fwdBadge := ""
+		if r, ok := m.forwardResults[ev.ID]; ok {
+			if r.Err != nil {
+				fwdBadge = " " + fwdStatusErrStyle.Render("→err")
+			} else {
+				fwdBadge = " " + fwdStatusOKStyle.Render(fmt.Sprintf("→%d", r.StatusCode))
+			}
+		}
+
+		groupBadge := ""
+		if isGroup {
+			groupBadge = " " + groupBadgeStyle.Render(fmt.Sprintf("×%d", len(item.events)))
+		}
+
+		line := fmt.Sprintf("  %s%s %s  %s  %s%s%s", dot, bookmark, ts, src, summary, fwdBadge, groupBadge)
 
 		if i == m.cursor {
 			line = selectedStyle.Width(maxW).Render(line)
@@ -946,7 +1337,7 @@ func (m Model) renderStats() string {
 	var sb strings.Builder
 	vpHeight := m.height - m.headerHeight() - 3
 
-	// Source breakdown with bar chart
+	// Source breakdown
 	sb.WriteString("\n  " + statsLabelStyle.Render("Events by Source") + "\n\n")
 	counts := m.sourceCounts()
 	type srcCount struct {
@@ -985,7 +1376,7 @@ func (m Model) renderStats() string {
 		sb.WriteString("  " + label + " " + bar + countStr + "\n")
 	}
 
-	// Success/failure breakdown
+	// Status breakdown
 	success, failure, neutralN := m.eventStatusCounts()
 	total := success + failure + neutralN
 	sb.WriteString("\n  " + statsLabelStyle.Render("Status Breakdown") + "\n\n")
@@ -1015,11 +1406,14 @@ func (m Model) renderStats() string {
 		}
 	}
 
-	// Activity heatmap (last 7 days x 24 hours)
+	// Swimlane timeline
+	sb.WriteString("\n  " + statsLabelStyle.Render("Swimlane Timeline (last hour)") + "\n\n")
+	sb.WriteString(m.renderSwimlane())
+
+	// Heatmap
 	sb.WriteString("\n  " + statsLabelStyle.Render("Activity Heatmap (7d × 24h)") + "\n\n")
 	sb.WriteString(m.renderHeatmap())
 
-	// Pad remaining height
 	lines := strings.Count(sb.String(), "\n")
 	for i := lines; i < vpHeight; i++ {
 		sb.WriteString("\n")
@@ -1028,8 +1422,70 @@ func (m Model) renderStats() string {
 	return sb.String()
 }
 
+func (m Model) renderSwimlane() string {
+	const lanes = 60 // 60 minutes, 1 char per minute
+	now := m.now
+
+	// Get unique sources
+	srcSet := make(map[string]bool)
+	for _, e := range m.events {
+		srcSet[e.Source] = true
+	}
+	var sources []string
+	for s := range srcSet {
+		sources = append(sources, s)
+	}
+	sort.Strings(sources)
+
+	if len(sources) == 0 {
+		return "  " + dimInfoStyle.Render("No events in the last hour") + "\n"
+	}
+
+	var sb strings.Builder
+
+	// Minute labels
+	sb.WriteString("  " + dimInfoStyle.Render(fmt.Sprintf("%-14s", "")) + " ")
+	sb.WriteString(dimInfoStyle.Render("-60m"))
+	sb.WriteString(strings.Repeat(" ", lanes-8))
+	sb.WriteString(dimInfoStyle.Render("now"))
+	sb.WriteString("\n")
+
+	for _, src := range sources {
+		var buckets [lanes]int
+		for _, e := range m.events {
+			if e.Source != src {
+				continue
+			}
+			age := now.Sub(e.Timestamp)
+			if age < 0 || age > time.Duration(lanes)*time.Minute {
+				continue
+			}
+			idx := lanes - 1 - int(age.Minutes())
+			if idx < 0 {
+				idx = 0
+			}
+			if idx >= lanes {
+				idx = lanes - 1
+			}
+			buckets[idx]++
+		}
+
+		label := sourceStyle(src).Width(14).Render(src)
+		sb.WriteString("  " + label + " ")
+		for _, count := range buckets {
+			if count > 0 {
+				sb.WriteString(swimlaneActiveStyle.Render("▮"))
+			} else {
+				sb.WriteString(swimlaneEmptyStyle.Render("▯"))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
 func (m Model) renderHeatmap() string {
-	// 7 rows (days, today at bottom) x 24 columns (hours)
 	var grid [7][24]int
 	now := m.now
 	for _, e := range m.events {
@@ -1045,7 +1501,6 @@ func (m Model) renderHeatmap() string {
 		grid[dayIdx][hour]++
 	}
 
-	// Find max for color scaling
 	maxVal := 1
 	for d := 0; d < 7; d++ {
 		for h := 0; h < 24; h++ {
@@ -1056,7 +1511,6 @@ func (m Model) renderHeatmap() string {
 	}
 
 	var sb strings.Builder
-	// Hour labels
 	sb.WriteString("          ")
 	for h := 0; h < 24; h += 3 {
 		sb.WriteString(dimInfoStyle.Render(fmt.Sprintf("%-3d", h)))
@@ -1095,7 +1549,7 @@ func (m *Model) renderDetail(e event.Event) {
 	sb.WriteString("  " + detailLabelStyle.Render("Time:      ") + detailValueStyle.Render(e.Timestamp.Local().Format("2006-01-02 15:04:05")) + "\n")
 	sb.WriteString("  " + detailLabelStyle.Render("Received:  ") + detailValueStyle.Render(relativeTime(e.Timestamp, m.now)) + "\n")
 
-	// Status classification
+	// Status
 	status := classifyEvent(e.Type, e.Summary)
 	var statusStr string
 	switch status {
@@ -1106,42 +1560,139 @@ func (m *Model) renderDetail(e event.Event) {
 	default:
 		statusStr = neutralCountStyle.Render("● neutral")
 	}
-	sb.WriteString("  " + detailLabelStyle.Render("Status:    ") + statusStr + "\n\n")
+	sb.WriteString("  " + detailLabelStyle.Render("Status:    ") + statusStr + "\n")
 
-	sb.WriteString("  " + detailLabelStyle.Render("Payload:") + "  " + dimInfoStyle.Render("(c to copy)") + "\n\n")
+	// Bookmark indicator
+	if m.bookmarks[e.ID] {
+		sb.WriteString("  " + detailLabelStyle.Render("Bookmark:  ") + bookmarkStyle.Render("★ bookmarked") + "\n")
+	}
 
-	jsonStr := PrettyJSON(e.RawJSON)
-	for _, line := range strings.Split(jsonStr, "\n") {
-		sb.WriteString("    " + line + "\n")
+	// Forward result
+	if r, ok := m.forwardResults[e.ID]; ok {
+		sb.WriteString("\n  " + detailHeaderStyle.Render("Forward Response") + "\n\n")
+		if r.Err != nil {
+			sb.WriteString("  " + detailLabelStyle.Render("Error:     ") + fwdStatusErrStyle.Render(r.Err.Error()) + "\n")
+		} else {
+			statusColor := fwdStatusOKStyle
+			if r.StatusCode >= 400 {
+				statusColor = fwdStatusErrStyle
+			}
+			sb.WriteString("  " + detailLabelStyle.Render("Status:    ") + statusColor.Render(fmt.Sprintf("%d", r.StatusCode)) + "\n")
+			sb.WriteString("  " + detailLabelStyle.Render("Duration:  ") + detailValueStyle.Render(r.Duration.String()) + "\n")
+			if len(r.Headers) > 0 {
+				sb.WriteString("  " + detailLabelStyle.Render("Headers:") + "\n")
+				for k, vs := range r.Headers {
+					for _, v := range vs {
+						sb.WriteString("    " + dimInfoStyle.Render(k+": ") + detailValueStyle.Render(v) + "\n")
+					}
+				}
+			}
+			if r.Body != "" {
+				sb.WriteString("  " + detailLabelStyle.Render("Body:") + "\n")
+				bodyJSON := PrettyJSON(r.Body)
+				for _, line := range strings.Split(bodyJSON, "\n") {
+					sb.WriteString("    " + line + "\n")
+				}
+			}
+		}
+	}
+
+	// Diff view
+	if m.showDiff {
+		sb.WriteString("\n  " + detailHeaderStyle.Render("Diff with Previous") + "  " + dimInfoStyle.Render("(same source)") + "\n\n")
+		diffStr := m.computeDiff(e)
+		if diffStr == "" {
+			sb.WriteString("  " + dimInfoStyle.Render("No previous event from this source to diff against") + "\n")
+		} else {
+			for _, line := range strings.Split(diffStr, "\n") {
+				sb.WriteString("  " + line + "\n")
+			}
+		}
+	} else {
+		// Payload
+		sb.WriteString("\n  " + detailLabelStyle.Render("Payload:") + "  " + dimInfoStyle.Render("(c to copy, d to diff)") + "\n\n")
+		jsonStr := PrettyJSON(e.RawJSON)
+		for _, line := range strings.Split(jsonStr, "\n") {
+			sb.WriteString("    " + line + "\n")
+		}
 	}
 
 	m.detailVP.SetContent(sb.String())
 	m.detailVP.GotoTop()
 }
 
+// computeDiff compares the current event's JSON with the previous event from the same source.
+func (m Model) computeDiff(current event.Event) string {
+	// Find previous event from same source
+	var prev *event.Event
+	for i := len(m.events) - 1; i >= 0; i-- {
+		e := m.events[i]
+		if e.Source == current.Source && e.ID != current.ID && e.Timestamp.Before(current.Timestamp) {
+			prev = &e
+			break
+		}
+	}
+	if prev == nil {
+		return ""
+	}
+
+	oldLines := strings.Split(PrettyJSON(prev.RawJSON), "\n")
+	newLines := strings.Split(PrettyJSON(current.RawJSON), "\n")
+
+	var sb strings.Builder
+	sb.WriteString(dimInfoStyle.Render(fmt.Sprintf("--- %s (%s)", prev.Type, relativeTime(prev.Timestamp, m.now))) + "\n")
+	sb.WriteString(dimInfoStyle.Render(fmt.Sprintf("+++ %s (%s)", current.Type, relativeTime(current.Timestamp, m.now))) + "\n")
+
+	// Simple line-by-line diff
+	maxLen := len(oldLines)
+	if len(newLines) > maxLen {
+		maxLen = len(newLines)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		var oldLine, newLine string
+		if i < len(oldLines) {
+			oldLine = oldLines[i]
+		}
+		if i < len(newLines) {
+			newLine = newLines[i]
+		}
+
+		if oldLine == newLine {
+			sb.WriteString("  " + dimInfoStyle.Render(newLine) + "\n")
+		} else {
+			if oldLine != "" {
+				sb.WriteString(diffRemStyle.Render("- "+oldLine) + "\n")
+			}
+			if newLine != "" {
+				sb.WriteString(diffAddStyle.Render("+ "+newLine) + "\n")
+			}
+		}
+	}
+
+	return sb.String()
+}
+
 func (m *Model) ensureCursorVisible() {
-	if m.cursor < m.viewport.YPosition {
+	if m.cursor < m.viewport.YOffset() {
 		m.viewport.SetYOffset(m.cursor)
 	}
 	vpHeight := m.height - m.headerHeight() - 1
-	if m.cursor >= m.viewport.YPosition+vpHeight {
+	if m.cursor >= m.viewport.YOffset()+vpHeight {
 		m.viewport.SetYOffset(m.cursor - vpHeight + 1)
 	}
 }
 
-// perSourceSparklines renders sparklines for the top 3 sources.
 func (m Model) perSourceSparklines() []string {
 	if len(m.events) == 0 {
 		return []string{dimInfoStyle.Render("last hour: ") + sparkStyle.Render(m.sparkline())}
 	}
 
-	// Count events per source
 	counts := make(map[string]int)
 	for _, e := range m.events {
 		counts[e.Source]++
 	}
 
-	// Sort by count descending
 	type srcCount struct {
 		name  string
 		count int
@@ -1152,14 +1703,12 @@ func (m Model) perSourceSparklines() []string {
 	}
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].count > sorted[j].count })
 
-	// Show up to 3 per-source sparklines
 	maxShow := 3
 	if len(sorted) < maxShow {
 		maxShow = len(sorted)
 	}
 
 	if maxShow <= 1 {
-		// Just show aggregate sparkline
 		return []string{dimInfoStyle.Render("last hour: ") + sparkStyle.Render(m.sparkline())}
 	}
 
@@ -1173,7 +1722,6 @@ func (m Model) perSourceSparklines() []string {
 	return lines
 }
 
-// sparklineForSource renders a sparkline for a specific source.
 func (m Model) sparklineForSource(source string) string {
 	const buckets = 12
 	bucketDur := 5 * time.Minute
@@ -1358,11 +1906,14 @@ func copyToClipboard(text string) tea.Cmd {
 
 func forwardEvent(fwd *forward.Forwarder, ev *event.Event) tea.Cmd {
 	return func() tea.Msg {
-		status, err := fwd.Forward(ev)
+		r := fwd.ForwardFull(ev)
 		return forwardResultMsg{
 			EventID:    ev.ID,
-			StatusCode: status,
-			Err:        err,
+			StatusCode: r.StatusCode,
+			Headers:    r.Headers,
+			Body:       r.Body,
+			Duration:   r.Duration,
+			Err:        r.Err,
 		}
 	}
 }
@@ -1385,7 +1936,81 @@ func checkForUpdate(serverURL string) tea.Cmd {
 	}
 }
 
-// sparkline renders a 12-bucket activity graph for the last hour.
+func exportSessionHTML(events []event.Event) tea.Cmd {
+	return func() tea.Msg {
+		path := fmt.Sprintf("dread-export-%s.html", time.Now().Format("20060102-150405"))
+
+		var buf bytes.Buffer
+		buf.WriteString(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Dread Session Export</title>
+<style>
+body{font-family:monospace;background:#1e1e1e;color:#abb2bf;padding:2em}
+h1{color:#b5835a}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #333}
+th{color:#c678dd;border-bottom:2px solid #555}
+.success{color:#98c379}.failure{color:#e06c75}.neutral{color:#666}
+.source{color:#e5c07b;font-weight:bold}
+pre{background:#282c34;padding:1em;border-radius:4px;overflow-x:auto;font-size:12px}
+details{margin:4px 0}
+summary{cursor:pointer;color:#61afef}
+</style></head><body>
+<h1>Dread Session Export</h1>
+<p>`)
+		buf.WriteString(fmt.Sprintf("Generated: %s — %d events", time.Now().Format("2006-01-02 15:04:05"), len(events)))
+		buf.WriteString(`</p>
+<table><tr><th>Time</th><th>Source</th><th>Type</th><th>Summary</th><th>Status</th><th>Payload</th></tr>
+`)
+		for _, e := range events {
+			status := classifyEvent(e.Type, e.Summary)
+			statusClass := "neutral"
+			if status == "success" {
+				statusClass = "success"
+			} else if status == "failure" {
+				statusClass = "failure"
+			}
+
+			var prettyJSON bytes.Buffer
+			json.Indent(&prettyJSON, []byte(e.RawJSON), "", "  ")
+
+			buf.WriteString(fmt.Sprintf(
+				`<tr><td>%s</td><td class="source">%s</td><td>%s</td><td>%s</td><td class="%s">%s</td><td><details><summary>payload</summary><pre>%s</pre></details></td></tr>`+"\n",
+				e.Timestamp.Local().Format("15:04:05"),
+				htmlEscape(e.Source),
+				htmlEscape(e.Type),
+				htmlEscape(e.Summary),
+				statusClass, status,
+				htmlEscape(prettyJSON.String()),
+			))
+		}
+		buf.WriteString(`</table></body></html>`)
+
+		err := os.WriteFile(path, buf.Bytes(), 0644)
+		return exportDoneMsg{Path: path, Err: err}
+	}
+}
+
+func htmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}
+
+func sendNtfy(topic string, title string, body string) tea.Cmd {
+	return func() tea.Msg {
+		req, err := http.NewRequest("POST", "https://ntfy.sh/"+topic, strings.NewReader(body))
+		if err != nil {
+			return ntfySentMsg{}
+		}
+		req.Header.Set("Title", title)
+		client := &http.Client{Timeout: 5 * time.Second}
+		client.Do(req)
+		return ntfySentMsg{}
+	}
+}
+
 func (m Model) sparkline() string {
 	if len(m.events) == 0 {
 		return ""
@@ -1425,7 +2050,6 @@ func (m Model) sparkline() string {
 	return sb.String()
 }
 
-// channelHealthDots shows a colored dot per channel based on recent activity.
 func (m Model) channelHealthDots() string {
 	var sb strings.Builder
 	staleThreshold := 30 * time.Minute
@@ -1446,7 +2070,6 @@ func (m Model) channelHealthDots() string {
 	return sb.String()
 }
 
-// eventStatusCounts classifies events into success, failure, neutral.
 func (m Model) eventStatusCounts() (success, failure, neutral int) {
 	for _, e := range m.events {
 		switch classifyEvent(e.Type, e.Summary) {

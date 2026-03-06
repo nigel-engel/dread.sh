@@ -1925,6 +1925,15 @@ const docsPage = `<!DOCTYPE html>
       <a href="#tui-tabs">Tabs &amp; Stats</a>
       <a href="#tui-pause">Pause &amp; Toasts</a>
       <a href="#tui-filters">Advanced Filters</a>
+      <a href="#tui-bookmarks">Bookmarks</a>
+      <a href="#tui-diff">Auto-Diff</a>
+      <a href="#tui-grouping">Event Grouping</a>
+      <a href="#tui-palette">Command Palette</a>
+      <a href="#tui-mouse">Mouse Support</a>
+      <a href="#tui-export">HTML Export</a>
+      <a href="#tui-forward">Forward Response</a>
+      <a href="#tui-swimlane">Swimlane Timeline</a>
+      <a href="#tui-ntfy">ntfy Push</a>
     </div>
     <div class="docs-sidebar-group">
       <div class="docs-sidebar-label">CLI Reference</div>
@@ -2095,6 +2104,56 @@ const docsPage = `<!DOCTYPE html>
       <p>Deep payload search is also supported &mdash; filtering searches inside the raw JSON body, so you can find events by a customer ID or charge amount buried in the payload.</p>
     </section>
 
+    <section class="docs-section" id="tui-bookmarks">
+      <h3>Bookmarks</h3>
+      <p>Press <code>f</code> to star/bookmark any event. Bookmarked events show a ★ indicator in the event list and the header shows a total bookmark count.</p>
+      <p>Press <code>F</code> to toggle bookmark-only view, filtering the list to show only bookmarked events. Press <code>F</code> again to return to the full list.</p>
+    </section>
+
+    <section class="docs-section" id="tui-diff">
+      <h3>Auto-Diff</h3>
+      <p>Press <code>d</code> in the detail view to see a line-by-line diff of the current event's payload compared to the previous event from the same source. Added lines are shown in green, removed lines in red. Press <code>d</code> again to return to the normal payload view.</p>
+    </section>
+
+    <section class="docs-section" id="tui-grouping">
+      <h3>Event Grouping</h3>
+      <p>Press <code>g</code> to toggle event grouping. When enabled, consecutive events with the same source and type within 60 seconds are collapsed into a single row with a ×N badge showing the burst count. This reduces noise from high-volume event sources.</p>
+    </section>
+
+    <section class="docs-section" id="tui-palette">
+      <h3>Command Palette</h3>
+      <p>Press <code>Ctrl+P</code> to open a command palette overlay with fuzzy search. Type to filter commands, use ↑↓ to navigate, and Enter to execute. All major TUI actions are available through the palette.</p>
+    </section>
+
+    <section class="docs-section" id="tui-mouse">
+      <h3>Mouse Support</h3>
+      <p>The TUI supports mouse interaction. Click on an event in the list to select it. Scroll to navigate. In split pane mode, clicking an event also updates the detail pane.</p>
+    </section>
+
+    <section class="docs-section" id="tui-export">
+      <h3>HTML Export</h3>
+      <p>Press <code>x</code> to export the current session as a styled HTML report. The export includes all filtered events with timestamps, sources, types, summaries, status classification, and collapsible JSON payloads. The file is saved to the current directory.</p>
+    </section>
+
+    <section class="docs-section" id="tui-forward">
+      <h3>Forward Response Capture</h3>
+      <p>When using <code>--forward</code>, each forwarded event now shows a status badge in the event list (e.g. →200 for success, →err for failures). In the detail view, the full forward response is shown including HTTP status code, response headers, response body, and round-trip duration.</p>
+    </section>
+
+    <section class="docs-section" id="tui-swimlane">
+      <h3>Swimlane Timeline</h3>
+      <p>The Stats tab (press <code>3</code>) now includes a swimlane timeline visualization showing per-source event activity over the last 60 minutes. Each source gets its own horizontal lane with filled blocks indicating minutes with activity.</p>
+    </section>
+
+    <section class="docs-section" id="tui-ntfy">
+      <h3>ntfy Push Notifications</h3>
+      <p>Use the <code>--ntfy &lt;topic&gt;</code> flag to push all incoming events to <a href="https://ntfy.sh">ntfy.sh</a>. Events are sent with the source and type as the title and the summary as the body. Subscribe to your topic on any device for mobile/desktop push notifications.</p>
+      <div class="copy-wrap">
+        <pre><code><span class="kw">$</span> dread --ntfy my-webhooks</code></pre>
+        <button class="copy-btn" onclick="copyText('dread --ntfy my-webhooks', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
+    </section>
+
     <section class="docs-section" id="cli-dread">
       <h2>CLI Reference</h2>
       <h3>dread</h3>
@@ -2108,6 +2167,7 @@ const docsPage = `<!DOCTYPE html>
         <tr><td><code>--server</code></td><td><code>dread.sh</code></td><td>Server URL to connect to</td></tr>
         <tr><td><code>--filter</code></td><td></td><td>Filter events by substring (source, type, summary, channel)</td></tr>
         <tr><td><code>--forward</code></td><td></td><td>Forward incoming events to a URL</td></tr>
+        <tr><td><code>--ntfy</code></td><td></td><td>ntfy.sh topic for push notifications</td></tr>
       </table>
       <p><strong>Keybindings:</strong></p>
       <table>
@@ -2123,7 +2183,13 @@ const docsPage = `<!DOCTYPE html>
         <tr><td><code>?</code></td><td>Show help overlay with all keybindings</td></tr>
         <tr><td><code>1</code></td><td>Live tab (all events)</td></tr>
         <tr><td><code>2</code></td><td>Errors tab (failures only)</td></tr>
-        <tr><td><code>3</code></td><td>Stats tab (charts &amp; heatmap)</td></tr>
+        <tr><td><code>3</code></td><td>Stats tab (charts, heatmap &amp; swimlane)</td></tr>
+        <tr><td><code>f</code></td><td>Bookmark / unbookmark event</td></tr>
+        <tr><td><code>F</code></td><td>Toggle bookmarks-only view</td></tr>
+        <tr><td><code>d</code></td><td>Diff with previous same-source event</td></tr>
+        <tr><td><code>g</code></td><td>Toggle event grouping</td></tr>
+        <tr><td><code>x</code></td><td>Export session as HTML</td></tr>
+        <tr><td><code>Ctrl+P</code></td><td>Command palette</td></tr>
         <tr><td><code>esc</code></td><td>Back / clear filter</td></tr>
       </table>
     </section>
@@ -2801,6 +2867,23 @@ const changelogPage = `<!DOCTYPE html>
 <div class="changelog">
   <h1>Changelog</h1>
   <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 6, 2026</div>
+    <div class="changelog-title">10 more TUI features: bookmarks, diff, grouping, palette, mouse, export, swimlanes, ntfy</div>
+    <ul>
+      <li><strong>Star/bookmark events</strong> &mdash; press <code>f</code> to bookmark any event, <code>F</code> to toggle bookmark-only view. Bookmarked events show a ★ indicator</li>
+      <li><strong>Auto-diff consecutive events</strong> &mdash; press <code>d</code> in detail view to see a line-by-line diff with the previous event from the same source</li>
+      <li><strong>Event grouping / burst collapsing</strong> &mdash; press <code>g</code> to toggle grouping. Consecutive events with the same source+type within 60s are collapsed with a &times;N badge</li>
+      <li><strong>Command palette</strong> &mdash; press <code>Ctrl+P</code> for a fuzzy-searchable command palette with all TUI actions</li>
+      <li><strong>Mouse support</strong> &mdash; click events to select them, scroll to navigate. Mouse events are enabled via bubbletea cell motion mode</li>
+      <li><strong>Session export as HTML</strong> &mdash; press <code>x</code> to export the current session as a styled HTML report with collapsible payloads</li>
+      <li><strong>Forward response capture</strong> &mdash; forwarded events now show a &rarr;200 status badge in the event list, with full response details (status, headers, body, duration) in the detail view</li>
+      <li><strong>Swimlane timeline</strong> &mdash; the Stats tab now includes a per-source swimlane showing event activity over the last 60 minutes</li>
+      <li><strong>ntfy.sh push notifications</strong> &mdash; use <code>--ntfy &lt;topic&gt;</code> to push events to ntfy.sh for mobile/desktop notifications</li>
+      <li><strong>Bookmark count in header</strong> &mdash; the status line now shows ★ N when events are bookmarked</li>
+    </ul>
+  </div>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
