@@ -642,11 +642,14 @@ const landingPage = `<!DOCTYPE html>
     background: var(--accent);
     color: #fff;
     text-align: center;
-    padding: 10px 20px;
+    padding: 10px 24px;
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     position: relative; z-index: 20;
+    max-width: 1200px;
+    margin: 16px auto 0;
+    border-radius: 10px;
   }
   .release-bar a {
     color: #fff;
