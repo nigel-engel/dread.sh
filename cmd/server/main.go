@@ -1375,6 +1375,26 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
       <h3>Mute &amp; Alerts</h3>
       <p>Mute noisy channels. Set threshold alerts for event spikes.</p>
     </div>
+    <div class="feat">
+      <div class="feat-icon ic-amber"><i data-lucide="star"></i></div>
+      <h3>Bookmarks &amp; Diff</h3>
+      <p>Star important events. Auto-diff consecutive payloads from the same source.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-cyan"><i data-lucide="command"></i></div>
+      <h3>Command palette</h3>
+      <p>Ctrl+P for fuzzy-searchable command palette. Full keyboard navigation.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-violet"><i data-lucide="bar-chart-2"></i></div>
+      <h3>Stats &amp; Swimlane</h3>
+      <p>Source breakdown, status charts, heatmap, and per-source swimlane timeline.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon ic-rose"><i data-lucide="bell-ring"></i></div>
+      <h3>ntfy.sh push</h3>
+      <p>Push events to ntfy.sh with <code>--ntfy</code> for mobile notifications anywhere.</p>
+    </div>
   </div>
 </div>
 </div>
@@ -2581,8 +2601,14 @@ const docsPage = `<!DOCTYPE html>
         <li><strong>Theme toggle</strong> &mdash; dark/light theme, same as the rest of the site</li>
         <li><strong>Mobile responsive</strong> &mdash; sidebar collapses to a hamburger menu on small screens</li>
         <li><strong>Mute toggle</strong> &mdash; per-channel mute via localStorage, suppresses browser notifications</li>
-        <li><strong>Export</strong> &mdash; download events as JSON or CSV from the toolbar</li>
+        <li><strong>Export</strong> &mdash; download events as JSON or CSV from the toolbar, or export as styled HTML</li>
         <li><strong>Replay</strong> &mdash; re-send any event to a URL from the event detail view</li>
+        <li><strong>Bookmarks</strong> &mdash; star/bookmark events with ★, toggle bookmark-only view to filter to important events</li>
+        <li><strong>Advanced filtering</strong> &mdash; <code>source:stripe</code>, <code>type:checkout</code>, <code>!error</code> exclusion, and free-text search</li>
+        <li><strong>Stats panel</strong> &mdash; toggle source breakdown bars, success/failure/neutral status chart, and per-source swimlane timeline</li>
+        <li><strong>Diff view</strong> &mdash; compare any event with the previous event from the same source, showing added/removed lines</li>
+        <li><strong>Keyboard shortcuts</strong> &mdash; <code>j</code>/<code>k</code> navigate, <code>/</code> filter, <code>f</code> bookmark, <code>d</code> diff, <code>s</code> stats, <code>?</code> help overlay</li>
+        <li><strong>HTML export</strong> &mdash; download the current session as a styled HTML report with collapsible payloads</li>
       </ul>
     </section>
 
@@ -3524,6 +3550,142 @@ const dashboardPage = `<!DOCTYPE html>
   @media (max-width: 768px) {
     .col-channel { display: none; }
   }
+
+  /* BOOKMARK STAR */
+  .bookmark-btn {
+    background: none; border: none; cursor: pointer; padding: 2px;
+    color: var(--text-dim); font-size: 0.85rem; transition: color 0.15s;
+  }
+  .bookmark-btn:hover { color: var(--amber); }
+  .bookmark-btn.active { color: var(--amber); }
+
+  /* STATS PANEL */
+  .stats-panel {
+    display: none; padding: 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .stats-panel.active { display: block; }
+  .stats-panel h3 {
+    font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .stats-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px; font-size: 0.8rem;
+  }
+  .stats-label { width: 100px; color: var(--text-secondary); font-weight: 500; }
+  .stats-bar-bg {
+    flex: 1; height: 14px; background: var(--border-subtle);
+    border-radius: 3px; overflow: hidden; max-width: 200px;
+  }
+  .stats-bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.3s;
+  }
+  .stats-count { font-size: 0.75rem; color: var(--text-dim); font-family: "Geist Mono", monospace; }
+  .stats-grid { display: flex; gap: 32px; flex-wrap: wrap; }
+  .stats-section { min-width: 280px; flex: 1; }
+
+  /* SWIMLANE */
+  .swimlane-wrap { margin-top: 12px; }
+  .swimlane-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 3px; font-size: 0.75rem;
+  }
+  .swimlane-label { width: 100px; font-weight: 500; }
+  .swimlane-track { display: flex; gap: 1px; }
+  .swimlane-cell {
+    width: 6px; height: 14px; border-radius: 1px;
+    background: var(--border-subtle);
+  }
+  .swimlane-cell.active { background: var(--accent); }
+  .swimlane-time-labels {
+    display: flex; justify-content: space-between;
+    font-size: 0.65rem; color: var(--text-dim);
+    margin-left: 108px; max-width: 366px;
+  }
+
+  /* DIFF VIEW */
+  .diff-view {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; margin-top: 8px;
+    overflow-x: auto; font-size: 0.75rem;
+    font-family: "Geist Mono", monospace;
+    line-height: 1.5; max-height: 400px;
+    overflow-y: auto; white-space: pre-wrap;
+  }
+  .diff-add { color: var(--green); }
+  .diff-rem { color: var(--rose); }
+  .diff-ctx { color: var(--text-dim); }
+  .diff-header { color: var(--text-muted); margin-bottom: 8px; }
+
+  /* KEYBOARD HELP OVERLAY */
+  .kb-overlay {
+    display: none; position: fixed; inset: 0;
+    background: oklch(0% 0 0 / 0.6); z-index: 100;
+    justify-content: center; align-items: center;
+  }
+  .kb-overlay.open { display: flex; }
+  .kb-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px 32px;
+    max-width: 420px; width: 90%;
+  }
+  .kb-panel h3 {
+    font-size: 1rem; color: var(--text); margin-bottom: 16px;
+    font-weight: 600;
+  }
+  .kb-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px; font-size: 0.85rem;
+  }
+  .kb-key {
+    display: inline-block; min-width: 28px; text-align: center;
+    padding: 2px 8px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px;
+    font-family: "Geist Mono", monospace; font-size: 0.75rem;
+    color: var(--accent); font-weight: 600;
+  }
+  .kb-desc { color: var(--text-secondary); }
+
+  /* FILTER MODE BADGE */
+  .filter-mode {
+    font-size: 0.65rem; color: var(--accent);
+    font-family: "Geist Mono", monospace;
+    white-space: nowrap;
+  }
+
+  /* TOOLBAR EXTRAS */
+  .toolbar-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; padding: 5px 10px;
+    color: var(--text-muted); display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; font-family: "Geist", sans-serif;
+    transition: border-color 0.15s, color 0.15s; white-space: nowrap;
+  }
+  .toolbar-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  .toolbar-btn.active { border-color: var(--accent); color: var(--accent); }
+  .toolbar-btn svg { width: 14px; height: 14px; }
+
+  /* ACTIVE ROW HIGHLIGHT */
+  .events-table tbody tr.kb-selected {
+    outline: 2px solid var(--accent); outline-offset: -2px;
+  }
+
+  /* DETAIL ACTION BUTTONS */
+  .detail-actions {
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+  .detail-btn {
+    padding: 4px 12px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-muted); font-size: 0.7rem; cursor: pointer;
+    font-family: "Geist", sans-serif;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .detail-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  .detail-btn.active { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -3582,16 +3744,39 @@ const dashboardPage = `<!DOCTYPE html>
         <span id="status-text">Connecting...</span>
       </div>
       <button class="pause-btn" id="pause-btn" onclick="togglePause()"><i data-lucide="pause"></i><span id="pause-label">Pause</span><span class="pause-badge" id="pause-badge"></span></button>
+      <button class="toolbar-btn" id="stats-btn" onclick="toggleStats()"><i data-lucide="bar-chart-2"></i>Stats</button>
+      <button class="toolbar-btn" id="bookmarks-btn" onclick="toggleBookmarkFilter()"><i data-lucide="star"></i><span id="bookmarks-label">Bookmarks</span></button>
       <button class="pause-btn" onclick="exportEvents('json')">Export JSON</button>
       <button class="pause-btn" onclick="exportEvents('csv')">Export CSV</button>
-      <input type="text" class="filter-input" id="filter-input" placeholder="Filter by source, type, channel...">
+      <button class="toolbar-btn" onclick="exportHTML()"><i data-lucide="file-text"></i>HTML</button>
+      <button class="toolbar-btn" onclick="toggleKbHelp()"><i data-lucide="keyboard"></i>?</button>
+      <input type="text" class="filter-input" id="filter-input" placeholder="Filter: text, source:name, !exclude">
+      <span class="filter-mode" id="filter-mode"></span>
       <span class="event-count" id="event-count"></span>
+    </div>
+    <div class="stats-panel" id="stats-panel">
+      <div class="stats-grid">
+        <div class="stats-section">
+          <h3>Events by Source</h3>
+          <div id="stats-sources"></div>
+        </div>
+        <div class="stats-section">
+          <h3>Status Breakdown</h3>
+          <div id="stats-status"></div>
+        </div>
+        <div class="stats-section">
+          <h3>Swimlane Timeline (last 60 min)</h3>
+          <div class="swimlane-time-labels"><span>-60m</span><span>-30m</span><span>now</span></div>
+          <div class="swimlane-wrap" id="stats-swimlane"></div>
+        </div>
+      </div>
     </div>
     <div class="events-container" id="events-container">
       <table class="events-table">
         <thead>
           <tr>
             <th style="width:32px"></th>
+            <th style="width:28px"></th>
             <th>Time</th>
             <th>Channel</th>
             <th>Source</th>
@@ -3610,6 +3795,25 @@ const dashboardPage = `<!DOCTYPE html>
   </div>
 </div>
 
+<!-- KEYBOARD HELP OVERLAY -->
+<div class="kb-overlay" id="kb-overlay" onclick="if(event.target===this)toggleKbHelp()">
+  <div class="kb-panel">
+    <h3>Keyboard Shortcuts</h3>
+    <div class="kb-row"><span class="kb-key">j</span><span class="kb-key">k</span> <span class="kb-desc">Navigate down / up</span></div>
+    <div class="kb-row"><span class="kb-key">Enter</span> <span class="kb-desc">Toggle event detail</span></div>
+    <div class="kb-row"><span class="kb-key">/</span> <span class="kb-desc">Focus filter input</span></div>
+    <div class="kb-row"><span class="kb-key">f</span> <span class="kb-desc">Bookmark selected event</span></div>
+    <div class="kb-row"><span class="kb-key">F</span> <span class="kb-desc">Toggle bookmarks view</span></div>
+    <div class="kb-row"><span class="kb-key">d</span> <span class="kb-desc">Diff with previous same-source event</span></div>
+    <div class="kb-row"><span class="kb-key">s</span> <span class="kb-desc">Toggle stats panel</span></div>
+    <div class="kb-row"><span class="kb-key">p</span> <span class="kb-desc">Pause / resume live feed</span></div>
+    <div class="kb-row"><span class="kb-key">c</span> <span class="kb-desc">Copy payload of selected event</span></div>
+    <div class="kb-row"><span class="kb-key">?</span> <span class="kb-desc">Toggle this help</span></div>
+    <div class="kb-row"><span class="kb-key">Esc</span> <span class="kb-desc">Close overlay / clear filter</span></div>
+    <div style="margin-top:12px;font-size:0.75rem;color:var(--text-dim)">Supports source:name, type:name, !exclude filter syntax</div>
+  </div>
+</div>
+
 <script>
 lucide.createIcons();
 
@@ -3625,7 +3829,12 @@ var state = {
   pauseBuffer: [],
   hasMore: false,
   loadingMore: false,
-  unreadCount: 0
+  unreadCount: 0,
+  bookmarks: JSON.parse(localStorage.getItem('dread_bookmarks') || '{}'),
+  bookmarkFilter: false,
+  kbCursor: -1,
+  showStats: false,
+  showKbHelp: false
 };
 
 // Theme
@@ -3904,8 +4113,10 @@ function createEventRow(ev, isLive) {
   var chName = state.channelNames[ev.channel] || ev.channel || '';
   var status = classifyEvent(ev.type, ev.summary);
   var dotColor = status === 'success' ? 'var(--green)' : status === 'failure' ? 'var(--rose)' : 'var(--text-dim)';
+  var starred = state.bookmarks[ev.id] ? ' active' : '';
   tr.innerHTML =
     '<td style="width:32px;text-align:center"><span style="color:' + dotColor + ';font-size:0.6rem">&#9679;</span></td>' +
+    '<td style="width:28px;text-align:center"><button class="bookmark-btn' + starred + '" onclick="toggleBookmark(\'' + esc(ev.id) + '\', event)" title="Bookmark">&#9733;</button></td>' +
     '<td class="col-time">' + formatTime(ev.timestamp) + '</td>' +
     '<td class="col-channel">' + esc(chName) + '</td>' +
     '<td class="col-source" style="color:' + sourceColour(ev.source) + '">' + esc(ev.source) + '</td>' +
@@ -3919,7 +4130,7 @@ function createDetailRow(ev) {
   tr.className = 'event-detail';
   tr.setAttribute('data-detail-for', ev.id);
   var td = document.createElement('td');
-  td.setAttribute('colspan', '6');
+  td.setAttribute('colspan', '7');
   var json = '';
   try {
     var parsed = typeof ev.raw_json === 'string' ? JSON.parse(ev.raw_json) : ev.raw_json;
@@ -3932,7 +4143,12 @@ function createDetailRow(ev) {
     var p = typeof ev.raw_json === 'string' ? JSON.parse(ev.raw_json) : ev.raw_json;
     rawStr = JSON.stringify(p, null, 2);
   } catch(_) { rawStr = ev.raw_json || '{}'; }
-  td.innerHTML = '<div class="json-viewer-wrap"><button class="copy-json" onclick="copyPayload(this, event)">Copy</button><div class="json-viewer">' + json + '</div></div>';
+  td.innerHTML = '<div class="json-viewer-wrap"><button class="copy-json" onclick="copyPayload(this, event)">Copy</button><div class="json-viewer" id="json-' + esc(ev.id) + '">' + json + '</div></div>' +
+    '<div class="detail-actions">' +
+      '<button class="detail-btn" onclick="showDiff(\'' + esc(ev.id) + '\', event)">Diff with previous</button>' +
+      '<button class="detail-btn" onclick="replayEvent(\'' + esc(ev.id) + '\')">Replay</button>' +
+    '</div>' +
+    '<div id="diff-' + esc(ev.id) + '"></div>';
   td._rawJson = rawStr;
   tr.appendChild(td);
   return tr;
@@ -4063,13 +4279,64 @@ document.getElementById('filter-input').addEventListener('input', function() {
 
 function applyFilter() {
   var f = state.filter;
+  var modeEl = document.getElementById('filter-mode');
+  var exclude = false;
+  var fieldFilter = '';
+  var valueFilter = '';
+  var searchTerm = f;
+
+  if (f && f.charAt(0) === '!') {
+    exclude = true;
+    searchTerm = f.substring(1);
+    modeEl.textContent = 'exclude';
+  } else if (f && f.indexOf(':') > 0) {
+    var parts = f.split(':');
+    var cand = parts[0].toLowerCase();
+    if (cand === 'source' || cand === 'type' || cand === 'channel') {
+      fieldFilter = cand;
+      valueFilter = parts.slice(1).join(':').toLowerCase();
+      modeEl.textContent = fieldFilter;
+    } else {
+      modeEl.textContent = '';
+    }
+  } else {
+    modeEl.textContent = f ? 'search' : '';
+  }
+
   var rows = document.querySelectorAll('.event-row');
   var visible = 0;
   rows.forEach(function(row) {
-    var text = row.textContent.toLowerCase();
-    var show = !f || text.indexOf(f) !== -1;
-    row.style.display = show ? '' : 'none';
     var id = row.getAttribute('data-event-id');
+    var ev = null;
+    for (var i = 0; i < state.events.length; i++) {
+      if (state.events[i].id === id) { ev = state.events[i]; break; }
+    }
+
+    // Bookmark filter
+    if (state.bookmarkFilter && !state.bookmarks[id]) {
+      row.style.display = 'none';
+      var detail = document.querySelector('[data-detail-for="' + id + '"]');
+      if (detail) { detail.style.display = 'none'; detail.classList.remove('open'); }
+      return;
+    }
+
+    var show = true;
+    if (f && ev) {
+      var match = false;
+      if (fieldFilter && ev) {
+        var val = '';
+        if (fieldFilter === 'source') val = (ev.source || '').toLowerCase();
+        else if (fieldFilter === 'type') val = (ev.type || '').toLowerCase();
+        else if (fieldFilter === 'channel') val = (ev.channel || '').toLowerCase();
+        match = val.indexOf(valueFilter) !== -1;
+      } else {
+        var text = row.textContent.toLowerCase();
+        match = text.indexOf(searchTerm.toLowerCase()) !== -1;
+      }
+      show = exclude ? !match : match;
+    }
+
+    row.style.display = show ? '' : 'none';
     var detail = document.querySelector('[data-detail-for="' + id + '"]');
     if (detail && !show) {
       detail.style.display = 'none';
@@ -4080,7 +4347,7 @@ function applyFilter() {
     if (show) visible++;
   });
   var countEl = document.getElementById('event-count');
-  if (f) {
+  if (f || state.bookmarkFilter) {
     countEl.textContent = visible + ' / ' + state.events.length;
   } else {
     updateEventCount();
@@ -4241,6 +4508,343 @@ function replayEvent(eventId) {
     else { alert('Replay failed: ' + (data.error || 'unknown error')); }
   }).catch(function(e) { alert('Error: ' + e); });
 }
+
+// Bookmarks
+function toggleBookmark(id, e) {
+  if (e) e.stopPropagation();
+  if (state.bookmarks[id]) {
+    delete state.bookmarks[id];
+  } else {
+    state.bookmarks[id] = true;
+  }
+  localStorage.setItem('dread_bookmarks', JSON.stringify(state.bookmarks));
+  // Update star button
+  var btn = document.querySelector('[data-event-id="' + id + '"] .bookmark-btn');
+  if (btn) btn.classList.toggle('active');
+  updateBookmarkLabel();
+  if (state.bookmarkFilter) applyFilter();
+}
+
+function toggleBookmarkFilter() {
+  state.bookmarkFilter = !state.bookmarkFilter;
+  var btn = document.getElementById('bookmarks-btn');
+  btn.classList.toggle('active', state.bookmarkFilter);
+  applyFilter();
+}
+
+function updateBookmarkLabel() {
+  var count = Object.keys(state.bookmarks).length;
+  var label = document.getElementById('bookmarks-label');
+  label.textContent = count > 0 ? 'Bookmarks (' + count + ')' : 'Bookmarks';
+}
+
+// Stats panel
+function toggleStats() {
+  state.showStats = !state.showStats;
+  var panel = document.getElementById('stats-panel');
+  var btn = document.getElementById('stats-btn');
+  panel.classList.toggle('active', state.showStats);
+  btn.classList.toggle('active', state.showStats);
+  if (state.showStats) renderStats();
+}
+
+function renderStats() {
+  // Source breakdown
+  var srcCounts = {};
+  var statusCounts = {success: 0, failure: 0, neutral: 0};
+  var maxSrc = 0;
+  state.events.forEach(function(ev) {
+    srcCounts[ev.source] = (srcCounts[ev.source] || 0) + 1;
+    if (srcCounts[ev.source] > maxSrc) maxSrc = srcCounts[ev.source];
+    var s = classifyEvent(ev.type, ev.summary);
+    statusCounts[s]++;
+  });
+
+  var srcEl = document.getElementById('stats-sources');
+  var sorted = Object.entries(srcCounts).sort(function(a, b) { return b[1] - a[1]; });
+  var html = '';
+  sorted.slice(0, 10).forEach(function(pair) {
+    var pct = maxSrc > 0 ? (pair[1] / maxSrc * 100) : 0;
+    html += '<div class="stats-row">' +
+      '<span class="stats-label" style="color:' + sourceColour(pair[0]) + '">' + esc(pair[0]) + '</span>' +
+      '<div class="stats-bar-bg"><div class="stats-bar-fill" style="width:' + pct + '%;background:' + sourceColour(pair[0]) + '"></div></div>' +
+      '<span class="stats-count">' + pair[1] + '</span></div>';
+  });
+  srcEl.innerHTML = html;
+
+  // Status breakdown
+  var total = statusCounts.success + statusCounts.failure + statusCounts.neutral;
+  var statusEl = document.getElementById('stats-status');
+  var statusHTML = '';
+  [{label:'success',count:statusCounts.success,color:'var(--green)'},{label:'failure',count:statusCounts.failure,color:'var(--rose)'},{label:'neutral',count:statusCounts.neutral,color:'var(--text-dim)'}].forEach(function(item) {
+    var pct = total > 0 ? (item.count / total * 100) : 0;
+    statusHTML += '<div class="stats-row">' +
+      '<span class="stats-label" style="color:' + item.color + '">' + item.label + '</span>' +
+      '<div class="stats-bar-bg"><div class="stats-bar-fill" style="width:' + pct + '%;background:' + item.color + '"></div></div>' +
+      '<span class="stats-count">' + item.count + ' (' + Math.round(pct) + '%)</span></div>';
+  });
+  statusEl.innerHTML = statusHTML;
+
+  // Swimlane
+  renderSwimlane();
+}
+
+function renderSwimlane() {
+  var now = Date.now();
+  var sources = {};
+  state.events.forEach(function(ev) {
+    if (!sources[ev.source]) sources[ev.source] = [];
+    sources[ev.source].push(new Date(ev.timestamp).getTime());
+  });
+
+  var swimEl = document.getElementById('stats-swimlane');
+  var html = '';
+  var sortedSrc = Object.keys(sources).sort();
+  sortedSrc.forEach(function(src) {
+    var buckets = new Array(60).fill(0);
+    sources[src].forEach(function(ts) {
+      var age = (now - ts) / 60000;
+      if (age >= 0 && age < 60) {
+        var idx = 59 - Math.floor(age);
+        buckets[idx]++;
+      }
+    });
+    html += '<div class="swimlane-row">' +
+      '<span class="swimlane-label" style="color:' + sourceColour(src) + '">' + esc(src) + '</span>' +
+      '<div class="swimlane-track">';
+    buckets.forEach(function(c) {
+      html += '<div class="swimlane-cell' + (c > 0 ? ' active' : '') + '" style="' + (c > 0 ? 'background:' + sourceColour(src) : '') + '"></div>';
+    });
+    html += '</div></div>';
+  });
+  swimEl.innerHTML = html;
+}
+
+// Diff view
+function showDiff(id, e) {
+  if (e) e.stopPropagation();
+  var diffEl = document.getElementById('diff-' + id);
+  if (!diffEl) return;
+  if (diffEl.innerHTML) { diffEl.innerHTML = ''; return; }
+
+  var current = null;
+  for (var i = 0; i < state.events.length; i++) {
+    if (state.events[i].id === id) { current = state.events[i]; break; }
+  }
+  if (!current) return;
+
+  // Find previous event from same source
+  var prev = null;
+  var foundCurrent = false;
+  for (var i = 0; i < state.events.length; i++) {
+    if (state.events[i].id === id) { foundCurrent = true; continue; }
+    if (foundCurrent && state.events[i].source === current.source) {
+      prev = state.events[i]; break;
+    }
+  }
+  if (!prev) {
+    diffEl.innerHTML = '<div class="diff-view"><span class="diff-ctx">No previous event from this source to diff against.</span></div>';
+    return;
+  }
+
+  var oldLines = prettyJSON(prev.raw_json).split('\n');
+  var newLines = prettyJSON(current.raw_json).split('\n');
+  var maxLen = Math.max(oldLines.length, newLines.length);
+  var html = '<div class="diff-view">';
+  html += '<div class="diff-header">--- ' + esc(prev.type) + ' (' + formatTime(prev.timestamp) + ')</div>';
+  html += '<div class="diff-header">+++ ' + esc(current.type) + ' (' + formatTime(current.timestamp) + ')</div>';
+  for (var i = 0; i < maxLen; i++) {
+    var oldL = i < oldLines.length ? oldLines[i] : '';
+    var newL = i < newLines.length ? newLines[i] : '';
+    if (oldL === newL) {
+      html += '<div class="diff-ctx">  ' + esc(newL) + '</div>';
+    } else {
+      if (oldL) html += '<div class="diff-rem">- ' + esc(oldL) + '</div>';
+      if (newL) html += '<div class="diff-add">+ ' + esc(newL) + '</div>';
+    }
+  }
+  html += '</div>';
+  diffEl.innerHTML = html;
+}
+
+function prettyJSON(raw) {
+  try {
+    var parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return JSON.stringify(parsed, null, 2);
+  } catch(_) { return raw || '{}'; }
+}
+
+// Keyboard help
+function toggleKbHelp() {
+  state.showKbHelp = !state.showKbHelp;
+  document.getElementById('kb-overlay').classList.toggle('open', state.showKbHelp);
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+  // Skip if typing in input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+    if (e.key === 'Escape') {
+      e.target.blur();
+      e.target.value = '';
+      state.filter = '';
+      applyFilter();
+    }
+    return;
+  }
+
+  if (state.showKbHelp) {
+    if (e.key === 'Escape' || e.key === '?') toggleKbHelp();
+    return;
+  }
+
+  switch(e.key) {
+    case '?':
+      toggleKbHelp();
+      e.preventDefault();
+      break;
+    case '/':
+      document.getElementById('filter-input').focus();
+      e.preventDefault();
+      break;
+    case 'j':
+      kbNavigate(1);
+      e.preventDefault();
+      break;
+    case 'k':
+      kbNavigate(-1);
+      e.preventDefault();
+      break;
+    case 'Enter':
+      if (state.kbCursor >= 0) {
+        var rows = getVisibleRows();
+        if (state.kbCursor < rows.length) {
+          var id = rows[state.kbCursor].getAttribute('data-event-id');
+          toggleDetail(id);
+        }
+      }
+      e.preventDefault();
+      break;
+    case 'f':
+      if (state.kbCursor >= 0) {
+        var rows = getVisibleRows();
+        if (state.kbCursor < rows.length) {
+          var id = rows[state.kbCursor].getAttribute('data-event-id');
+          toggleBookmark(id);
+        }
+      }
+      e.preventDefault();
+      break;
+    case 'F':
+      toggleBookmarkFilter();
+      e.preventDefault();
+      break;
+    case 'd':
+      if (state.kbCursor >= 0) {
+        var rows = getVisibleRows();
+        if (state.kbCursor < rows.length) {
+          var id = rows[state.kbCursor].getAttribute('data-event-id');
+          // Ensure detail is open first
+          var detail = document.querySelector('[data-detail-for="' + id + '"]');
+          if (detail && !detail.classList.contains('open')) toggleDetail(id);
+          showDiff(id);
+        }
+      }
+      e.preventDefault();
+      break;
+    case 's':
+      toggleStats();
+      e.preventDefault();
+      break;
+    case 'p':
+      togglePause();
+      e.preventDefault();
+      break;
+    case 'c':
+      if (state.kbCursor >= 0) {
+        var rows = getVisibleRows();
+        if (state.kbCursor < rows.length) {
+          var id = rows[state.kbCursor].getAttribute('data-event-id');
+          var ev = state.events.find(function(e) { return e.id === id; });
+          if (ev) navigator.clipboard.writeText(prettyJSON(ev.raw_json));
+        }
+      }
+      e.preventDefault();
+      break;
+    case 'Escape':
+      state.kbCursor = -1;
+      clearKbSelection();
+      break;
+  }
+});
+
+function getVisibleRows() {
+  return Array.from(document.querySelectorAll('.event-row')).filter(function(r) {
+    return r.style.display !== 'none';
+  });
+}
+
+function kbNavigate(dir) {
+  var rows = getVisibleRows();
+  if (rows.length === 0) return;
+  clearKbSelection();
+  state.kbCursor += dir;
+  if (state.kbCursor < 0) state.kbCursor = 0;
+  if (state.kbCursor >= rows.length) state.kbCursor = rows.length - 1;
+  rows[state.kbCursor].classList.add('kb-selected');
+  rows[state.kbCursor].scrollIntoView({block: 'nearest'});
+}
+
+function clearKbSelection() {
+  document.querySelectorAll('.kb-selected').forEach(function(el) {
+    el.classList.remove('kb-selected');
+  });
+}
+
+// HTML export
+function exportHTML() {
+  var events = state.events;
+  if (state.bookmarkFilter) {
+    events = events.filter(function(ev) { return state.bookmarks[ev.id]; });
+  }
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dread Session Export</title>' +
+    '<style>body{font-family:monospace;background:#1e1e1e;color:#abb2bf;padding:2em}' +
+    'h1{color:#b5835a}table{border-collapse:collapse;width:100%}' +
+    'th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #333}' +
+    'th{color:#c678dd;border-bottom:2px solid #555}' +
+    '.success{color:#98c379}.failure{color:#e06c75}.neutral{color:#666}' +
+    '.source{color:#e5c07b;font-weight:bold}' +
+    'pre{background:#282c34;padding:1em;border-radius:4px;overflow-x:auto;font-size:12px}' +
+    'details{margin:4px 0}summary{cursor:pointer;color:#61afef}</style></head><body>' +
+    '<h1>Dread Session Export</h1>' +
+    '<p>Generated: ' + new Date().toISOString() + ' — ' + events.length + ' events</p>' +
+    '<table><tr><th>Time</th><th>Source</th><th>Type</th><th>Summary</th><th>Status</th><th>Payload</th></tr>';
+  events.forEach(function(ev) {
+    var status = classifyEvent(ev.type, ev.summary);
+    var cls = status === 'success' ? 'success' : status === 'failure' ? 'failure' : 'neutral';
+    html += '<tr><td>' + esc(new Date(ev.timestamp).toLocaleTimeString()) + '</td>' +
+      '<td class="source">' + esc(ev.source) + '</td>' +
+      '<td>' + esc(ev.type) + '</td>' +
+      '<td>' + esc(ev.summary) + '</td>' +
+      '<td class="' + cls + '">' + status + '</td>' +
+      '<td><details><summary>payload</summary><pre>' + esc(prettyJSON(ev.raw_json)) + '</pre></details></td></tr>';
+  });
+  html += '</table></body></html>';
+  var blob = new Blob([html], {type: 'text/html'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dread-export-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Update stats when events change
+var _origAddEvent = addEvent;
+addEvent = function(ev, isLive) {
+  _origAddEvent(ev, isLive);
+  if (state.showStats) renderStats();
+  updateBookmarkLabel();
+};
 </script>
 </body>
 </html>`
