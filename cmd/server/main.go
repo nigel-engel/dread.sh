@@ -178,7 +178,14 @@ func main() {
 	mux.HandleFunc("GET /api/live-stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "public, max-age=30")
-		json.NewEncoder(w).Encode(db.LiveStats())
+		stats := db.LiveStats()
+		uptime := time.Since(serverStartTime)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"EventsWeek":  stats.EventsWeek,
+			"EventsTotal": stats.EventsTotal,
+			"UptimeDays":  int(uptime.Hours() / 24),
+			"UptimeHours": int(uptime.Hours()),
+		})
 	})
 
 	// Workspace API — save workspace
@@ -1175,16 +1182,16 @@ const landingPage = `<!DOCTYPE html>
   <p class="hero-sub">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
   <div class="live-stats" id="live-stats">
     <div class="live-stat-card">
-      <div class="live-stat-value"><span class="accent" id="ls-channels">—</span></div>
-      <div class="live-stat-label"><span class="live-stat-dot"></span>channels active</div>
-    </div>
-    <div class="live-stat-card">
-      <div class="live-stat-value" id="ls-events">—</div>
+      <div class="live-stat-value" id="ls-week">—</div>
       <div class="live-stat-label">webhooks this week</div>
     </div>
     <div class="live-stat-card">
-      <div class="live-stat-value" id="ls-sources">—</div>
-      <div class="live-stat-label">services connected</div>
+      <div class="live-stat-value" id="ls-total">—</div>
+      <div class="live-stat-label">events processed</div>
+    </div>
+    <div class="live-stat-card">
+      <div class="live-stat-value"><span class="live-stat-dot"></span><span id="ls-uptime">—</span></div>
+      <div class="live-stat-label">uptime</div>
     </div>
   </div>
   <div class="hero-actions">
@@ -1616,12 +1623,16 @@ function toggleTheme() {
   }
   function load() {
     fetch('/api/live-stats').then(function(r) { return r.json(); }).then(function(d) {
-      var ch = document.getElementById('ls-channels');
-      var ev = document.getElementById('ls-events');
-      var sr = document.getElementById('ls-sources');
-      if (ch) ch.textContent = d.ActiveChannels || 0;
-      if (ev) ev.textContent = fmt(d.EventsToday || 0);
-      if (sr) sr.textContent = (d.TopSources || []).length;
+      var wk = document.getElementById('ls-week');
+      var tot = document.getElementById('ls-total');
+      var up = document.getElementById('ls-uptime');
+      if (wk) wk.textContent = fmt(d.EventsWeek || 0);
+      if (tot) tot.textContent = fmt(d.EventsTotal || 0);
+      if (up) {
+        var days = d.UptimeDays || 0;
+        var hrs = (d.UptimeHours || 0) % 24;
+        up.textContent = days > 0 ? days + 'd ' + hrs + 'h' : hrs + 'h';
+      }
     }).catch(function() {});
   }
   load();
