@@ -25,4 +25,11 @@ CREATE TABLE IF NOT EXISTS workspaces (
     sound      TEXT NOT NULL DEFAULT '',
     updated_at DATETIME NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS unique_installs (
+    ip         TEXT PRIMARY KEY,
+    first_seen DATETIME NOT NULL,
+    last_seen  DATETIME NOT NULL,
+    count      INTEGER NOT NULL DEFAULT 1
+);
 `

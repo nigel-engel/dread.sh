@@ -113,7 +113,17 @@ func (s *Store) Increment(key string) {
 	)
 }
 
-// GetStats returns all stats counters as a map.
+// TrackUniqueInstall records or updates an install by IP.
+func (s *Store) TrackUniqueInstall(ip string) {
+	now := time.Now().UTC()
+	s.db.Exec(
+		`INSERT INTO unique_installs (ip, first_seen, last_seen, count) VALUES (?, ?, ?, 1)
+		 ON CONFLICT(ip) DO UPDATE SET last_seen = ?, count = count + 1`,
+		ip, now, now, now,
+	)
+}
+
+// GetStats returns all stats counters as a map, including unique install count.
 func (s *Store) GetStats() map[string]int64 {
 	rows, err := s.db.Query(`SELECT key, count FROM stats`)
 	if err != nil {
@@ -129,6 +139,11 @@ func (s *Store) GetStats() map[string]int64 {
 			stats[key] = count
 		}
 	}
+
+	var uniqueCount int64
+	s.db.QueryRow(`SELECT COUNT(*) FROM unique_installs`).Scan(&uniqueCount)
+	stats["unique_installs"] = uniqueCount
+
 	return stats
 }
 

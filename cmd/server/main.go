@@ -164,12 +164,6 @@ func main() {
 	// WebSocket — supports multiple channels
 	mux.HandleFunc("GET /ws", h.HandleWS(cfg.Server.BaseURL))
 
-	// Install tracking — phone-home from install script
-	mux.HandleFunc("POST /api/installed", func(w http.ResponseWriter, r *http.Request) {
-		db.Increment("installs")
-		w.WriteHeader(http.StatusNoContent)
-	})
-
 	// Install stats
 	mux.HandleFunc("GET /api/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -366,8 +360,37 @@ func main() {
 	// Install script
 	mux.HandleFunc("GET /install", func(w http.ResponseWriter, r *http.Request) {
 		db.Increment("install_downloads")
+		ip := r.Header.Get("Fly-Client-IP")
+		if ip == "" {
+			ip = r.Header.Get("X-Forwarded-For")
+			if i := strings.Index(ip, ","); i != -1 {
+				ip = ip[:i]
+			}
+		}
+		if ip == "" {
+			ip, _, _ = strings.Cut(r.RemoteAddr, ":")
+		}
+		log.Printf("install: ip=%s ua=%s", strings.TrimSpace(ip), r.UserAgent())
+		db.TrackUniqueInstall(strings.TrimSpace(ip))
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte(installScript))
+	})
+
+	// Install completed — phone-home from install script
+	mux.HandleFunc("POST /api/installed", func(w http.ResponseWriter, r *http.Request) {
+		db.Increment("installs")
+		ip := r.Header.Get("Fly-Client-IP")
+		if ip == "" {
+			ip = r.Header.Get("X-Forwarded-For")
+			if i := strings.Index(ip, ","); i != -1 {
+				ip = ip[:i]
+			}
+		}
+		if ip == "" {
+			ip, _, _ = strings.Cut(r.RemoteAddr, ":")
+		}
+		log.Printf("installed: ip=%s ua=%s", strings.TrimSpace(ip), r.UserAgent())
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	// Build pages with shared nav component
