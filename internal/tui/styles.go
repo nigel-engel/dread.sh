@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	"charm.land/lipgloss/v2"
 )
 
@@ -13,6 +15,8 @@ const dreadLogo = `      ██████╗ ██████╗ ███�
       ██████╔╝██║  ██║███████╗██║  ██║██████╔╝
       ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝`
 
+var sparkBlocks = []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+
 var commandTips = []string{
 	"dread new <name> — create a channel",
 	"dread share — invite your team",
@@ -21,9 +25,50 @@ var commandTips = []string{
 	"dread logs — print recent events to stdout",
 	"dread status — check channels & service",
 	"dread digest — summarize recent activity",
-	"press / to filter events",
-	"press r to replay an event",
 	"dread test <id> — send a test webhook",
+	"/ filter · ↑↓ navigate · enter detail",
+	"r replay · q quit · c copy URL",
+	"dread follow <ws-id> — subscribe to a team",
+	"dread mute <id> — silence a noisy channel",
+}
+
+// classifyEvent returns "success", "failure", or "neutral" based on event type/summary.
+func classifyEvent(typ, summary string) string {
+	lower := strings.ToLower(typ + " " + summary)
+	for _, kw := range []string{
+		"fail", "error", "denied", "declined", "expired", "canceled",
+		"cancelled", "refused", "rejected", "dispute", "alert",
+		"incident", "critical", "warning", "overdue",
+	} {
+		if strings.Contains(lower, kw) {
+			return "failure"
+		}
+	}
+	for _, kw := range []string{
+		"succeed", "success", "completed", "paid", "captured",
+		"created", "active", "resolved", "delivered", "merged",
+		"approved", "ready",
+	} {
+		if strings.Contains(lower, kw) {
+			return "success"
+		}
+	}
+	return "neutral"
+}
+
+func greeting(hour int) string {
+	switch {
+	case hour < 5:
+		return "Burning the midnight oil"
+	case hour < 12:
+		return "Good morning"
+	case hour < 17:
+		return "Good afternoon"
+	case hour < 21:
+		return "Good evening"
+	default:
+		return "Burning the midnight oil"
+	}
 }
 
 var (
@@ -140,6 +185,36 @@ var (
 
 	dimInfoStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#555555"))
+
+	headerBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#333333")).
+			Padding(1, 2)
+
+	greetingStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ABB2BF"))
+
+	sparkStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#B5835A"))
+
+	updateStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E5C07B")).
+			Bold(true)
+
+	healthActiveStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#98C379"))
+
+	healthStaleStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#555555"))
+
+	successCountStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#98C379"))
+
+	failureCountStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#E06C75"))
+
+	neutralCountStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#666666"))
 )
 
 func sourceStyle(source string) lipgloss.Style {

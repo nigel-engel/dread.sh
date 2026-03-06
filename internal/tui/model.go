@@ -60,6 +60,9 @@ type Model struct {
 	sound  string
 	muted  map[string]bool
 	now    time.Time
+
+	startedAt     time.Time
+	latestVersion string
 }
 
 func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string) Model {
@@ -85,6 +88,7 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 		sound:        sound,
 		muted:        mutedSet,
 		now:          time.Now(),
+		startedAt:    time.Now(),
 	}
 	if forwardURL != "" {
 		m.forwarder = forward.New(forwardURL)
@@ -105,6 +109,7 @@ func (m Model) Init() tea.Cmd {
 		connectWS(m.serverURL, m.channelIDs),
 		tea.RequestWindowSize,
 		tickEvery(),
+		checkForUpdate(m.serverURL),
 	)
 }
 
@@ -217,6 +222,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshViewport()
 		if oldLen == 0 {
 			m.viewport.GotoBottom()
+		}
+
+	case updateCheckMsg:
+		if msg.Latest != "" && msg.Latest != Version {
+			m.latestVersion = msg.Latest
 		}
 
 	case forwardResultMsg:
@@ -342,22 +352,47 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m Model) View() tea.View {
 	var b strings.Builder
 
-	// Header: two-column layout — logo left, info right
+	// Header: three-column layout — logo | stats | activity
 	left := logoStyle.Render(dreadLogo)
 
-	var rightLines []string
+	// Column 2: status & connection
+	var col2Lines []string
 
-	// Line 0: channels + connection status
+	session := m.now.Sub(m.startedAt).Truncate(time.Second)
+	greet := greeting(m.now.Hour())
+	col2Lines = append(col2Lines, greetingStyle.Render(greet))
+	col2Lines = append(col2Lines, dimInfoStyle.Render("session: "+formatDuration(session)))
+
+	filtered := m.filteredEvents()
 	if m.connected {
-		rightLines = append(rightLines, fmt.Sprintf("%d channels · ", len(m.channelIDs))+connectedStyle.Render("connected"))
+		col2Lines = append(col2Lines, connectedStyle.Render("● connected"))
 	} else if m.err != nil {
-		rightLines = append(rightLines, dimInfoStyle.Render("reconnecting..."))
+		col2Lines = append(col2Lines, forwardErrStyle.Render("● reconnecting..."))
 	} else {
-		rightLines = append(rightLines, dimInfoStyle.Render("connecting..."))
+		col2Lines = append(col2Lines, dimInfoStyle.Render("● connecting..."))
 	}
 
-	// Line 1: event count + source breakdown
-	filtered := m.filteredEvents()
+	// Channels with health dots
+	col2Lines = append(col2Lines, detailValueStyle.Render(fmt.Sprintf("%d channels ", len(m.channelIDs)))+m.channelHealthDots())
+
+	// Success / failure breakdown
+	success, failure, neutral := m.eventStatusCounts()
+	statusLine := successCountStyle.Render(fmt.Sprintf("✓ %d", success)) + "  " +
+		failureCountStyle.Render(fmt.Sprintf("✗ %d", failure)) + "  " +
+		neutralCountStyle.Render(fmt.Sprintf("○ %d", neutral))
+	col2Lines = append(col2Lines, statusLine)
+
+	// Version + update
+	verLine := versionStyle.Render("v" + Version)
+	if m.latestVersion != "" {
+		verLine += " " + updateStyle.Render("↑ v"+m.latestVersion)
+	}
+	col2Lines = append(col2Lines, verLine)
+
+	// Column 3: activity & tips
+	var col3Lines []string
+
+	// Event count + source breakdown
 	counts := m.sourceCounts()
 	evLine := fmt.Sprintf("%d events", len(filtered))
 	if len(counts) > 0 {
@@ -367,28 +402,42 @@ func (m Model) View() tea.View {
 		}
 		evLine += " (" + strings.Join(parts, " ") + ")"
 	}
-	rightLines = append(rightLines, detailValueStyle.Render(evLine))
+	col3Lines = append(col3Lines, detailValueStyle.Render(evLine))
 
-	// Line 2: last event
-	if len(m.events) > 0 {
-		last := m.events[len(m.events)-1]
-		rightLines = append(rightLines, dimInfoStyle.Render("Last event: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
+	// Event rate
+	if session > 0 {
+		rate := float64(len(m.events)) / session.Hours()
+		if rate >= 1 {
+			col3Lines = append(col3Lines, dimInfoStyle.Render(fmt.Sprintf("~%.0f events/hr", rate)))
+		} else {
+			col3Lines = append(col3Lines, dimInfoStyle.Render("<1 event/hr"))
+		}
 	} else {
-		rightLines = append(rightLines, dimInfoStyle.Render("Waiting for first event..."))
+		col3Lines = append(col3Lines, dimInfoStyle.Render(""))
 	}
 
-	// Line 3: separator
-	rightLines = append(rightLines, dimInfoStyle.Render("───────────────────────────────────"))
+	// Sparkline
+	col3Lines = append(col3Lines, dimInfoStyle.Render("last hour: ")+sparkStyle.Render(m.sparkline()))
 
-	// Line 4: rotating tip
+	// Last event
+	if len(m.events) > 0 {
+		last := m.events[len(m.events)-1]
+		col3Lines = append(col3Lines, dimInfoStyle.Render("last event: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
+	} else {
+		col3Lines = append(col3Lines, dimInfoStyle.Render("waiting for first event..."))
+	}
+
+	// Separator
+	col3Lines = append(col3Lines, dimInfoStyle.Render("─────────────────────────────"))
+
+	// Rotating tip
 	tip := commandTips[int(m.now.Unix()/10)%len(commandTips)]
-	rightLines = append(rightLines, tipStyle.Render(tip))
+	col3Lines = append(col3Lines, tipStyle.Render(tip))
 
-	// Line 5: version
-	rightLines = append(rightLines, versionStyle.Render("v"+Version))
-
-	right := infoPanelStyle.Render(strings.Join(rightLines, "\n"))
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+	col2 := infoPanelStyle.Render(strings.Join(col2Lines, "\n"))
+	col3 := infoPanelStyle.Render(strings.Join(col3Lines, "\n"))
+	header := lipgloss.JoinHorizontal(lipgloss.Top, left, col2, col3)
+	b.WriteString(headerBoxStyle.Render(header))
 	b.WriteString("\n")
 
 	// Channel webhook URLs
@@ -447,7 +496,7 @@ func (m Model) View() tea.View {
 }
 
 func (m Model) headerHeight() int {
-	h := 7 // logo + info panel (6 lines) + 1 separator
+	h := 11 // logo (6) + box border (2) + box padding (2) + 1 trailing newline
 	if len(m.webhookURLs) > 0 {
 		h += len(m.webhookURLs)
 	} else {
@@ -704,4 +753,110 @@ func forwardEvent(fwd *forward.Forwarder, ev *event.Event) tea.Cmd {
 			Err:        err,
 		}
 	}
+}
+
+func checkForUpdate(serverURL string) tea.Cmd {
+	return func() tea.Msg {
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Get(serverURL + "/api/version")
+		if err != nil {
+			return updateCheckMsg{}
+		}
+		defer resp.Body.Close()
+		var v struct {
+			Latest string `json:"latest"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+			return updateCheckMsg{}
+		}
+		return updateCheckMsg{Latest: v.Latest}
+	}
+}
+
+// sparkline renders a 12-bucket activity graph for the last hour.
+func (m Model) sparkline() string {
+	if len(m.events) == 0 {
+		return ""
+	}
+	const buckets = 12
+	bucketDur := 5 * time.Minute
+	var counts [buckets]int
+	cutoff := m.now.Add(-time.Duration(buckets) * bucketDur)
+	for _, e := range m.events {
+		if e.Timestamp.Before(cutoff) {
+			continue
+		}
+		idx := int(m.now.Sub(e.Timestamp) / bucketDur)
+		if idx >= buckets {
+			idx = buckets - 1
+		}
+		counts[buckets-1-idx]++
+	}
+	maxCount := 0
+	for _, c := range counts {
+		if c > maxCount {
+			maxCount = c
+		}
+	}
+	if maxCount == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for _, c := range counts {
+		if c == 0 {
+			sb.WriteRune(sparkBlocks[0])
+		} else {
+			idx := (c * (len(sparkBlocks) - 1)) / maxCount
+			sb.WriteRune(sparkBlocks[idx])
+		}
+	}
+	return sb.String()
+}
+
+// channelHealthDots shows a colored dot per channel based on recent activity.
+func (m Model) channelHealthDots() string {
+	var sb strings.Builder
+	staleThreshold := 30 * time.Minute
+	lastEvent := make(map[string]time.Time)
+	for _, e := range m.events {
+		if t, ok := lastEvent[e.Channel]; !ok || e.Timestamp.After(t) {
+			lastEvent[e.Channel] = e.Timestamp
+		}
+	}
+	for _, ch := range m.channelIDs {
+		t, ok := lastEvent[ch]
+		if ok && m.now.Sub(t) < staleThreshold {
+			sb.WriteString(healthActiveStyle.Render("●"))
+		} else {
+			sb.WriteString(healthStaleStyle.Render("●"))
+		}
+	}
+	return sb.String()
+}
+
+// eventStatusCounts classifies events into success, failure, neutral.
+func (m Model) eventStatusCounts() (success, failure, neutral int) {
+	for _, e := range m.events {
+		switch classifyEvent(e.Type, e.Summary) {
+		case "success":
+			success++
+		case "failure":
+			failure++
+		default:
+			neutral++
+		}
+	}
+	return
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	return fmt.Sprintf("%dh %dm", h, m)
 }

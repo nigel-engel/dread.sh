@@ -96,6 +96,11 @@ func main() {
 	})
 
 	// Health endpoint
+	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"latest": "0.1.0"})
+	})
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		uptime := time.Since(serverStartTime).Truncate(time.Second).String()
 		w.Header().Set("Content-Type", "application/json")

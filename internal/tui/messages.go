@@ -37,3 +37,7 @@ type forwardResultMsg struct {
 type clipboardMsg struct {
 	Err error
 }
+
+type updateCheckMsg struct {
+	Latest string
+}
