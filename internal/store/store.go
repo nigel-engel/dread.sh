@@ -276,6 +276,37 @@ func (s *Store) LastEventPerChannel(channels []string) (map[string]*event.Event,
 	return result, nil
 }
 
+// LiveStats returns platform-wide stats for the landing page.
+type LiveStats struct {
+	ActiveChannels int64    // channels with events in last hour
+	EventsToday   int64    // events in last 24h
+	TopSources    []string // unique sources seen, most common first
+}
+
+func (s *Store) LiveStats() LiveStats {
+	var stats LiveStats
+
+	oneHourAgo := time.Now().UTC().Add(-1 * time.Hour)
+	s.db.QueryRow(`SELECT COUNT(DISTINCT channel) FROM events WHERE timestamp >= ?`, oneHourAgo).Scan(&stats.ActiveChannels)
+
+	oneDayAgo := time.Now().UTC().Add(-24 * time.Hour)
+	s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE timestamp >= ?`, oneDayAgo).Scan(&stats.EventsToday)
+
+	rows, err := s.db.Query(`SELECT source, COUNT(*) as cnt FROM events WHERE timestamp >= ? GROUP BY source ORDER BY cnt DESC LIMIT 10`, oneDayAgo)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var src string
+			var cnt int64
+			if rows.Scan(&src, &cnt) == nil && src != "" {
+				stats.TopSources = append(stats.TopSources, src)
+			}
+		}
+	}
+
+	return stats
+}
+
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()

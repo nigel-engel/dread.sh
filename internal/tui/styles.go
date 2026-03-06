@@ -38,7 +38,7 @@ var commandTips = []string{
 	"f bookmark · F view bookmarks",
 	"d diff with previous event",
 	"Ctrl+P command palette",
-	"click events · scroll to navigate",
+	"4 channels · per-source sparklines",
 }
 
 // classifyEvent returns "success", "failure", or "neutral" based on event type/summary.

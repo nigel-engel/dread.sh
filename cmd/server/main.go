@@ -175,6 +175,12 @@ func main() {
 		json.NewEncoder(w).Encode(db.GetStats())
 	})
 
+	mux.HandleFunc("GET /api/live-stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "public, max-age=30")
+		json.NewEncoder(w).Encode(db.LiveStats())
+	})
+
 	// Workspace API — save workspace
 	mux.HandleFunc("PUT /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
@@ -442,9 +448,7 @@ func main() {
 	builtDownload := buildPage(downloadPage)
 	mux.HandleFunc("GET /download", func(w http.ResponseWriter, r *http.Request) {
 		stats := db.GetStats()
-		page := strings.Replace(builtDownload, "{{INSTALL_COUNT}}", fmt.Sprintf("%d", stats["installs"]), 1)
-		page = strings.Replace(page, "{{DOWNLOAD_COUNT}}", fmt.Sprintf("%d", stats["install_downloads"]), 1)
-		page = strings.Replace(page, "{{UNIQUE_COUNT}}", fmt.Sprintf("%d", stats["unique_installs"]), 1)
+		page := strings.Replace(builtDownload, "{{UNIQUE_COUNT}}", fmt.Sprintf("%d", stats["unique_installs"]), 1)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(page))
 	})
@@ -634,6 +638,28 @@ const landingPage = `<!DOCTYPE html>
     text-align: center;
     position: relative;
   }
+  .release-bar {
+    background: var(--accent);
+    color: #fff;
+    text-align: center;
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    position: relative; z-index: 20;
+  }
+  .release-bar a {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .release-bar a:hover { opacity: 0.85; }
+  .release-bar code {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
   .badge {
     display: inline-flex; align-items: center; gap: 8px;
     font-size: 0.8rem; color: var(--accent);
@@ -689,6 +715,43 @@ const landingPage = `<!DOCTYPE html>
   .hero-install:hover { border-color: var(--text-muted); }
   .hero-install .prompt { color: var(--text-dim); }
   .hero-install .pipe { color: var(--text-dim); }
+
+  /* ---- LIVE STATS ---- */
+  .live-stats {
+    display: flex; justify-content: center; gap: 48px;
+    margin-top: 48px; margin-bottom: 0;
+    position: relative; z-index: 1;
+  }
+  .live-stat {
+    text-align: center;
+  }
+  .live-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .live-stat-value .accent { color: var(--accent); }
+  .live-stat-label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .live-stat-detail {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: "Geist Mono", ui-monospace, monospace;
+  }
+  .live-stat-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 4px; animation: pulse-dot 2s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @media (max-width: 640px) {
+    .live-stats { flex-direction: column; gap: 24px; align-items: center; }
+  }
 
   /* ---- SECTION ---- */
   .section {
@@ -1089,6 +1152,11 @@ const landingPage = `<!DOCTYPE html>
 <!-- NAV -->
 <!-- NAV_HTML -->
 
+<!-- RELEASE BAR -->
+<div class="release-bar">
+  🚀 <code>v0.3.0</code> is out — bookmarks, diff view, command palette, swimlane timeline, and more. <a href="/docs#changelog">Read the changelog →</a>
+</div>
+
 <!-- HERO -->
 <div class="hero">
   <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
@@ -1105,6 +1173,23 @@ const landingPage = `<!DOCTYPE html>
       </div>
       <div class="terminal-body" id="terminal-body"></div>
       <div class="terminal-footer">q quit &nbsp; ↑↓ navigate &nbsp; enter detail</div>
+    </div>
+  </div>
+  <div class="live-stats" id="live-stats">
+    <div class="live-stat">
+      <div class="live-stat-value"><span class="accent" id="ls-channels">—</span></div>
+      <div class="live-stat-label"><span class="live-stat-dot"></span>channels active</div>
+      <div class="live-stat-detail">in the last hour</div>
+    </div>
+    <div class="live-stat">
+      <div class="live-stat-value" id="ls-events">—</div>
+      <div class="live-stat-label">webhooks today</div>
+      <div class="live-stat-detail">processed in 24h</div>
+    </div>
+    <div class="live-stat">
+      <div class="live-stat-value" id="ls-sources">—</div>
+      <div class="live-stat-label">services connected</div>
+      <div class="live-stat-detail" id="ls-source-list"></div>
     </div>
   </div>
 </div>
@@ -1392,8 +1477,8 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     </div>
     <div class="feat">
       <div class="feat-icon ic-rose"><i data-lucide="bell-ring"></i></div>
-      <h3>ntfy.sh push</h3>
-      <p>Push events to ntfy.sh with <code>--ntfy</code> for mobile notifications anywhere.</p>
+      <h3>Desktop notifications</h3>
+      <p>Native desktop alerts the moment a webhook arrives. macOS and Linux.</p>
     </div>
   </div>
 </div>
@@ -1512,6 +1597,35 @@ function toggleTheme() {
     row.innerHTML = '<span class="time">' + e.time + '</span><span class="' + e.cls + '">' + e.src + '</span><span>' + e.msg + '</span>';
     body.appendChild(row);
   });
+})();
+
+// Live stats
+(function() {
+  function fmt(n) {
+    if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+    return String(n);
+  }
+  function load() {
+    fetch('/api/live-stats').then(function(r) { return r.json(); }).then(function(d) {
+      var ch = document.getElementById('ls-channels');
+      var ev = document.getElementById('ls-events');
+      var sr = document.getElementById('ls-sources');
+      var sl = document.getElementById('ls-source-list');
+      if (ch) ch.textContent = d.ActiveChannels || 0;
+      if (ev) ev.textContent = fmt(d.EventsToday || 0);
+      if (sr) sr.textContent = (d.TopSources || []).length;
+      if (sl && d.TopSources && d.TopSources.length > 0) {
+        var show = d.TopSources.slice(0, 4);
+        var rest = d.TopSources.length - show.length;
+        var txt = show.join(', ');
+        if (rest > 0) txt += ' + ' + rest + ' more';
+        sl.textContent = txt;
+      }
+    }).catch(function() {});
+  }
+  load();
+  setInterval(load, 30000);
 })();
 
 function copyText(text, el) {
@@ -1966,7 +2080,6 @@ const docsPage = `<!DOCTYPE html>
       <a href="#tui-export">HTML Export</a>
       <a href="#tui-forward">Forward Response</a>
       <a href="#tui-swimlane">Swimlane Timeline</a>
-      <a href="#tui-ntfy">ntfy Push</a>
     </div>
     <div class="docs-sidebar-group">
       <div class="docs-sidebar-label">CLI Reference</div>
@@ -2178,14 +2291,6 @@ const docsPage = `<!DOCTYPE html>
       <p>The Stats tab (press <code>3</code>) now includes a swimlane timeline visualization showing per-source event activity over the last 60 minutes. Each source gets its own horizontal lane with filled blocks indicating minutes with activity.</p>
     </section>
 
-    <section class="docs-section" id="tui-ntfy">
-      <h3>ntfy Push Notifications</h3>
-      <p>Use the <code>--ntfy &lt;topic&gt;</code> flag to push all incoming events to <a href="https://ntfy.sh">ntfy.sh</a>. Events are sent with the source and type as the title and the summary as the body. Subscribe to your topic on any device for mobile/desktop push notifications.</p>
-      <div class="copy-wrap">
-        <pre><code><span class="kw">$</span> dread --ntfy my-webhooks</code></pre>
-        <button class="copy-btn" onclick="copyText('dread --ntfy my-webhooks', this)" type="button"><i data-lucide="copy"></i></button>
-      </div>
-    </section>
 
     <section class="docs-section" id="cli-dread">
       <h2>CLI Reference</h2>
@@ -2200,7 +2305,6 @@ const docsPage = `<!DOCTYPE html>
         <tr><td><code>--server</code></td><td><code>dread.sh</code></td><td>Server URL to connect to</td></tr>
         <tr><td><code>--filter</code></td><td></td><td>Filter events by substring (source, type, summary, channel)</td></tr>
         <tr><td><code>--forward</code></td><td></td><td>Forward incoming events to a URL</td></tr>
-        <tr><td><code>--ntfy</code></td><td></td><td>ntfy.sh topic for push notifications</td></tr>
       </table>
       <p><strong>Keybindings:</strong></p>
       <table>
@@ -2909,7 +3013,7 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
-    <div class="changelog-title">10 more TUI features: bookmarks, diff, grouping, palette, mouse, export, swimlanes, ntfy</div>
+    <div class="changelog-title">10 more TUI features: bookmarks, diff, grouping, palette, export, swimlanes, channels tab</div>
     <ul>
       <li><strong>Star/bookmark events</strong> &mdash; press <code>f</code> to bookmark any event, <code>F</code> to toggle bookmark-only view. Bookmarked events show a ★ indicator</li>
       <li><strong>Auto-diff consecutive events</strong> &mdash; press <code>d</code> in detail view to see a line-by-line diff with the previous event from the same source</li>
@@ -2919,7 +3023,6 @@ const changelogPage = `<!DOCTYPE html>
       <li><strong>Session export as HTML</strong> &mdash; press <code>x</code> to export the current session as a styled HTML report with collapsible payloads</li>
       <li><strong>Forward response capture</strong> &mdash; forwarded events now show a &rarr;200 status badge in the event list, with full response details (status, headers, body, duration) in the detail view</li>
       <li><strong>Swimlane timeline</strong> &mdash; the Stats tab now includes a per-source swimlane showing event activity over the last 60 minutes</li>
-      <li><strong>ntfy.sh push notifications</strong> &mdash; use <code>--ntfy &lt;topic&gt;</code> to push events to ntfy.sh for mobile/desktop notifications</li>
       <li><strong>Bookmark count in header</strong> &mdash; the status line now shows ★ N when events are bookmarked</li>
     </ul>
   </div>
@@ -6258,20 +6361,11 @@ const downloadPage = `<!DOCTYPE html>
 
 <div class="download-page">
   <h1>Download dread</h1>
-  <p class="subtitle">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
 
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-number">{{DOWNLOAD_COUNT}}</div>
-      <div class="stat-label">Downloads</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">{{INSTALL_COUNT}}</div>
-      <div class="stat-label">Installs</div>
-    </div>
-    <div class="stat-card">
       <div class="stat-number">{{UNIQUE_COUNT}}</div>
-      <div class="stat-label">Unique</div>
+      <div class="stat-label">Installs</div>
     </div>
   </div>
 

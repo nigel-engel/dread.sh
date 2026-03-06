@@ -51,4 +51,3 @@ type exportDoneMsg struct {
 	Err  error
 }
 
-type ntfySentMsg struct{}

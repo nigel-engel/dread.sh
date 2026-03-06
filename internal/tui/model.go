@@ -163,11 +163,9 @@ type Model struct {
 	// Diff view in detail
 	showDiff bool
 
-	// ntfy push notifications
-	ntfyTopic string
 }
 
-func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string, ntfyTopic string) Model {
+func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string) Model {
 	vp := viewport.New()
 	dvp := viewport.New()
 	ids := make([]string, len(channels))
@@ -195,7 +193,6 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 		activeTab:      tabLive,
 		bookmarks:      make(map[string]bool),
 		forwardResults: make(map[string]forward.Result),
-		ntfyTopic:      ntfyTopic,
 	}
 	if forwardURL != "" {
 		m.forwarder = forward.New(forwardURL)
@@ -300,10 +297,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.MouseClickMsg:
-		cmd := m.handleMouse(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
+		// mouse disabled
 
 	case wsConnectedMsg:
 		m.connected = true
@@ -372,9 +366,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.forwarder != nil {
 				cmds = append(cmds, forwardEvent(m.forwarder, &msg.Event))
-			}
-			if m.ntfyTopic != "" {
-				cmds = append(cmds, sendNtfy(m.ntfyTopic, msg.Event.Source+": "+msg.Event.Type, msg.Event.Summary))
 			}
 		}
 		if m.wsConn != nil {
@@ -451,7 +442,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 		}
 
-	case ntfySentMsg:
 		// silent
 	}
 
@@ -851,7 +841,6 @@ func (m Model) View() tea.View {
 	if m.showHelp {
 		v := tea.NewView(m.renderHelp())
 		v.AltScreen = true
-		v.MouseMode = tea.MouseModeCellMotion
 		return v
 	}
 
@@ -859,7 +848,6 @@ func (m Model) View() tea.View {
 	if m.showPalette {
 		v := tea.NewView(m.renderPalette())
 		v.AltScreen = true
-		v.MouseMode = tea.MouseModeCellMotion
 		return v
 	}
 
@@ -901,11 +889,7 @@ func (m Model) View() tea.View {
 	}
 	col2Lines = append(col2Lines, statusLine)
 
-	verLine := versionStyle.Render("v" + Version)
-	if m.latestVersion != "" {
-		verLine += " " + updateStyle.Render("↑ v"+m.latestVersion)
-	}
-	col2Lines = append(col2Lines, verLine)
+	col2Lines = append(col2Lines, versionStyle.Render("v"+Version))
 
 	var col3Lines []string
 	filtered := m.filteredEvents()
@@ -938,8 +922,12 @@ func (m Model) View() tea.View {
 		col3Lines = append(col3Lines, dimInfoStyle.Render("waiting for first event..."))
 	}
 
-	tip := commandTips[int(m.startedAt.Unix())%len(commandTips)]
-	col3Lines = append(col3Lines, tipStyle.Render(tip))
+	if m.latestVersion != "" {
+		col3Lines = append(col3Lines, updateStyle.Render("⬆ Update available: v"+m.latestVersion+" · curl -sSL dread.sh/install | sh"))
+	} else {
+		tip := commandTips[int(m.startedAt.Unix())%len(commandTips)]
+		col3Lines = append(col3Lines, tipStyle.Render(tip))
+	}
 
 	col2 := infoPanelStyle.Render(strings.Join(col2Lines, "\n"))
 	col3 := infoPanelStyle.Render(strings.Join(col3Lines, "\n"))
@@ -1034,7 +1022,6 @@ func (m Model) View() tea.View {
 
 	v := tea.NewView(b.String())
 	v.AltScreen = true
-	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 
@@ -1086,7 +1073,6 @@ func (m Model) renderHelp() string {
 			{"↓/j", "Move cursor down"},
 			{"enter", "View event detail"},
 			{"esc", "Back / clear filter"},
-			{"click", "Select event (mouse)"},
 		}},
 		{"Actions", []struct{ key, desc string }{
 			{"/", "Filter events"},
@@ -2131,18 +2117,6 @@ func htmlEscape(s string) string {
 	return s
 }
 
-func sendNtfy(topic string, title string, body string) tea.Cmd {
-	return func() tea.Msg {
-		req, err := http.NewRequest("POST", "https://ntfy.sh/"+topic, strings.NewReader(body))
-		if err != nil {
-			return ntfySentMsg{}
-		}
-		req.Header.Set("Title", title)
-		client := &http.Client{Timeout: 5 * time.Second}
-		client.Do(req)
-		return ntfySentMsg{}
-	}
-}
 
 func (m Model) sparkline() string {
 	if len(m.events) == 0 {
