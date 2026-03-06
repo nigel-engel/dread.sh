@@ -548,7 +548,7 @@ const landingPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -1154,7 +1154,7 @@ const landingPage = `<!DOCTYPE html>
 
 <!-- RELEASE BAR -->
 <div class="release-bar">
-  🚀 <code>v0.3.0</code> is out — bookmarks, diff view, command palette, swimlane timeline, and more. <a href="/docs#changelog">Read the changelog →</a>
+  🚀 <code>v0.3.0</code> is out — bookmarks, diff view, command palette, swimlane timeline, and more. <a href="/changelog">Read the changelog →</a>
 </div>
 
 <!-- HERO -->
@@ -1836,7 +1836,7 @@ const docsPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -2905,7 +2905,7 @@ const changelogPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -3259,7 +3259,7 @@ const dashboardPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -4994,7 +4994,7 @@ const statusPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -5122,7 +5122,7 @@ const howToPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -6254,7 +6254,7 @@ const downloadPage = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='72' text-anchor='middle' font-size='70' font-weight='700' font-family='system-ui,sans-serif' fill='%23c37960'>D</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
@@ -6367,30 +6367,6 @@ const downloadPage = `<!DOCTYPE html>
       <div class="stat-number">{{UNIQUE_COUNT}}</div>
       <div class="stat-label">Installs</div>
     </div>
-  </div>
-
-  <div class="install-block">
-    <h3>Install with one command</h3>
-    <pre><code>curl -sSL dread.sh/install | sh</code></pre>
-    <button class="copy-btn" onclick="copyText('curl -sSL dread.sh/install | sh', this)">Copy</button>
-  </div>
-
-  <div class="or-divider">or</div>
-
-  <div class="install-block">
-    <h3>Install with Homebrew</h3>
-    <pre><code>brew install nigel-engel/tap/dread</code></pre>
-    <button class="copy-btn" onclick="copyText('brew install nigel-engel/tap/dread', this)">Copy</button>
-  </div>
-
-  <div class="or-divider">then</div>
-
-  <div class="install-block">
-    <h3>Get started in 3 commands</h3>
-    <pre><code>dread new "Stripe Prod"
-dread service install
-dread</code></pre>
-    <button class="copy-btn" onclick="copyText('dread new &quot;Stripe Prod&quot;\ndread service install\ndread', this)">Copy</button>
   </div>
 </div>
 
