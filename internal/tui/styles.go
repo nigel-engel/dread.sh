@@ -30,6 +30,11 @@ var commandTips = []string{
 	"r replay · q quit · c copy URL",
 	"dread follow <ws-id> — subscribe to a team",
 	"dread mute <id> — silence a noisy channel",
+	"p pause/resume live feed",
+	"? show all keybindings",
+	"1 live · 2 errors · 3 stats",
+	"source:stripe — filter by source",
+	"!error — exclude matching events",
 }
 
 // classifyEvent returns "success", "failure", or "neutral" based on event type/summary.
@@ -215,6 +220,58 @@ var (
 
 	neutralCountStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#666666"))
+
+	pausedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E5C07B")).
+			Bold(true)
+
+	tabActiveStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#B5835A")).
+			Bold(true).
+			Underline(true)
+
+	tabInactiveStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#555555"))
+
+	toastStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E06C75")).
+			Bold(true)
+
+	helpOverlayStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#B5835A")).
+				Padding(1, 2).
+				Background(lipgloss.Color("#1E1E1E"))
+
+	helpKeyStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#B5835A")).
+			Bold(true).
+			Width(14)
+
+	helpDescStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ABB2BF"))
+
+	helpSectionStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#C678DD")).
+				Bold(true)
+
+	heatmapColorStrs = []string{
+		"#1E1E1E",
+		"#3B2E1E",
+		"#5A421E",
+		"#7A5A2E",
+		"#B5835A",
+	}
+
+	statsLabelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#C678DD")).
+			Bold(true)
+
+	statsBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#B5835A"))
+
+	statsBarBgStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#333333"))
 )
 
 func sourceStyle(source string) lipgloss.Style {

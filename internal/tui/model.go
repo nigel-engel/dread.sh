@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,6 +30,25 @@ const (
 	viewDetail
 )
 
+type tabID int
+
+const (
+	tabLive tabID = iota
+	tabErrors
+	tabStats
+)
+
+const (
+	maxFilterHistory = 20
+	maxToasts        = 3
+	toastDuration    = 5 * time.Second
+)
+
+type toast struct {
+	text    string
+	expires time.Time
+}
+
 type Model struct {
 	serverURL    string
 	channelIDs   []string
@@ -47,8 +67,10 @@ type Model struct {
 	width    int
 	height   int
 
-	filtering  bool
-	filterText string
+	filtering     bool
+	filterText    string
+	filterHistory []string
+	filterHistIdx int // -1 = current input
 
 	hasMore bool
 	loading bool
@@ -57,12 +79,29 @@ type Model struct {
 	lastForwardOK  bool
 	lastForwardErr string
 
-	sound  string
-	muted  map[string]bool
-	now    time.Time
+	sound string
+	muted map[string]bool
+	now   time.Time
 
 	startedAt     time.Time
 	latestVersion string
+
+	// Pause/resume
+	paused       bool
+	pauseBuffer  []event.Event
+	pauseCounter int
+
+	// Tabs
+	activeTab tabID
+
+	// Toast notifications
+	toasts []toast
+
+	// Help overlay
+	showHelp bool
+
+	// Split pane
+	splitView bool
 }
 
 func New(serverURL string, channels []auth.Channel, forwardURL string, filter string, sound string, muted []string) Model {
@@ -83,12 +122,14 @@ func New(serverURL string, channels []auth.Channel, forwardURL string, filter st
 		channelIDs:   ids,
 		channelNames: names,
 		filterText:   filter,
+		filterHistIdx: -1,
 		viewport:     vp,
 		detailVP:     dvp,
 		sound:        sound,
 		muted:        mutedSet,
 		now:          time.Now(),
 		startedAt:    time.Now(),
+		activeTab:    tabLive,
 	}
 	if forwardURL != "" {
 		m.forwarder = forward.New(forwardURL)
@@ -120,14 +161,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.viewport.SetWidth(msg.Width)
-		m.viewport.SetHeight(msg.Height - m.headerHeight() - 1)
-		m.detailVP.SetWidth(msg.Width)
-		m.detailVP.SetHeight(msg.Height - m.headerHeight() - 1)
+		m.recalcViewports()
 		m.refreshViewport()
 
 	case tickMsg:
 		m.now = time.Time(msg)
+		// Expire old toasts
+		var active []toast
+		for _, t := range m.toasts {
+			if m.now.Before(t.expires) {
+				active = append(active, t)
+			}
+		}
+		m.toasts = active
 		m.refreshViewport()
 		cmds = append(cmds, tickEvery())
 
@@ -177,12 +223,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, tea.Batch(cmds...)
 			}
-			m.events = append(m.events, msg.Event)
-			filtered := m.filteredEvents()
-			if m.cursor >= len(filtered)-2 {
-				m.cursor = len(filtered) - 1
+
+			if m.paused {
+				// Buffer while paused
+				m.pauseBuffer = append(m.pauseBuffer, msg.Event)
+				m.pauseCounter++
+			} else {
+				m.events = append(m.events, msg.Event)
+				filtered := m.filteredEvents()
+				if m.cursor >= len(filtered)-2 {
+					m.cursor = len(filtered) - 1
+				}
+				m.refreshViewport()
 			}
-			m.refreshViewport()
+
+			// Toast for failure events
+			if classifyEvent(msg.Event.Type, msg.Event.Summary) == "failure" {
+				t := toast{
+					text:    fmt.Sprintf("%s: %s", msg.Event.Source, msg.Event.Summary),
+					expires: m.now.Add(toastDuration),
+				}
+				m.toasts = append(m.toasts, t)
+				if len(m.toasts) > maxToasts {
+					m.toasts = m.toasts[len(m.toasts)-maxToasts:]
+				}
+			}
+
 			if !m.muted[msg.Event.Channel] {
 				notify.Send(m.displayName(msg.Event.Channel), msg.Event.Summary, m.sound)
 			}
@@ -264,17 +330,59 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	key := msg.String()
 
+	// Help overlay takes priority
+	if m.showHelp {
+		switch key {
+		case "?", "esc", "q":
+			m.showHelp = false
+		}
+		return nil
+	}
+
 	if m.filtering {
 		switch key {
 		case "esc":
 			m.filtering = false
 			m.filterText = ""
+			m.filterHistIdx = -1
 			m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
 			m.refreshViewport()
 		case "enter":
 			m.filtering = false
+			if m.filterText != "" {
+				// Save to filter history
+				m.filterHistory = append(m.filterHistory, m.filterText)
+				if len(m.filterHistory) > maxFilterHistory {
+					m.filterHistory = m.filterHistory[len(m.filterHistory)-maxFilterHistory:]
+				}
+			}
+			m.filterHistIdx = -1
 			m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
 			m.refreshViewport()
+		case "up":
+			// Browse filter history
+			if len(m.filterHistory) > 0 {
+				if m.filterHistIdx == -1 {
+					m.filterHistIdx = len(m.filterHistory) - 1
+				} else if m.filterHistIdx > 0 {
+					m.filterHistIdx--
+				}
+				m.filterText = m.filterHistory[m.filterHistIdx]
+				m.cursor = 0
+				m.refreshViewport()
+			}
+		case "down":
+			if m.filterHistIdx >= 0 {
+				m.filterHistIdx++
+				if m.filterHistIdx >= len(m.filterHistory) {
+					m.filterHistIdx = -1
+					m.filterText = ""
+				} else {
+					m.filterText = m.filterHistory[m.filterHistIdx]
+				}
+				m.cursor = 0
+				m.refreshViewport()
+			}
 		case "backspace":
 			if len(m.filterText) > 0 {
 				m.filterText = m.filterText[:len(m.filterText)-1]
@@ -293,7 +401,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	if m.mode == viewDetail {
 		switch key {
-		case "esc", "q", "backspace":
+		case "esc", "backspace":
+			m.mode = viewList
+			m.refreshViewport()
+		case "q":
 			m.mode = viewList
 			m.refreshViewport()
 		case "r":
@@ -303,6 +414,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 					ev := filtered[m.cursor]
 					return forwardEvent(m.forwarder, &ev)
 				}
+			}
+		case "c":
+			// Copy payload to clipboard
+			filtered := m.filteredEvents()
+			if m.cursor >= 0 && m.cursor < len(filtered) {
+				ev := filtered[m.cursor]
+				return copyToClipboard(PrettyJSON(ev.RawJSON))
 			}
 		case "ctrl+c":
 			return tea.Quit
@@ -316,6 +434,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.wsConn.CloseNow()
 		}
 		return tea.Quit
+	case "?":
+		m.showHelp = true
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -332,11 +452,17 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		filtered := m.filteredEvents()
 		if m.cursor >= 0 && m.cursor < len(filtered) {
-			m.mode = viewDetail
-			m.renderDetail(filtered[m.cursor])
+			if m.splitView {
+				// In split view, just update the detail pane
+				m.renderDetail(filtered[m.cursor])
+			} else {
+				m.mode = viewDetail
+				m.renderDetail(filtered[m.cursor])
+			}
 		}
 	case "/":
 		m.filtering = true
+		m.filterHistIdx = -1
 	case "r":
 		if m.forwarder != nil {
 			filtered := m.filteredEvents()
@@ -345,11 +471,73 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 				return forwardEvent(m.forwarder, &ev)
 			}
 		}
+	case "c":
+		// Copy webhook URL
+		for _, url := range m.webhookURLs {
+			return copyToClipboard(url)
+		}
+	case "p", " ":
+		m.paused = !m.paused
+		if !m.paused {
+			// Flush buffered events
+			m.events = append(m.events, m.pauseBuffer...)
+			m.pauseBuffer = nil
+			m.pauseCounter = 0
+			filtered := m.filteredEvents()
+			m.cursor = len(filtered) - 1
+			m.refreshViewport()
+		}
+	case "1":
+		m.activeTab = tabLive
+		m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
+		m.refreshViewport()
+	case "2":
+		m.activeTab = tabErrors
+		m.cursor = clamp(m.cursor, 0, len(m.filteredEvents())-1)
+		m.refreshViewport()
+	case "3":
+		m.activeTab = tabStats
+		m.refreshViewport()
+	case "s":
+		m.splitView = !m.splitView
+		m.recalcViewports()
+		m.refreshViewport()
+		// If enabling split and we have a selection, show its detail
+		if m.splitView {
+			filtered := m.filteredEvents()
+			if m.cursor >= 0 && m.cursor < len(filtered) {
+				m.renderDetail(filtered[m.cursor])
+			}
+		}
 	}
 	return nil
 }
 
+func (m *Model) recalcViewports() {
+	vpHeight := m.height - m.headerHeight() - 1
+	if m.splitView {
+		listW := m.width / 2
+		detailW := m.width - listW
+		m.viewport.SetWidth(listW)
+		m.viewport.SetHeight(vpHeight)
+		m.detailVP.SetWidth(detailW)
+		m.detailVP.SetHeight(vpHeight)
+	} else {
+		m.viewport.SetWidth(m.width)
+		m.viewport.SetHeight(vpHeight)
+		m.detailVP.SetWidth(m.width)
+		m.detailVP.SetHeight(vpHeight)
+	}
+}
+
 func (m Model) View() tea.View {
+	// Help overlay
+	if m.showHelp {
+		v := tea.NewView(m.renderHelp())
+		v.AltScreen = true
+		return v
+	}
+
 	var b strings.Builder
 
 	// Header: three-column layout — logo | stats | activity
@@ -363,9 +551,16 @@ func (m Model) View() tea.View {
 	col2Lines = append(col2Lines, greetingStyle.Render(greet))
 	col2Lines = append(col2Lines, dimInfoStyle.Render("session: "+formatDuration(session)))
 
-	filtered := m.filteredEvents()
 	if m.connected {
-		col2Lines = append(col2Lines, connectedStyle.Render("● connected"))
+		connLine := connectedStyle.Render("● connected")
+		if m.paused {
+			connLine += " " + pausedStyle.Render("[PAUSED")
+			if m.pauseCounter > 0 {
+				connLine += pausedStyle.Render(fmt.Sprintf(" +%d", m.pauseCounter))
+			}
+			connLine += pausedStyle.Render("]")
+		}
+		col2Lines = append(col2Lines, connLine)
 	} else if m.err != nil {
 		col2Lines = append(col2Lines, forwardErrStyle.Render("● reconnecting..."))
 	} else {
@@ -392,6 +587,7 @@ func (m Model) View() tea.View {
 	// Column 3: activity & tips
 	var col3Lines []string
 
+	filtered := m.filteredEvents()
 	// Event count + source breakdown
 	counts := m.sourceCounts()
 	evLine := fmt.Sprintf("%d events", len(filtered))
@@ -416,19 +612,16 @@ func (m Model) View() tea.View {
 		col3Lines = append(col3Lines, dimInfoStyle.Render(""))
 	}
 
-	// Sparkline
-	col3Lines = append(col3Lines, dimInfoStyle.Render("last hour: ")+sparkStyle.Render(m.sparkline()))
+	// Per-source sparklines (top 3)
+	col3Lines = append(col3Lines, m.perSourceSparklines()...)
 
 	// Last event
 	if len(m.events) > 0 {
 		last := m.events[len(m.events)-1]
-		col3Lines = append(col3Lines, dimInfoStyle.Render("last event: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
+		col3Lines = append(col3Lines, dimInfoStyle.Render("last: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
 	} else {
 		col3Lines = append(col3Lines, dimInfoStyle.Render("waiting for first event..."))
 	}
-
-	// Separator
-	col3Lines = append(col3Lines, dimInfoStyle.Render("─────────────────────────────"))
 
 	// Rotating tip
 	tip := commandTips[int(m.now.Unix()/10)%len(commandTips)]
@@ -463,28 +656,51 @@ func (m Model) View() tea.View {
 		b.WriteString(fwd + "\n")
 	}
 
-	// Viewport
-	if m.mode == viewDetail {
+	// Tab bar
+	b.WriteString(m.renderTabBar())
+	b.WriteString("\n")
+
+	// Viewport content based on active tab
+	if m.activeTab == tabStats {
+		b.WriteString(m.renderStats())
+	} else if m.mode == viewDetail && !m.splitView {
 		b.WriteString(m.detailVP.View())
+	} else if m.splitView {
+		// Side-by-side: list | detail
+		listView := m.viewport.View()
+		detailView := m.detailVP.View()
+		split := lipgloss.JoinHorizontal(lipgloss.Top, listView, detailView)
+		b.WriteString(split)
 	} else {
 		b.WriteString(m.viewport.View())
 	}
 	b.WriteString("\n")
 
+	// Toast notifications (overlay at bottom above footer)
+	for _, t := range m.toasts {
+		b.WriteString(toastStyle.Render("  ⚠ "+t.text) + "\n")
+	}
+
 	// Footer
 	var footerText string
 	if m.filtering {
-		footerText = filterPromptStyle.Render("/") + filterTextStyle.Render(m.filterText) + filterPromptStyle.Render("_") + "  esc clear"
-	} else if m.mode == viewDetail {
-		footerText = "esc back"
-		if m.forwarder != nil {
-			footerText += " • r replay"
+		mode := "substring"
+		if strings.HasPrefix(m.filterText, "!") {
+			mode = "exclude"
+		} else if strings.Contains(m.filterText, ":") {
+			mode = "field"
 		}
-		footerText += " • ↑↓ scroll"
-	} else {
-		footerText = "q quit • ↑↓/jk navigate • enter detail • / filter"
+		footerText = filterPromptStyle.Render("/"+mode+":") + filterTextStyle.Render(m.filterText) + filterPromptStyle.Render("_") + "  esc clear · ↑↓ history"
+	} else if m.mode == viewDetail {
+		footerText = "esc back · c copy payload"
 		if m.forwarder != nil {
-			footerText += " • r replay"
+			footerText += " · r replay"
+		}
+		footerText += " · ↑↓ scroll"
+	} else {
+		footerText = "q quit · ↑↓ navigate · enter detail · / filter · ? help · p pause · s split · 1-3 tabs"
+		if m.forwarder != nil {
+			footerText += " · r replay"
 		}
 	}
 	footer := statusBarStyle.Width(m.width).Render(footerText)
@@ -493,6 +709,88 @@ func (m Model) View() tea.View {
 	v := tea.NewView(b.String())
 	v.AltScreen = true
 	return v
+}
+
+func (m Model) renderTabBar() string {
+	tabs := []struct {
+		id   tabID
+		name string
+	}{
+		{tabLive, "Live"},
+		{tabErrors, "Errors"},
+		{tabStats, "Stats"},
+	}
+	var parts []string
+	for _, t := range tabs {
+		label := fmt.Sprintf(" %d:%s ", t.id+1, t.name)
+		if t.id == m.activeTab {
+			parts = append(parts, tabActiveStyle.Render(label))
+		} else {
+			parts = append(parts, tabInactiveStyle.Render(label))
+		}
+	}
+
+	tabLine := "  " + strings.Join(parts, " ")
+	if m.splitView {
+		tabLine += "  " + dimInfoStyle.Render("[split]")
+	}
+	return tabLine
+}
+
+func (m Model) renderHelp() string {
+	var b strings.Builder
+
+	// Fill background
+	title := helpSectionStyle.Render("  DREAD — Keybindings")
+	b.WriteString("\n" + title + "\n\n")
+
+	sections := []struct {
+		name string
+		keys []struct{ key, desc string }
+	}{
+		{"Navigation", []struct{ key, desc string }{
+			{"↑/k", "Move cursor up"},
+			{"↓/j", "Move cursor down"},
+			{"enter", "View event detail"},
+			{"esc", "Back / clear filter"},
+			{"g/G", "Go to top / bottom"},
+		}},
+		{"Actions", []struct{ key, desc string }{
+			{"/", "Filter events"},
+			{"r", "Replay event"},
+			{"c", "Copy URL / payload"},
+			{"p / Space", "Pause / resume feed"},
+			{"s", "Toggle split pane"},
+			{"?", "Toggle this help"},
+			{"q", "Quit"},
+		}},
+		{"Tabs", []struct{ key, desc string }{
+			{"1", "Live events"},
+			{"2", "Errors only"},
+			{"3", "Stats view"},
+		}},
+		{"Filter Syntax", []struct{ key, desc string }{
+			{"text", "Substring match"},
+			{"!text", "Exclude matching"},
+			{"source:name", "Filter by source"},
+			{"type:name", "Filter by type"},
+			{"↑/↓", "Browse filter history"},
+		}},
+	}
+
+	for _, sec := range sections {
+		b.WriteString("  " + helpSectionStyle.Render(sec.name) + "\n")
+		for _, k := range sec.keys {
+			b.WriteString("  " + helpKeyStyle.Render(k.key) + helpDescStyle.Render(k.desc) + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("  " + dimInfoStyle.Render("Press ? or esc to close"))
+
+	// Center in terminal
+	content := helpOverlayStyle.Width(50).Render(b.String())
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
 func (m Model) headerHeight() int {
@@ -505,27 +803,89 @@ func (m Model) headerHeight() int {
 	if m.forwarder != nil {
 		h++
 	}
+	h++ // tab bar
+	h += len(m.toasts)
 	return h
 }
 
 func (m *Model) refreshViewport() {
-	if m.mode == viewList {
+	if m.mode == viewList || m.splitView {
 		m.viewport.SetContent(m.renderEvents())
+		if m.splitView {
+			filtered := m.filteredEvents()
+			if m.cursor >= 0 && m.cursor < len(filtered) {
+				m.renderDetail(filtered[m.cursor])
+			}
+		}
 	}
 }
 
 func (m Model) filteredEvents() []event.Event {
-	if m.filterText == "" {
-		return m.events
+	events := m.events
+
+	// Tab-level filtering
+	if m.activeTab == tabErrors {
+		var errs []event.Event
+		for _, e := range events {
+			if classifyEvent(e.Type, e.Summary) == "failure" {
+				errs = append(errs, e)
+			}
+		}
+		events = errs
 	}
-	lower := strings.ToLower(m.filterText)
+
+	if m.filterText == "" {
+		return events
+	}
+
+	filterStr := m.filterText
+
+	// Exclusion filter: !term
+	exclude := false
+	if strings.HasPrefix(filterStr, "!") {
+		exclude = true
+		filterStr = filterStr[1:]
+	}
+
+	// Field-specific filter: field:value
+	var fieldFilter, valueFilter string
+	if idx := strings.Index(filterStr, ":"); idx > 0 {
+		candidate := strings.ToLower(filterStr[:idx])
+		if candidate == "source" || candidate == "type" || candidate == "channel" {
+			fieldFilter = candidate
+			valueFilter = strings.ToLower(filterStr[idx+1:])
+		}
+	}
+
 	var filtered []event.Event
-	for _, e := range m.events {
-		if strings.Contains(strings.ToLower(e.Summary), lower) ||
-			strings.Contains(strings.ToLower(e.Source), lower) ||
-			strings.Contains(strings.ToLower(e.Type), lower) ||
-			strings.Contains(strings.ToLower(e.Channel), lower) {
-			filtered = append(filtered, e)
+	for _, e := range events {
+		var match bool
+		if fieldFilter != "" {
+			switch fieldFilter {
+			case "source":
+				match = strings.Contains(strings.ToLower(e.Source), valueFilter)
+			case "type":
+				match = strings.Contains(strings.ToLower(e.Type), valueFilter)
+			case "channel":
+				match = strings.Contains(strings.ToLower(e.Channel), valueFilter)
+			}
+		} else {
+			lower := strings.ToLower(filterStr)
+			match = strings.Contains(strings.ToLower(e.Summary), lower) ||
+				strings.Contains(strings.ToLower(e.Source), lower) ||
+				strings.Contains(strings.ToLower(e.Type), lower) ||
+				strings.Contains(strings.ToLower(e.Channel), lower) ||
+				strings.Contains(strings.ToLower(e.RawJSON), lower)
+		}
+
+		if exclude {
+			if !match {
+				filtered = append(filtered, e)
+			}
+		} else {
+			if match {
+				filtered = append(filtered, e)
+			}
 		}
 	}
 	return filtered
@@ -545,7 +905,9 @@ func (m Model) renderEvents() string {
 		if m.filterText != "" {
 			return "\n  No events match filter: " + filterTextStyle.Render(m.filterText)
 		}
-
+		if m.activeTab == tabErrors {
+			return "\n  " + successCountStyle.Render("No errors — all clear!")
+		}
 		if len(m.channelIDs) == 0 {
 			return "\n  No channels configured.\n\n  Run: dread new stripe-prod\n  Then paste the webhook URL into your service."
 		}
@@ -553,6 +915,10 @@ func (m Model) renderEvents() string {
 	}
 
 	var sb strings.Builder
+	maxW := m.width
+	if m.splitView {
+		maxW = m.width / 2
+	}
 	for i, e := range filtered {
 		var dot string
 		switch classifyEvent(e.Type, e.Summary) {
@@ -569,10 +935,152 @@ func (m Model) renderEvents() string {
 		line := fmt.Sprintf("  %s %s  %s  %s", dot, ts, src, summary)
 
 		if i == m.cursor {
-			line = selectedStyle.Width(m.width).Render(line)
+			line = selectedStyle.Width(maxW).Render(line)
 		}
 		sb.WriteString(line + "\n")
 	}
+	return sb.String()
+}
+
+func (m Model) renderStats() string {
+	var sb strings.Builder
+	vpHeight := m.height - m.headerHeight() - 3
+
+	// Source breakdown with bar chart
+	sb.WriteString("\n  " + statsLabelStyle.Render("Events by Source") + "\n\n")
+	counts := m.sourceCounts()
+	type srcCount struct {
+		name  string
+		count int
+	}
+	var sorted []srcCount
+	maxCount := 0
+	for src, n := range counts {
+		sorted = append(sorted, srcCount{src, n})
+		if n > maxCount {
+			maxCount = n
+		}
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].count > sorted[j].count })
+
+	barWidth := 30
+	if m.width > 80 {
+		barWidth = m.width/3 - 20
+	}
+	for i, sc := range sorted {
+		if i >= 15 {
+			break
+		}
+		label := sourceStyle(sc.name).Width(14).Render(sc.name)
+		filled := 0
+		if maxCount > 0 {
+			filled = (sc.count * barWidth) / maxCount
+		}
+		if filled < 1 && sc.count > 0 {
+			filled = 1
+		}
+		bar := statsBarStyle.Render(strings.Repeat("█", filled)) +
+			statsBarBgStyle.Render(strings.Repeat("░", barWidth-filled))
+		countStr := dimInfoStyle.Render(fmt.Sprintf(" %d", sc.count))
+		sb.WriteString("  " + label + " " + bar + countStr + "\n")
+	}
+
+	// Success/failure breakdown
+	success, failure, neutralN := m.eventStatusCounts()
+	total := success + failure + neutralN
+	sb.WriteString("\n  " + statsLabelStyle.Render("Status Breakdown") + "\n\n")
+	if total > 0 {
+		for _, item := range []struct {
+			label string
+			count int
+			style lipgloss.Style
+		}{
+			{"success", success, successCountStyle},
+			{"failure", failure, failureCountStyle},
+			{"neutral", neutralN, neutralCountStyle},
+		} {
+			filled := 0
+			if total > 0 {
+				filled = (item.count * barWidth) / total
+			}
+			if filled < 1 && item.count > 0 {
+				filled = 1
+			}
+			pct := float64(item.count) / float64(total) * 100
+			label := item.style.Width(14).Render(item.label)
+			bar := item.style.Render(strings.Repeat("█", filled)) +
+				statsBarBgStyle.Render(strings.Repeat("░", barWidth-filled))
+			countStr := dimInfoStyle.Render(fmt.Sprintf(" %d (%.0f%%)", item.count, pct))
+			sb.WriteString("  " + label + " " + bar + countStr + "\n")
+		}
+	}
+
+	// Activity heatmap (last 7 days x 24 hours)
+	sb.WriteString("\n  " + statsLabelStyle.Render("Activity Heatmap (7d × 24h)") + "\n\n")
+	sb.WriteString(m.renderHeatmap())
+
+	// Pad remaining height
+	lines := strings.Count(sb.String(), "\n")
+	for i := lines; i < vpHeight; i++ {
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+func (m Model) renderHeatmap() string {
+	// 7 rows (days, today at bottom) x 24 columns (hours)
+	var grid [7][24]int
+	now := m.now
+	for _, e := range m.events {
+		age := now.Sub(e.Timestamp)
+		if age > 7*24*time.Hour || age < 0 {
+			continue
+		}
+		dayIdx := int(age.Hours() / 24)
+		if dayIdx >= 7 {
+			continue
+		}
+		hour := e.Timestamp.Hour()
+		grid[dayIdx][hour]++
+	}
+
+	// Find max for color scaling
+	maxVal := 1
+	for d := 0; d < 7; d++ {
+		for h := 0; h < 24; h++ {
+			if grid[d][h] > maxVal {
+				maxVal = grid[d][h]
+			}
+		}
+	}
+
+	var sb strings.Builder
+	// Hour labels
+	sb.WriteString("          ")
+	for h := 0; h < 24; h += 3 {
+		sb.WriteString(dimInfoStyle.Render(fmt.Sprintf("%-3d", h)))
+	}
+	sb.WriteString("\n")
+
+	dayNames := []string{"6d ago", "5d ago", "4d ago", "3d ago", "2d ago", "yesterday", "today   "}
+	for d := 6; d >= 0; d-- {
+		sb.WriteString("  " + dimInfoStyle.Render(fmt.Sprintf("%-9s", dayNames[6-d])))
+		for h := 0; h < 24; h++ {
+			val := grid[d][h]
+			colorIdx := 0
+			if val > 0 && maxVal > 0 {
+				colorIdx = (val * (len(heatmapColorStrs) - 1)) / maxVal
+				if colorIdx < 1 {
+					colorIdx = 1
+				}
+			}
+			cell := lipgloss.NewStyle().Foreground(lipgloss.Color(heatmapColorStrs[colorIdx])).Render("█")
+			sb.WriteString(cell)
+		}
+		sb.WriteString("\n")
+	}
+
 	return sb.String()
 }
 
@@ -585,8 +1093,22 @@ func (m *Model) renderDetail(e event.Event) {
 	sb.WriteString("  " + detailLabelStyle.Render("Source:    ") + sourceStyle(e.Source).Render(e.Source) + "\n")
 	sb.WriteString("  " + detailLabelStyle.Render("Type:      ") + detailValueStyle.Render(e.Type) + "\n")
 	sb.WriteString("  " + detailLabelStyle.Render("Time:      ") + detailValueStyle.Render(e.Timestamp.Local().Format("2006-01-02 15:04:05")) + "\n")
-	sb.WriteString("  " + detailLabelStyle.Render("Received:  ") + detailValueStyle.Render(relativeTime(e.Timestamp, m.now)) + "\n\n")
-	sb.WriteString("  " + detailLabelStyle.Render("Payload:") + "\n\n")
+	sb.WriteString("  " + detailLabelStyle.Render("Received:  ") + detailValueStyle.Render(relativeTime(e.Timestamp, m.now)) + "\n")
+
+	// Status classification
+	status := classifyEvent(e.Type, e.Summary)
+	var statusStr string
+	switch status {
+	case "success":
+		statusStr = successCountStyle.Render("● success")
+	case "failure":
+		statusStr = failureCountStyle.Render("● failure")
+	default:
+		statusStr = neutralCountStyle.Render("● neutral")
+	}
+	sb.WriteString("  " + detailLabelStyle.Render("Status:    ") + statusStr + "\n\n")
+
+	sb.WriteString("  " + detailLabelStyle.Render("Payload:") + "  " + dimInfoStyle.Render("(c to copy)") + "\n\n")
 
 	jsonStr := PrettyJSON(e.RawJSON)
 	for _, line := range strings.Split(jsonStr, "\n") {
@@ -605,6 +1127,87 @@ func (m *Model) ensureCursorVisible() {
 	if m.cursor >= m.viewport.YPosition+vpHeight {
 		m.viewport.SetYOffset(m.cursor - vpHeight + 1)
 	}
+}
+
+// perSourceSparklines renders sparklines for the top 3 sources.
+func (m Model) perSourceSparklines() []string {
+	if len(m.events) == 0 {
+		return []string{dimInfoStyle.Render("last hour: ") + sparkStyle.Render(m.sparkline())}
+	}
+
+	// Count events per source
+	counts := make(map[string]int)
+	for _, e := range m.events {
+		counts[e.Source]++
+	}
+
+	// Sort by count descending
+	type srcCount struct {
+		name  string
+		count int
+	}
+	var sorted []srcCount
+	for src, n := range counts {
+		sorted = append(sorted, srcCount{src, n})
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].count > sorted[j].count })
+
+	// Show up to 3 per-source sparklines
+	maxShow := 3
+	if len(sorted) < maxShow {
+		maxShow = len(sorted)
+	}
+
+	if maxShow <= 1 {
+		// Just show aggregate sparkline
+		return []string{dimInfoStyle.Render("last hour: ") + sparkStyle.Render(m.sparkline())}
+	}
+
+	var lines []string
+	for i := 0; i < maxShow; i++ {
+		src := sorted[i].name
+		spark := m.sparklineForSource(src)
+		label := sourceStyle(src).Width(10).Render(src)
+		lines = append(lines, label+" "+sparkStyle.Render(spark))
+	}
+	return lines
+}
+
+// sparklineForSource renders a sparkline for a specific source.
+func (m Model) sparklineForSource(source string) string {
+	const buckets = 12
+	bucketDur := 5 * time.Minute
+	var counts [buckets]int
+	cutoff := m.now.Add(-time.Duration(buckets) * bucketDur)
+	for _, e := range m.events {
+		if e.Source != source || e.Timestamp.Before(cutoff) {
+			continue
+		}
+		idx := int(m.now.Sub(e.Timestamp) / bucketDur)
+		if idx >= buckets {
+			idx = buckets - 1
+		}
+		counts[buckets-1-idx]++
+	}
+	maxCount := 0
+	for _, c := range counts {
+		if c > maxCount {
+			maxCount = c
+		}
+	}
+	if maxCount == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for _, c := range counts {
+		if c == 0 {
+			sb.WriteRune(sparkBlocks[0])
+		} else {
+			idx := (c * (len(sparkBlocks) - 1)) / maxCount
+			sb.WriteRune(sparkBlocks[idx])
+		}
+	}
+	return sb.String()
 }
 
 func relativeTime(t time.Time, now time.Time) string {

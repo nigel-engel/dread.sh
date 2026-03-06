@@ -1921,6 +1921,10 @@ const docsPage = `<!DOCTYPE html>
       <a href="#tui-header">Header &amp; Logo</a>
       <a href="#tui-status">Status Indicators</a>
       <a href="#tui-sparkline">Sparkline &amp; Health</a>
+      <a href="#tui-split">Split Pane</a>
+      <a href="#tui-tabs">Tabs &amp; Stats</a>
+      <a href="#tui-pause">Pause &amp; Toasts</a>
+      <a href="#tui-filters">Advanced Filters</a>
     </div>
     <div class="docs-sidebar-group">
       <div class="docs-sidebar-label">CLI Reference</div>
@@ -2056,6 +2060,41 @@ const docsPage = `<!DOCTYPE html>
       <p>The TUI also checks <code>/api/version</code> on startup and displays a notification in the header if a newer version of dread is available.</p>
     </section>
 
+    <section class="docs-section" id="tui-split">
+      <h3>Split Pane</h3>
+      <p>Press <code>s</code> to toggle a master-detail split view. The screen divides into two halves: the event list on the left and the payload detail on the right. Selecting an event in the list instantly updates the right pane without leaving the list.</p>
+      <p>This is ideal for debugging &mdash; you can navigate through events with <code>j</code>/<code>k</code> while continuously seeing the full payload beside it.</p>
+    </section>
+
+    <section class="docs-section" id="tui-tabs">
+      <h3>Tabs &amp; Stats</h3>
+      <p>The TUI has three tabs, switched with number keys:</p>
+      <ul>
+        <li><code>1</code> <strong>Live</strong> &mdash; the full event stream (default)</li>
+        <li><code>2</code> <strong>Errors</strong> &mdash; auto-filtered to show only failure events (errors, denials, alerts, etc.)</li>
+        <li><code>3</code> <strong>Stats</strong> &mdash; bar charts showing events by source, success/failure/neutral breakdown with percentages, and a 7-day &times; 24-hour activity heatmap</li>
+      </ul>
+      <p>The Errors tab directly serves the core use case: quickly seeing what failed. The Stats tab gives a bird's-eye view of webhook traffic patterns.</p>
+    </section>
+
+    <section class="docs-section" id="tui-pause">
+      <h3>Pause &amp; Toasts</h3>
+      <p>Press <code>p</code> or <code>Space</code> to pause the live event feed. While paused, new events are buffered in the background and a counter shows how many are waiting. Press <code>p</code> again to unpause and flush all buffered events.</p>
+      <p>When a failure event arrives (regardless of pause state), a red toast notification appears above the footer showing the source and summary. Toasts auto-dismiss after 5 seconds. Up to 3 toasts can be visible at once.</p>
+    </section>
+
+    <section class="docs-section" id="tui-filters">
+      <h3>Advanced Filters</h3>
+      <p>Press <code>/</code> to open the filter prompt. The filter supports several modes:</p>
+      <ul>
+        <li><strong>Substring match</strong> &mdash; type any text to match against source, type, summary, channel, and the raw JSON payload</li>
+        <li><strong>Exclusion</strong> &mdash; prefix with <code>!</code> to exclude matching events (e.g., <code>!test</code>)</li>
+        <li><strong>Field-specific</strong> &mdash; use <code>source:stripe</code>, <code>type:checkout</code>, or <code>channel:prod</code> to filter by a specific field</li>
+        <li><strong>Filter history</strong> &mdash; press <code>↑</code>/<code>↓</code> in the filter prompt to browse previous filters</li>
+      </ul>
+      <p>Deep payload search is also supported &mdash; filtering searches inside the raw JSON body, so you can find events by a customer ID or charge amount buried in the payload.</p>
+    </section>
+
     <section class="docs-section" id="cli-dread">
       <h2>CLI Reference</h2>
       <h3>dread</h3>
@@ -2078,7 +2117,13 @@ const docsPage = `<!DOCTYPE html>
         <tr><td><code>enter</code></td><td>View event detail &amp; payload</td></tr>
         <tr><td><code>/</code></td><td>Filter events</td></tr>
         <tr><td><code>r</code></td><td>Replay event</td></tr>
-        <tr><td><code>c</code></td><td>Copy webhook URL</td></tr>
+        <tr><td><code>c</code></td><td>Copy webhook URL (list) or payload (detail)</td></tr>
+        <tr><td><code>p</code> / <code>Space</code></td><td>Pause / resume live feed</td></tr>
+        <tr><td><code>s</code></td><td>Toggle split pane (list + detail side-by-side)</td></tr>
+        <tr><td><code>?</code></td><td>Show help overlay with all keybindings</td></tr>
+        <tr><td><code>1</code></td><td>Live tab (all events)</td></tr>
+        <tr><td><code>2</code></td><td>Errors tab (failures only)</td></tr>
+        <tr><td><code>3</code></td><td>Stats tab (charts &amp; heatmap)</td></tr>
         <tr><td><code>esc</code></td><td>Back / clear filter</td></tr>
       </table>
     </section>
@@ -2756,6 +2801,23 @@ const changelogPage = `<!DOCTYPE html>
 <div class="changelog">
   <h1>Changelog</h1>
   <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 6, 2026</div>
+    <div class="changelog-title">10 new TUI features: split pane, tabs, pause, help, toasts, heatmap</div>
+    <ul>
+      <li><strong>Master-detail split pane</strong> &mdash; press <code>s</code> to toggle a side-by-side view with event list on the left and live payload viewer on the right</li>
+      <li><strong><code>?</code> help overlay</strong> &mdash; press <code>?</code> for a complete keybinding reference, grouped by category</li>
+      <li><strong>Pause/resume feed</strong> &mdash; press <code>p</code> or <code>Space</code> to pause the live stream. Events buffer in the background with a counter showing how many are waiting</li>
+      <li><strong>Tabbed views</strong> &mdash; <code>1</code> Live, <code>2</code> Errors (auto-filtered to failures), <code>3</code> Stats with bar charts and heatmap</li>
+      <li><strong>Advanced filtering</strong> &mdash; <code>source:stripe</code> field-specific filters, <code>!error</code> exclusion, deep payload search, and filter history with ↑↓ arrows</li>
+      <li><strong>Per-source sparklines</strong> &mdash; top 3 sources each get their own sparkline in the header for at-a-glance source comparison</li>
+      <li><strong>In-TUI toast notifications</strong> &mdash; failure events trigger a red toast above the footer that auto-dismisses after 5 seconds</li>
+      <li><strong>Activity heatmap</strong> &mdash; 7-day &times; 24-hour grid in the Stats tab showing event density with heat-mapped colours</li>
+      <li><strong>Stats tab</strong> &mdash; bar charts for events by source and success/failure/neutral breakdown with percentages</li>
+      <li><strong>Copy payload</strong> &mdash; press <code>c</code> in detail view to copy the full JSON payload to clipboard</li>
+    </ul>
+  </div>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
