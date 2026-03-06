@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -62,6 +64,8 @@ func main() {
 		cmdDigest(os.Args[2:])
 	case "alert":
 		cmdAlert(os.Args[2:])
+	case "service":
+		cmdService(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -98,6 +102,8 @@ Usage:
   dread alert add <pat> <n> <m>  alert when >=n events match pattern in m minutes
   dread alert list               list alert rules
   dread alert remove <index>     remove an alert rule
+  dread service install          run dread watch as a background service (launchd/systemd)
+  dread service uninstall        stop and remove the background service
 
 Flags (TUI / watch mode):
   --server <url>                 dread server URL (default: https://dread.sh)
@@ -915,4 +921,188 @@ func cmdAlert(args []string) {
 		fmt.Fprintln(os.Stderr, "usage: dread alert <add|list|remove> ...")
 		os.Exit(1)
 	}
+}
+
+const launchdLabel = "dev.dread.watch"
+
+const launchdPlistTmpl = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{.Label}}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{.Binary}}</string>
+        <string>watch</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{.LogDir}}/dread.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{.LogDir}}/dread.log</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
+`
+
+const systemdUnitTmpl = `[Unit]
+Description=dread watch — webhook desktop notifications
+After=network-online.target
+
+[Service]
+ExecStart={{.Binary}} watch
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+`
+
+func cmdService(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: dread service <install|uninstall>")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "install":
+		serviceInstall()
+	case "uninstall":
+		serviceUninstall()
+	default:
+		fmt.Fprintln(os.Stderr, "usage: dread service <install|uninstall>")
+		os.Exit(1)
+	}
+}
+
+func serviceInstall() {
+	bin, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error finding executable: %v\n", err)
+		os.Exit(1)
+	}
+	bin, _ = filepath.EvalSymlinks(bin)
+
+	switch runtime.GOOS {
+	case "darwin":
+		serviceInstallDarwin(bin)
+	case "linux":
+		serviceInstallLinux(bin)
+	default:
+		fmt.Fprintf(os.Stderr, "unsupported OS: %s\n", runtime.GOOS)
+		os.Exit(1)
+	}
+}
+
+func serviceInstallDarwin(bin string) {
+	home, _ := os.UserHomeDir()
+	plistDir := filepath.Join(home, "Library", "LaunchAgents")
+	plistPath := filepath.Join(plistDir, launchdLabel+".plist")
+	logDir := filepath.Join(home, "Library", "Logs")
+
+	os.MkdirAll(plistDir, 0755)
+	os.MkdirAll(logDir, 0755)
+
+	tmpl := template.Must(template.New("plist").Parse(launchdPlistTmpl))
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, map[string]string{
+		"Label":  launchdLabel,
+		"Binary": bin,
+		"LogDir": logDir,
+	})
+
+	if err := os.WriteFile(plistPath, buf.Bytes(), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing plist: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Unload first in case it's already loaded (ignore errors)
+	exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", os.Getuid(), launchdLabel)).Run()
+
+	out, err := exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), plistPath).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading service: %s\n%s\n", err, out)
+		os.Exit(1)
+	}
+
+	fmt.Println("Background service installed and started.")
+	fmt.Printf("  Plist:  %s\n", plistPath)
+	fmt.Printf("  Logs:   %s/dread.log\n", logDir)
+	fmt.Println()
+	fmt.Println("Notifications will now appear even when the terminal is closed.")
+	fmt.Println("To stop: dread service uninstall")
+}
+
+func serviceInstallLinux(bin string) {
+	home, _ := os.UserHomeDir()
+	unitDir := filepath.Join(home, ".config", "systemd", "user")
+	unitPath := filepath.Join(unitDir, "dread-watch.service")
+
+	os.MkdirAll(unitDir, 0755)
+
+	tmpl := template.Must(template.New("unit").Parse(systemdUnitTmpl))
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, map[string]string{"Binary": bin})
+
+	if err := os.WriteFile(unitPath, buf.Bytes(), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing unit file: %v\n", err)
+		os.Exit(1)
+	}
+
+	exec.Command("systemctl", "--user", "daemon-reload").Run()
+	out, err := exec.Command("systemctl", "--user", "enable", "--now", "dread-watch.service").CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error enabling service: %s\n%s\n", err, out)
+		os.Exit(1)
+	}
+
+	fmt.Println("Background service installed and started.")
+	fmt.Printf("  Unit: %s\n", unitPath)
+	fmt.Println("  Logs: journalctl --user -u dread-watch")
+	fmt.Println()
+	fmt.Println("To stop: dread service uninstall")
+}
+
+func serviceUninstall() {
+	switch runtime.GOOS {
+	case "darwin":
+		serviceUninstallDarwin()
+	case "linux":
+		serviceUninstallLinux()
+	default:
+		fmt.Fprintf(os.Stderr, "unsupported OS: %s\n", runtime.GOOS)
+		os.Exit(1)
+	}
+}
+
+func serviceUninstallDarwin() {
+	home, _ := os.UserHomeDir()
+	plistPath := filepath.Join(home, "Library", "LaunchAgents", launchdLabel+".plist")
+
+	exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", os.Getuid(), launchdLabel)).Run()
+	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "error removing plist: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Background service stopped and removed.")
+}
+
+func serviceUninstallLinux() {
+	home, _ := os.UserHomeDir()
+	unitPath := filepath.Join(home, ".config", "systemd", "user", "dread-watch.service")
+
+	exec.Command("systemctl", "--user", "disable", "--now", "dread-watch.service").Run()
+	if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "error removing unit: %v\n", err)
+		os.Exit(1)
+	}
+	exec.Command("systemctl", "--user", "daemon-reload").Run()
+
+	fmt.Println("Background service stopped and removed.")
 }
