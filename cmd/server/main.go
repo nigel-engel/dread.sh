@@ -1917,6 +1917,12 @@ const docsPage = `<!DOCTYPE html>
       <a href="#wire-webhook">Wire Up a Webhook</a>
     </div>
     <div class="docs-sidebar-group">
+      <div class="docs-sidebar-label">TUI Features</div>
+      <a href="#tui-header">Header &amp; Logo</a>
+      <a href="#tui-status">Status Indicators</a>
+      <a href="#tui-sparkline">Sparkline &amp; Health</a>
+    </div>
+    <div class="docs-sidebar-group">
       <div class="docs-sidebar-label">CLI Reference</div>
       <a href="#cli-dread">dread (TUI)</a>
       <a href="#cli-new">dread new</a>
@@ -2019,6 +2025,37 @@ const docsPage = `<!DOCTYPE html>
     </section>
 
     <!-- CLI REFERENCE -->
+    <!-- TUI FEATURES -->
+    <section class="docs-section" id="tui-header">
+      <h2>TUI Features</h2>
+      <h3>Header &amp; Logo</h3>
+      <p>When you launch <code>dread</code>, the TUI displays a 3-column header inside a rounded box:</p>
+      <ul>
+        <li><strong>Left column</strong> &mdash; ASCII art DREAD logo in the brand brown colour, with the version number below</li>
+        <li><strong>Centre column</strong> &mdash; time-of-day greeting, connected channel count, session uptime, channel health dots, and success/failure/neutral event counts</li>
+        <li><strong>Right column</strong> &mdash; total event count, events-per-minute rate, a sparkline showing event volume over the last hour, and rotating command tips that cycle every 5 seconds</li>
+      </ul>
+      <p>The header is always visible and updates in real time as events arrive.</p>
+    </section>
+
+    <section class="docs-section" id="tui-status">
+      <h3>Status Indicators</h3>
+      <p>Each event in the TUI list (and in the web dashboard) is classified and shown with a coloured dot:</p>
+      <ul>
+        <li><strong style="color:#98C379">&#9679; Green</strong> &mdash; success events (keywords: succeeded, completed, paid, captured, created, active, resolved, delivered, merged, approved, ready)</li>
+        <li><strong style="color:#E06C75">&#9679; Red</strong> &mdash; failure events (keywords: fail, error, denied, declined, expired, canceled, refused, rejected, dispute, alert, incident, critical, warning, overdue)</li>
+        <li><strong style="color:#666666">&#9679; Gray</strong> &mdash; neutral events that don't match either category</li>
+      </ul>
+      <p>Classification is based on keyword matching against the event type and summary fields. This works automatically with any webhook source.</p>
+    </section>
+
+    <section class="docs-section" id="tui-sparkline">
+      <h3>Sparkline &amp; Health</h3>
+      <p>The header's right column includes a Unicode sparkline (using block characters ▁▂▃▄▅▆▇█) that visualises event volume over the last 60 minutes in twelve 5-minute buckets.</p>
+      <p><strong>Channel health dots</strong> appear in the centre column. Each channel shows a dot that is green if it received an event within the last 30 minutes, or gray if it's stale. This gives a quick at-a-glance view of which integrations are actively sending.</p>
+      <p>The TUI also checks <code>/api/version</code> on startup and displays a notification in the header if a newer version of dread is available.</p>
+    </section>
+
     <section class="docs-section" id="cli-dread">
       <h2>CLI Reference</h2>
       <h3>dread</h3>
@@ -2041,6 +2078,7 @@ const docsPage = `<!DOCTYPE html>
         <tr><td><code>enter</code></td><td>View event detail &amp; payload</td></tr>
         <tr><td><code>/</code></td><td>Filter events</td></tr>
         <tr><td><code>r</code></td><td>Replay event</td></tr>
+        <tr><td><code>c</code></td><td>Copy webhook URL</td></tr>
         <tr><td><code>esc</code></td><td>Back / clear filter</td></tr>
       </table>
     </section>
@@ -2721,6 +2759,24 @@ const changelogPage = `<!DOCTYPE html>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
+    <div class="changelog-title">DREAD ASCII logo, rich TUI header, event status indicators</div>
+    <ul>
+      <li><strong>DREAD ASCII art logo</strong> &mdash; the TUI now opens with a bold figlet-style DREAD banner in the brand brown colour, inspired by Claude Code's welcome screen</li>
+      <li><strong>3-column TUI header</strong> &mdash; logo &vert; status info &vert; activity stats, wrapped in a rounded box with padding</li>
+      <li><strong>Greeting &amp; session timer</strong> &mdash; time-of-day greeting and live session uptime in the header</li>
+      <li><strong>Channel health dots</strong> &mdash; green/gray dots per channel showing which channels received events recently (30-min stale threshold)</li>
+      <li><strong>Event sparkline</strong> &mdash; Unicode block-character sparkline showing event rate over the last hour in 5-minute buckets</li>
+      <li><strong>Success / failure classification</strong> &mdash; events are classified as success (green &#9679;), failure (red &#9679;), or neutral (gray &#9679;) based on keyword matching on type and summary</li>
+      <li><strong>Event status dots in TUI</strong> &mdash; each event row in the TUI list shows a coloured dot indicating success/failure/neutral</li>
+      <li><strong>Event status dots in dashboard</strong> &mdash; the web dashboard now shows the same coloured status dots on each event row</li>
+      <li><strong>Rotating command tips</strong> &mdash; 12 tips cycle every 5 seconds in the header, showing useful dread commands and keybindings</li>
+      <li><strong>Update notifications</strong> &mdash; the TUI checks <code>/api/version</code> on startup and shows a notice when a newer version is available</li>
+      <li><strong>Press Start 2P branding</strong> &mdash; website nav and footer logo now use the Press Start 2P pixel font at 1.15rem</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 6, 2026</div>
     <div class="changelog-title">URL-based source labelling, background service, 50+ How To guides</div>
     <ul>
       <li><strong><code>?source=name</code> URL parameter</strong> &mdash; append to any webhook URL to label events from services that aren't auto-detected (e.g. <code>?source=trigger.dev</code>). No custom headers needed</li>
@@ -3390,6 +3446,7 @@ const dashboardPage = `<!DOCTYPE html>
       <table class="events-table">
         <thead>
           <tr>
+            <th style="width:32px"></th>
             <th>Time</th>
             <th>Channel</th>
             <th>Source</th>
@@ -3700,7 +3757,10 @@ function createEventRow(ev, isLive) {
   tr.className = 'event-row' + (isLive ? ' new-event' : '');
   tr.onclick = function() { toggleDetail(ev.id); };
   var chName = state.channelNames[ev.channel] || ev.channel || '';
+  var status = classifyEvent(ev.type, ev.summary);
+  var dotColor = status === 'success' ? 'var(--green)' : status === 'failure' ? 'var(--rose)' : 'var(--text-dim)';
   tr.innerHTML =
+    '<td style="width:32px;text-align:center"><span style="color:' + dotColor + ';font-size:0.6rem">&#9679;</span></td>' +
     '<td class="col-time">' + formatTime(ev.timestamp) + '</td>' +
     '<td class="col-channel">' + esc(chName) + '</td>' +
     '<td class="col-source" style="color:' + sourceColour(ev.source) + '">' + esc(ev.source) + '</td>' +
@@ -3714,7 +3774,7 @@ function createDetailRow(ev) {
   tr.className = 'event-detail';
   tr.setAttribute('data-detail-for', ev.id);
   var td = document.createElement('td');
-  td.setAttribute('colspan', '5');
+  td.setAttribute('colspan', '6');
   var json = '';
   try {
     var parsed = typeof ev.raw_json === 'string' ? JSON.parse(ev.raw_json) : ev.raw_json;
@@ -3823,6 +3883,15 @@ var SOURCE_COLOUR_POOL = [
   'oklch(65% 0.18 320)'
 ];
 var sourceColourCache = {};
+function classifyEvent(typ, summary) {
+  var lower = ((typ || '') + ' ' + (summary || '')).toLowerCase();
+  var failWords = ['fail','error','denied','declined','expired','canceled','cancelled','refused','rejected','dispute','alert','incident','critical','warning','overdue'];
+  for (var i = 0; i < failWords.length; i++) { if (lower.indexOf(failWords[i]) !== -1) return 'failure'; }
+  var okWords = ['succeed','success','completed','paid','captured','created','active','resolved','delivered','merged','approved','ready'];
+  for (var i = 0; i < okWords.length; i++) { if (lower.indexOf(okWords[i]) !== -1) return 'success'; }
+  return 'neutral';
+}
+
 function sourceColour(src) {
   if (!src) return 'var(--text-muted)';
   var lower = src.toLowerCase();

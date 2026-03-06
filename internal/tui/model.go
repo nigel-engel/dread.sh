@@ -554,10 +554,19 @@ func (m Model) renderEvents() string {
 
 	var sb strings.Builder
 	for i, e := range filtered {
+		var dot string
+		switch classifyEvent(e.Type, e.Summary) {
+		case "success":
+			dot = successCountStyle.Render("●")
+		case "failure":
+			dot = failureCountStyle.Render("●")
+		default:
+			dot = neutralCountStyle.Render("●")
+		}
 		ts := timestampStyle.Render(fmt.Sprintf("%-8s", relativeTime(e.Timestamp, m.now)))
 		src := sourceStyle(e.Source).Width(12).Render(e.Source)
 		summary := summaryStyle.Render(e.Summary)
-		line := fmt.Sprintf("  %s  %s  %s", ts, src, summary)
+		line := fmt.Sprintf("  %s %s  %s  %s", dot, ts, src, summary)
 
 		if i == m.cursor {
 			line = selectedStyle.Width(m.width).Render(line)
