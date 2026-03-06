@@ -38,6 +38,7 @@ const (
 	tabLive tabID = iota
 	tabErrors
 	tabStats
+	tabChannels
 )
 
 const (
@@ -693,6 +694,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "3":
 		m.activeTab = tabStats
 		m.refreshViewport()
+	case "4":
+		m.activeTab = tabChannels
+		m.refreshViewport()
 	case "s":
 		m.splitView = !m.splitView
 		m.recalcViewports()
@@ -945,13 +949,19 @@ func (m Model) View() tea.View {
 	b.WriteString(headerBoxStyle.Render(header))
 	b.WriteString("\n")
 
-	// Webhook URLs
+	// Webhook URLs — show inline if ≤3, otherwise compact summary
 	if len(m.webhookURLs) > 0 {
-		for ch, url := range m.webhookURLs {
-			name := m.displayName(ch)
-			label := urlLabelStyle.Render("  " + name + ": ")
-			u := urlStyle.Render(url)
-			b.WriteString(label + u + "\n")
+		if len(m.webhookURLs) <= 3 {
+			for ch, url := range m.webhookURLs {
+				name := m.displayName(ch)
+				label := urlLabelStyle.Render("  " + name + ": ")
+				u := urlStyle.Render(url)
+				b.WriteString(label + u + "\n")
+			}
+		} else {
+			// Compact: just show count and hint
+			b.WriteString(urlLabelStyle.Render(fmt.Sprintf("  %d channels", len(m.webhookURLs))) +
+				dimInfoStyle.Render(" · press 4 for URLs · c to copy") + "\n")
 		}
 	} else if len(m.channelIDs) > 0 {
 		b.WriteString(urlLabelStyle.Render("  connecting to channels...") + "\n")
@@ -975,7 +985,9 @@ func (m Model) View() tea.View {
 	b.WriteString("\n")
 
 	// Content
-	if m.activeTab == tabStats {
+	if m.activeTab == tabChannels {
+		b.WriteString(m.renderChannels())
+	} else if m.activeTab == tabStats {
 		b.WriteString(m.renderStats())
 	} else if m.mode == viewDetail && !m.splitView {
 		b.WriteString(m.detailVP.View())
@@ -1036,6 +1048,7 @@ func (m Model) renderTabBar() string {
 		{tabLive, "Live"},
 		{tabErrors, "Errors"},
 		{tabStats, "Stats"},
+		{tabChannels, "Channels"},
 	}
 	var parts []string
 	for _, t := range tabs {
@@ -1096,6 +1109,7 @@ func (m Model) renderHelp() string {
 			{"1", "Live events"},
 			{"2", "Errors only"},
 			{"3", "Stats + swimlane"},
+			{"4", "Channels + URLs"},
 		}},
 		{"Filter Syntax", []struct{ key, desc string }{
 			{"text", "Substring match"},
@@ -1150,7 +1164,9 @@ func (m Model) renderPalette() string {
 
 func (m Model) headerHeight() int {
 	h := 11
-	if len(m.webhookURLs) > 0 {
+	if len(m.webhookURLs) > 3 {
+		h += 1 // compact summary line
+	} else if len(m.webhookURLs) > 0 {
 		h += len(m.webhookURLs)
 	} else {
 		h += 1
@@ -1486,6 +1502,99 @@ func (m Model) renderSwimlane() string {
 		sb.WriteString("\n")
 	}
 
+	return sb.String()
+}
+
+func (m Model) renderChannels() string {
+	var sb strings.Builder
+	vpHeight := m.height - m.headerHeight() - 3
+
+	sb.WriteString("\n  " + statsLabelStyle.Render("Webhook Channels") + "\n\n")
+
+	if len(m.webhookURLs) == 0 {
+		if len(m.channelIDs) > 0 {
+			sb.WriteString("  " + dimInfoStyle.Render("Connecting to channels...") + "\n")
+		} else {
+			sb.WriteString("  " + dimInfoStyle.Render("No channels — run: dread new <name>") + "\n")
+		}
+	} else {
+		for ch, url := range m.webhookURLs {
+			name := m.displayName(ch)
+			sb.WriteString("  " + channelStyle.Render(name) + "\n")
+			sb.WriteString("    " + urlStyle.Render(url) + "\n")
+
+			// Show last event time and count for this channel
+			var lastTime time.Time
+			count := 0
+			for _, e := range m.events {
+				if e.Channel == ch {
+					count++
+					if e.Timestamp.After(lastTime) {
+						lastTime = e.Timestamp
+					}
+				}
+			}
+			if count > 0 {
+				sb.WriteString("    " + dimInfoStyle.Render(fmt.Sprintf("%d events · last: %s", count, relativeTime(lastTime, m.now))) + "\n")
+			} else {
+				sb.WriteString("    " + dimInfoStyle.Render("no events yet") + "\n")
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// Per-channel sparklines
+	if len(m.events) > 0 && len(m.webhookURLs) > 0 {
+		sb.WriteString("  " + statsLabelStyle.Render("Channel Activity (last hour)") + "\n\n")
+		for ch := range m.webhookURLs {
+			name := m.displayName(ch)
+			spark := m.sparklineForChannel(ch)
+			label := channelStyle.Width(14).Render(name)
+			sb.WriteString("  " + label + " " + sparkStyle.Render(spark) + "\n")
+		}
+	}
+
+	lines := strings.Count(sb.String(), "\n")
+	for i := lines; i < vpHeight; i++ {
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+// sparklineForChannel renders a sparkline for a specific channel.
+func (m Model) sparklineForChannel(channelID string) string {
+	const buckets = 12
+	bucketDur := 5 * time.Minute
+	var counts [buckets]int
+	cutoff := m.now.Add(-time.Duration(buckets) * bucketDur)
+	for _, e := range m.events {
+		if e.Channel != channelID || e.Timestamp.Before(cutoff) {
+			continue
+		}
+		idx := int(m.now.Sub(e.Timestamp) / bucketDur)
+		if idx >= buckets {
+			idx = buckets - 1
+		}
+		counts[buckets-1-idx]++
+	}
+	maxCount := 0
+	for _, c := range counts {
+		if c > maxCount {
+			maxCount = c
+		}
+	}
+	if maxCount == 0 {
+		return strings.Repeat(string(sparkBlocks[0]), buckets)
+	}
+	var sb strings.Builder
+	for _, c := range counts {
+		if c == 0 {
+			sb.WriteRune(sparkBlocks[0])
+		} else {
+			idx := (c * (len(sparkBlocks) - 1)) / maxCount
+			sb.WriteRune(sparkBlocks[idx])
+		}
+	}
 	return sb.String()
 }
 
