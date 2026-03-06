@@ -286,10 +286,8 @@ type LiveStats struct {
 func (s *Store) LiveStats() LiveStats {
 	var stats LiveStats
 
-	oneHourAgo := time.Now().UTC().Add(-1 * time.Hour)
-	s.db.QueryRow(`SELECT COUNT(DISTINCT channel) FROM events WHERE timestamp >= ?`, oneHourAgo).Scan(&stats.ActiveChannels)
-
 	sevenDaysAgo := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	s.db.QueryRow(`SELECT COUNT(DISTINCT channel) FROM events WHERE timestamp >= ?`, sevenDaysAgo).Scan(&stats.ActiveChannels)
 	s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE timestamp >= ?`, sevenDaysAgo).Scan(&stats.EventsToday)
 
 	rows, err := s.db.Query(`SELECT source, COUNT(*) as cnt FROM events WHERE timestamp >= ? GROUP BY source ORDER BY cnt DESC LIMIT 10`, sevenDaysAgo)

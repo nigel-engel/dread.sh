@@ -1177,7 +1177,7 @@ const landingPage = `<!DOCTYPE html>
     <div class="live-stat-card">
       <div class="live-stat-value"><span class="accent" id="ls-channels">—</span></div>
       <div class="live-stat-label"><span class="live-stat-dot"></span>channels active</div>
-      <div class="live-stat-detail">in the last hour</div>
+      <div class="live-stat-detail">last 7 days</div>
     </div>
     <div class="live-stat-card">
       <div class="live-stat-value" id="ls-events">—</div>
