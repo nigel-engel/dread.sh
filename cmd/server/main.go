@@ -918,7 +918,8 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) { return w.gz.Write(b)
 
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") ||
+			r.Header.Get("Upgrade") == "websocket" {
 			next.ServeHTTP(w, r)
 			return
 		}
