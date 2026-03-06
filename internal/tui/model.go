@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/viewport"
+	"charm.land/lipgloss/v2"
 
 	"dread.sh/internal/auth"
 	"dread.sh/internal/clipboard"
@@ -341,28 +342,53 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m Model) View() tea.View {
 	var b strings.Builder
 
-	// Header: logo + status
-	logo := logoStyle.Render(dreadLogo)
-	b.WriteString(logo)
-	b.WriteString("\n")
+	// Header: two-column layout — logo left, info right
+	left := logoStyle.Render(dreadLogo)
 
-	status := "connecting..."
+	var rightLines []string
+
+	// Line 0: channels + connection status
 	if m.connected {
-		filtered := m.filteredEvents()
-		counts := m.sourceCounts()
-		status = fmt.Sprintf("connected — %d events", len(filtered))
-		if len(counts) > 0 {
-			parts := make([]string, 0, len(counts))
-			for src, n := range counts {
-				parts = append(parts, fmt.Sprintf("%s:%d", src, n))
-			}
-			status += " (" + strings.Join(parts, " ") + ")"
+		rightLines = append(rightLines, fmt.Sprintf("%d channels · ", len(m.channelIDs))+connectedStyle.Render("connected"))
+	} else if m.err != nil {
+		rightLines = append(rightLines, dimInfoStyle.Render("reconnecting..."))
+	} else {
+		rightLines = append(rightLines, dimInfoStyle.Render("connecting..."))
+	}
+
+	// Line 1: event count + source breakdown
+	filtered := m.filteredEvents()
+	counts := m.sourceCounts()
+	evLine := fmt.Sprintf("%d events", len(filtered))
+	if len(counts) > 0 {
+		parts := make([]string, 0, len(counts))
+		for src, n := range counts {
+			parts = append(parts, fmt.Sprintf("%s:%d", src, n))
 		}
+		evLine += " (" + strings.Join(parts, " ") + ")"
 	}
-	if m.err != nil {
-		status = "reconnecting..."
+	rightLines = append(rightLines, detailValueStyle.Render(evLine))
+
+	// Line 2: last event
+	if len(m.events) > 0 {
+		last := m.events[len(m.events)-1]
+		rightLines = append(rightLines, dimInfoStyle.Render("Last event: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
+	} else {
+		rightLines = append(rightLines, dimInfoStyle.Render("Waiting for first event..."))
 	}
-	b.WriteString(statusBarStyle.Width(m.width).Render(status))
+
+	// Line 3: separator
+	rightLines = append(rightLines, dimInfoStyle.Render("───────────────────────────────────"))
+
+	// Line 4: rotating tip
+	tip := commandTips[int(m.now.Unix()/10)%len(commandTips)]
+	rightLines = append(rightLines, tipStyle.Render(tip))
+
+	// Line 5: version
+	rightLines = append(rightLines, versionStyle.Render("v"+Version))
+
+	right := infoPanelStyle.Render(strings.Join(rightLines, "\n"))
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, left, right))
 	b.WriteString("\n")
 
 	// Channel webhook URLs
@@ -421,7 +447,7 @@ func (m Model) View() tea.View {
 }
 
 func (m Model) headerHeight() int {
-	h := 7 // logo (6 lines) + status bar
+	h := 7 // logo + info panel (6 lines) + 1 separator
 	if len(m.webhookURLs) > 0 {
 		h += len(m.webhookURLs)
 	} else {

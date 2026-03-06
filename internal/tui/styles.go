@@ -4,12 +4,27 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const Version = "0.1.0"
+
 const dreadLogo = `      ██████╗ ██████╗ ███████╗ █████╗ ██████╗
       ██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗
       ██║  ██║██████╔╝█████╗  ███████║██║  ██║
       ██║  ██║██╔══██╗██╔══╝  ██╔══██║██║  ██║
       ██████╔╝██║  ██║███████╗██║  ██║██████╔╝
       ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝`
+
+var commandTips = []string{
+	"dread new <name> — create a channel",
+	"dread share — invite your team",
+	"dread watch — headless desktop notifications",
+	"dread service install — run in background",
+	"dread logs — print recent events to stdout",
+	"dread status — check channels & service",
+	"dread digest — summarize recent activity",
+	"press / to filter events",
+	"press r to replay an event",
+	"dread test <id> — send a test webhook",
+}
 
 var (
 	logoStyle = lipgloss.NewStyle().
@@ -106,6 +121,25 @@ var (
 
 	countStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#666666"))
+
+	infoPanelStyle = lipgloss.NewStyle().
+			BorderLeft(true).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#333333")).
+			PaddingLeft(2).
+			MarginLeft(2)
+
+	tipStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#B5835A"))
+
+	versionStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#444444"))
+
+	connectedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#98C379"))
+
+	dimInfoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#555555"))
 )
 
 func sourceStyle(source string) lipgloss.Style {
