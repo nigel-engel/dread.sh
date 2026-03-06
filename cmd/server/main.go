@@ -433,6 +433,17 @@ func main() {
 		w.Write([]byte(page))
 	})
 
+	// Download page with live install counter
+	builtDownload := buildPage(downloadPage)
+	mux.HandleFunc("GET /download", func(w http.ResponseWriter, r *http.Request) {
+		stats := db.GetStats()
+		page := strings.Replace(builtDownload, "{{INSTALL_COUNT}}", fmt.Sprintf("%d", stats["installs"]), 1)
+		page = strings.Replace(page, "{{DOWNLOAD_COUNT}}", fmt.Sprintf("%d", stats["install_downloads"]), 1)
+		page = strings.Replace(page, "{{UNIQUE_COUNT}}", fmt.Sprintf("%d", stats["unique_installs"]), 1)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(page))
+	})
+
 	// Landing page
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -5180,6 +5191,175 @@ function toggleSidebar() {
 }
 
 document.getElementById('menu-btn').addEventListener('click', toggleSidebar);
+lucide.createIcons();
+</script>
+</body>
+</html>`
+
+const downloadPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>Download | dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --border-subtle: oklch(18% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(65% 0.1 40);
+    --accent-dim: oklch(47% 0.09 36);
+    --accent-glow: oklch(55% 0.1 38 / 0.15);
+    --accent-glow-strong: oklch(55% 0.1 38 / 0.3);
+    --nav-bg: oklch(10% 0.003 256 / 0.85);
+  }
+  :root.light {
+    --bg: oklch(98% 0.003 256); --surface: oklch(97% 0.003 256);
+    --surface-hover: oklch(94% 0.003 256); --border: oklch(85% 0.003 256);
+    --border-subtle: oklch(90% 0.003 256); --text: oklch(15% 0.003 256);
+    --text-secondary: oklch(35% 0.003 256); --text-muted: oklch(50% 0.003 256);
+    --text-dim: oklch(65% 0.003 256); --accent: oklch(50% 0.12 40);
+    --accent-dim: oklch(40% 0.1 36); --accent-glow: oklch(50% 0.12 40 / 0.1);
+    --accent-glow-strong: oklch(50% 0.12 40 / 0.2);
+    --nav-bg: oklch(98% 0.003 256 / 0.85);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overscroll-behavior: none; }
+  html { font-size: 18px; }
+  body {
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text-secondary);
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  code, pre, kbd { font-family: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace; }
+  /*! NAV_CSS */
+
+  .download-page {
+    max-width: 640px; margin: 0 auto;
+    padding: 100px 24px 120px; text-align: center;
+  }
+  .download-page h1 {
+    font-size: 2.4rem; font-weight: 700; color: var(--text);
+    letter-spacing: -0.03em; margin-bottom: 12px;
+  }
+  .download-page .subtitle {
+    font-size: 1rem; color: var(--text-muted); margin-bottom: 48px;
+    line-height: 1.7;
+  }
+
+  .stats-row {
+    display: flex; gap: 24px; justify-content: center;
+    margin-bottom: 48px; flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px 32px; min-width: 160px;
+  }
+  .stat-number {
+    font-size: 2.4rem; font-weight: 700; color: var(--accent);
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .stat-label {
+    font-size: 0.75rem; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-top: 8px;
+  }
+
+  .install-block {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 32px; text-align: left;
+    margin-bottom: 24px; position: relative;
+  }
+  .install-block h3 {
+    font-size: 0.85rem; color: var(--text); font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .install-block pre {
+    font-size: 0.85rem; color: var(--text); line-height: 1.7;
+    overflow-x: auto;
+  }
+  .install-block .copy-btn {
+    position: absolute; top: 12px; right: 12px;
+    background: var(--surface-hover); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer;
+    font-size: 0.7rem; color: var(--text-muted); transition: color 0.15s;
+  }
+  .install-block .copy-btn:hover { color: var(--text); }
+
+  .or-divider {
+    font-size: 0.8rem; color: var(--text-dim); margin: 16px 0;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+
+<div class="download-page">
+  <h1>Download dread</h1>
+  <p class="subtitle">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-number">{{DOWNLOAD_COUNT}}</div>
+      <div class="stat-label">Downloads</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{INSTALL_COUNT}}</div>
+      <div class="stat-label">Installs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{UNIQUE_COUNT}}</div>
+      <div class="stat-label">Unique</div>
+    </div>
+  </div>
+
+  <div class="install-block">
+    <h3>Install with one command</h3>
+    <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+    <button class="copy-btn" onclick="copyText('curl -sSL dread.sh/install | sh', this)">Copy</button>
+  </div>
+
+  <div class="or-divider">or</div>
+
+  <div class="install-block">
+    <h3>Install with Homebrew</h3>
+    <pre><code>brew install nigel-engel/tap/dread</code></pre>
+    <button class="copy-btn" onclick="copyText('brew install nigel-engel/tap/dread', this)">Copy</button>
+  </div>
+
+  <div class="or-divider">then</div>
+
+  <div class="install-block">
+    <h3>Get started in 3 commands</h3>
+    <pre><code>dread new "Stripe Prod"
+dread service install
+dread</code></pre>
+    <button class="copy-btn" onclick="copyText('dread new &quot;Stripe Prod&quot;\ndread service install\ndread', this)">Copy</button>
+  </div>
+</div>
+
+<script>
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text);
+  btn.textContent = 'Copied!';
+  setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+}
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
 lucide.createIcons();
 </script>
 </body>
