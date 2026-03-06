@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -16,6 +17,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -460,6 +462,347 @@ func main() {
 		w.Write([]byte(page))
 	})
 
+	// robots.txt — allow all AI crawlers
+	mux.HandleFunc("GET /robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write([]byte(`# dread.sh — all crawlers welcome
+User-agent: *
+Allow: /
+
+# AI search crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+Sitemap: https://dread.sh/sitemap.xml
+`))
+	})
+
+	// sitemap.xml
+	mux.HandleFunc("GET /sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://dread.sh/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/docs</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/download</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/changelog</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/howto</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/dashboard</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/blog</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/blog/webhook-vs-polling</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/blog/test-webhooks-locally</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dread.sh/blog/stripe-webhook-setup</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>
+`))
+	})
+
+	// llms.txt — structured overview for LLMs
+	mux.HandleFunc("GET /llms.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write([]byte(`# dread.sh
+
+> dread is a webhook relay and notification tool. It captures webhooks from any source (Stripe, GitHub, Sentry, etc.) and delivers real-time desktop notifications, a live terminal UI, and forwards to Slack or Discord. Install with one command, share your setup with your team.
+
+## Docs
+
+- [Documentation](https://dread.sh/docs): Complete reference for all CLI commands, configuration, and webhook setup
+- [How To Guide](https://dread.sh/howto): Step-by-step setup guides for common integrations
+- [Changelog](https://dread.sh/changelog): Version history and release notes
+
+## Getting Started
+
+- [Install](https://dread.sh/install): Shell install script — run curl -sSL dread.sh/install | sh
+- [Download](https://dread.sh/download): Download page with install instructions
+- [Dashboard](https://dread.sh/dashboard): Live web dashboard for viewing webhook events in real time
+
+## Key Features
+
+- Real-time desktop notifications for incoming webhooks (macOS and Linux)
+- Terminal UI with per-source sparklines, event timeline, and payload viewer
+- Slack and Discord forwarding with rich formatting
+- Background watch mode with auto-updates
+- Team workspace sharing with follows
+- Threshold alerts for event volume spikes
+- Webhook status pages for uptime monitoring
+- Bookmark and diff view for comparing payloads
+
+## How It Works
+
+1. Create a channel: dread init
+2. Point your webhook URL to https://dread.sh/wh/YOUR_CHANNEL_ID?source=stripe
+3. Run dread to see events in the terminal, or dread watch for background notifications
+4. Forward to Slack/Discord with dread config --slack WEBHOOK_URL
+
+## Blog
+
+- [Webhook vs Polling](https://dread.sh/blog/webhook-vs-polling): When to use webhooks instead of polling, with real-world examples and performance comparisons
+- [Test Webhooks Locally](https://dread.sh/blog/test-webhooks-locally): How to test and debug webhooks in local development without tunneling tools
+- [Stripe Webhook Setup](https://dread.sh/blog/stripe-webhook-setup): Step-by-step guide to setting up Stripe webhooks with desktop notifications
+
+## Optional
+
+- [Landing Page](https://dread.sh/): Product overview and install instructions
+`))
+	})
+
+	// llms-full.txt — complete content for LLM ingestion
+	mux.HandleFunc("GET /llms-full.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write([]byte(`# dread.sh — Complete Documentation
+
+> dread is a webhook relay and notification tool for developers and teams. It captures HTTP webhooks from any source and delivers real-time desktop notifications, a live terminal UI, and forwards to Slack or Discord.
+
+## Installation
+
+Install on macOS or Linux with one command:
+
+    curl -sSL dread.sh/install | sh
+
+This downloads the latest binary for your OS and architecture (supports darwin/amd64, darwin/arm64, linux/amd64, linux/arm64).
+
+The CLI auto-updates itself when new versions are available.
+
+## Quick Start
+
+1. Run dread init to create a channel and get your webhook URL
+2. Copy the webhook URL (e.g. https://dread.sh/wh/ch_xxx?source=stripe)
+3. Paste it into your service's webhook settings (Stripe, GitHub, Sentry, etc.)
+4. Run dread to open the terminal UI, or dread watch for background desktop notifications
+
+## CLI Commands
+
+- dread — Open the interactive terminal UI
+- dread init — Create a new channel and get your webhook URL
+- dread watch — Background mode with desktop notifications
+- dread config — View and edit configuration
+- dread config --slack WEBHOOK_URL — Set Slack forwarding
+- dread config --discord WEBHOOK_URL — Set Discord forwarding
+- dread config --sound SOUND — Set notification sound
+- dread config --mute CHANNEL — Mute a channel
+- dread config --follow WORKSPACE_ID — Follow another workspace
+- dread version — Show version
+
+## Terminal UI Features
+
+The interactive TUI has 4 tabs:
+
+### 1. Events Tab
+- Live feed of incoming webhooks
+- Color-coded by status (green=success, red=failure, yellow=info)
+- Search/filter with /
+- Bookmark events with b
+- Full payload viewer with syntax highlighting
+
+### 2. Sources Tab
+- Per-source event sparklines
+- Source activity over time
+
+### 3. Diff Tab
+- Compare two bookmarked payloads side by side
+- See exactly what changed between webhooks
+
+### 4. Channels Tab
+- Channel activity timeline (24 slots, 5-minute buckets)
+- Event counts and last activity time
+
+### Keyboard Shortcuts
+- Tab/Shift+Tab — Switch between tabs
+- j/k or Up/Down — Navigate events
+- Enter — View event payload
+- / — Search/filter events
+- b — Bookmark current event
+- d — Toggle diff view
+- q or Ctrl+C — Quit
+- ? — Show command palette
+
+## Configuration
+
+Config is stored at ~/.config/dread/config.json with these fields:
+
+- channels — Array of {id, name} for your webhook channels
+- slack_url — Slack incoming webhook URL for forwarding
+- discord_url — Discord webhook URL for forwarding
+- sound — Notification sound name (macOS: Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping, Pop, Purr, Sosumi, Submarine, Tink)
+- muted — Array of channel IDs to mute
+- follows — Array of workspace IDs to follow
+- alerts — Array of {pattern, threshold, window_minutes} for threshold alerts
+
+## Webhook URL Format
+
+    https://dread.sh/wh/CHANNEL_ID?source=SOURCE_NAME
+
+The source parameter is optional but recommended — it labels events in the UI and notifications.
+
+## Forwarding
+
+### Slack
+Events are forwarded as rich Slack messages with channel name, source, and summary.
+Set with: dread config --slack https://hooks.slack.com/services/xxx
+
+### Discord
+Events are forwarded as Discord embeds with the dread brand color.
+Set with: dread config --discord https://discord.com/api/webhooks/xxx
+
+## Threshold Alerts
+
+Configure alerts that fire when event volume exceeds a threshold:
+
+    "alerts": [
+      {"pattern": "error", "threshold": 10, "window_minutes": 5}
+    ]
+
+This sends a notification when 10+ events matching "error" arrive within 5 minutes.
+
+## Team Workspaces
+
+Share your channel setup with teammates:
+1. One person runs dread init and configures channels
+2. They share their workspace ID
+3. Teammates run dread config --follow WORKSPACE_ID
+4. Everyone sees the same channels and events
+
+## Status Pages
+
+Each workspace gets a public status page at:
+
+    https://dread.sh/status/WORKSPACE_ID
+
+Shows channel health and recent event activity.
+
+## Web Dashboard
+
+View events in a browser at https://dread.sh/dashboard
+
+Features: real-time event feed, payload viewer with copy button, per-source color coding, search and filtering.
+
+## Auto-Updates
+
+The dread binary checks for updates on each run and automatically downloads and installs new versions from GitHub Releases.
+
+## Supported Platforms
+
+- macOS (Intel and Apple Silicon)
+- Linux (x86_64 and ARM64)
+`))
+	})
+
+	// security.txt
+	mux.HandleFunc("GET /.well-known/security.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write([]byte(`Contact: mailto:security@dread.sh
+Expires: 2027-03-07T00:00:00Z
+Preferred-Languages: en
+Canonical: https://dread.sh/.well-known/security.txt
+`))
+	})
+
+	// Blog pages
+	builtBlogIndex := buildPage(blogIndexPage)
+	builtBlogWebhookVsPolling := buildPage(blogWebhookVsPolling)
+	builtBlogTestWebhooksLocally := buildPage(blogTestWebhooksLocally)
+	builtBlogStripeWebhooks := buildPage(blogStripeWebhooks)
+
+	mux.HandleFunc("GET /blog", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(builtBlogIndex))
+	})
+	mux.HandleFunc("GET /blog/webhook-vs-polling", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(builtBlogWebhookVsPolling))
+	})
+	mux.HandleFunc("GET /blog/test-webhooks-locally", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(builtBlogTestWebhooksLocally))
+	})
+	mux.HandleFunc("GET /blog/stripe-webhook-setup", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(builtBlogStripeWebhooks))
+	})
+
 	// Landing page
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -468,7 +811,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    cfg.Server.Addr,
-		Handler: mux,
+		Handler: gzipMiddleware(mux),
 	}
 
 	go func() {
@@ -534,6 +877,7 @@ const navHTML = `<nav>
     <a href="/" class="nav-brand">DREAD</a>
     <div class="nav-links">
       <a href="/docs">Documentation</a>
+      <a href="/blog">Blog</a>
       <a href="/changelog">Changelog</a>
       <a href="/howto">How To</a>
       <a href="/dashboard">Dashboard</a>
@@ -545,8 +889,37 @@ const navHTML = `<nav>
 
 func buildPage(template string) string {
 	s := strings.Replace(template, "/*! NAV_CSS */", navCSS, 1)
+	s = strings.Replace(s, "/*! BLOG_CSS */", blogCSS, 1)
 	s = strings.Replace(s, "<!-- NAV_HTML -->", navHTML, 1)
 	return s
+}
+
+var gzipPool = sync.Pool{
+	New: func() any { w, _ := gzip.NewWriterLevel(nil, gzip.DefaultCompression); return w },
+}
+
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	gz *gzip.Writer
+}
+
+func (w *gzipResponseWriter) Write(b []byte) (int, error) { return w.gz.Write(b) }
+
+func gzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		gz := gzipPool.Get().(*gzip.Writer)
+		defer gzipPool.Put(gz)
+		gz.Reset(w)
+		defer gz.Close()
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Vary", "Accept-Encoding")
+		w.Header().Del("Content-Length")
+		next.ServeHTTP(&gzipResponseWriter{ResponseWriter: w, gz: gz}, r)
+	})
 }
 
 const landingPage = `<!DOCTYPE html>
@@ -554,12 +927,91 @@ const landingPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="dread is a webhook relay that sends desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and any webhook source. Install with one command, forward to Slack and Discord.">
+<link rel="canonical" href="https://dread.sh/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="Webhook Notifications for Your Terminal and Desktop - dread.sh">
+<meta property="og:description" content="Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and any webhook source. Forward to Slack and Discord. Install with one command.">
+<meta property="og:url" content="https://dread.sh/">
+<meta property="og:image" content="https://dread.sh/icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Webhook Notifications for Your Terminal and Desktop - dread.sh">
+<meta name="twitter:description" content="Get desktop notifications and a live terminal feed from any webhook source. Forward to Slack and Discord.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "dread",
+  "description": "Webhook relay and notification tool. Captures webhooks from Stripe, GitHub, Sentry, and any source, then delivers desktop notifications, a live terminal UI, and forwards to Slack or Discord.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": ["macOS", "Linux"],
+  "url": "https://dread.sh",
+  "downloadUrl": "https://dread.sh/download",
+  "installUrl": "https://dread.sh/install",
+  "releaseNotes": "https://dread.sh/changelog",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "dread.sh",
+    "url": "https://dread.sh"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is dread.sh?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "dread is a webhook relay and notification tool for developers. It captures webhooks from any source (Stripe, GitHub, Sentry, etc.) and delivers real-time desktop notifications, a live terminal UI with sparklines and payload viewer, and forwards to Slack or Discord."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I install dread?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run curl -sSL dread.sh/install | sh to install on macOS or Linux. Supports Intel, Apple Silicon, and ARM64."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I set up a webhook with dread?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run dread init to create a channel and get a webhook URL. Paste that URL into your service's webhook settings (e.g. Stripe, GitHub). Run dread to see events in the terminal, or dread watch for background desktop notifications."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can dread forward webhooks to Slack or Discord?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Run dread config --slack WEBHOOK_URL or dread config --discord WEBHOOK_URL to forward all webhook events as rich messages to your Slack or Discord channels."
+      }
+    }
+  ]
+}
+</script>
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>dread.sh</title>
+<meta name="theme-color" content="#c37960">
+<title>Webhook Notifications for Your Terminal and Desktop - dread.sh</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -1832,12 +2284,19 @@ const docsPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Complete documentation for dread — CLI commands, configuration, webhook setup, Slack and Discord forwarding, threshold alerts, and team workspaces.">
+<link rel="canonical" href="https://dread.sh/docs">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="Documentation - dread.sh Webhook CLI">
+<meta property="og:description" content="Complete documentation for dread — CLI commands, configuration, webhook setup, Slack and Discord forwarding, and team workspaces.">
+<meta property="og:url" content="https://dread.sh/docs">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Documentation | dread.sh</title>
+<title>Documentation - dread.sh Webhook CLI</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -2901,12 +3360,19 @@ const changelogPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="dread.sh changelog — version history, new features, bug fixes, and release notes.">
+<link rel="canonical" href="https://dread.sh/changelog">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="Changelog - dread.sh Release Notes">
+<meta property="og:description" content="Version history, new features, bug fixes, and release notes for dread.">
+<meta property="og:url" content="https://dread.sh/changelog">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Changelog | dread.sh</title>
+<title>Changelog - dread.sh Release Notes</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -3260,7 +3726,7 @@ const dashboardPage = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Dashboard | dread.sh</title>
+<title>Live Webhook Dashboard - dread.sh</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -4995,7 +5461,7 @@ const statusPage = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Status | dread.sh</title>
+<title>Webhook Status - dread.sh</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -5118,12 +5584,19 @@ const howToPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Step-by-step guides for setting up dread with Stripe, GitHub, Sentry, and other webhook sources. Learn to forward webhooks to Slack and Discord.">
+<link rel="canonical" href="https://dread.sh/howto">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="How to Set Up Webhooks - dread.sh Guides">
+<meta property="og:description" content="Step-by-step guides for setting up dread with Stripe, GitHub, Sentry, and other webhook sources.">
+<meta property="og:url" content="https://dread.sh/howto">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>How To | dread.sh</title>
+<title>How to Set Up Webhooks - dread.sh Guides</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -6250,12 +6723,19 @@ const downloadPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Download dread — install with one command on macOS or Linux. Supports Intel, Apple Silicon, and ARM64.">
+<link rel="canonical" href="https://dread.sh/download">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="Download and Install dread - Webhook CLI Tool">
+<meta property="og:description" content="Install dread with one command on macOS or Linux. Supports Intel, Apple Silicon, and ARM64.">
+<meta property="og:url" content="https://dread.sh/download">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
-<title>Download | dread.sh</title>
+<title>Download and Install dread - Webhook CLI Tool</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -6373,6 +6853,561 @@ function copyText(text, btn) {
   btn.textContent = 'Copied!';
   setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
 }
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
+lucide.createIcons();
+</script>
+</body>
+</html>`
+
+// ─── Blog shared styles ───
+
+const blogCSS = `
+  :root {
+    --bg: oklch(10% 0.003 256);
+    --surface: oklch(16% 0.003 256);
+    --surface-hover: oklch(20% 0.003 256);
+    --border: oklch(23% 0.003 256);
+    --text: oklch(98.5% 0.003 256);
+    --text-secondary: oklch(70.5% 0.003 256);
+    --text-muted: oklch(55.2% 0.003 256);
+    --text-dim: oklch(40% 0.003 256);
+    --accent: oklch(65% 0.1 40);
+    --accent-dim: oklch(47% 0.09 36);
+    --accent-glow: oklch(55% 0.1 38 / 0.15);
+    --nav-bg: oklch(10% 0.003 256 / 0.85);
+  }
+  html.light {
+    --bg: oklch(98% 0.003 256);
+    --surface: oklch(94% 0.003 256);
+    --surface-hover: oklch(90% 0.003 256);
+    --border: oklch(85% 0.003 256);
+    --text: oklch(15% 0.003 256);
+    --text-secondary: oklch(35% 0.003 256);
+    --text-muted: oklch(50% 0.003 256);
+    --text-dim: oklch(65% 0.003 256);
+    --nav-bg: oklch(98% 0.003 256 / 0.85);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.7; -webkit-font-smoothing: antialiased;
+  }
+  code, pre {
+    font-family: "Geist Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  /*! NAV_CSS */
+  .blog-container { max-width: 740px; margin: 0 auto; padding: 60px 24px 80px; }
+  .blog-header { margin-bottom: 48px; }
+  .blog-header h1 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 12px; }
+  .blog-meta { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px; }
+  .blog-meta time { color: var(--text-secondary); }
+  .blog-content h2 { font-size: 1.5rem; font-weight: 600; margin: 40px 0 16px; letter-spacing: -0.01em; }
+  .blog-content h3 { font-size: 1.2rem; font-weight: 600; margin: 32px 0 12px; }
+  .blog-content p { margin-bottom: 20px; color: var(--text-secondary); }
+  .blog-content ul, .blog-content ol { margin-bottom: 20px; padding-left: 24px; color: var(--text-secondary); }
+  .blog-content li { margin-bottom: 8px; }
+  .blog-content pre {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; overflow-x: auto; margin-bottom: 24px; font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .blog-content code { background: var(--surface); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+  .blog-content pre code { background: none; padding: 0; }
+  .blog-content blockquote {
+    border-left: 3px solid var(--accent); padding: 12px 20px; margin-bottom: 24px;
+    background: var(--accent-glow); border-radius: 0 8px 8px 0;
+  }
+  .blog-content blockquote p { color: var(--text); margin-bottom: 0; }
+  .blog-content a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .blog-content a:hover { opacity: 0.8; }
+  .blog-content strong { color: var(--text); }
+  .blog-cta {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px 32px; margin-top: 48px; text-align: center;
+  }
+  .blog-cta h3 { margin: 0 0 8px; color: var(--text); }
+  .blog-cta p { color: var(--text-muted); margin-bottom: 16px; }
+  .blog-cta pre { background: var(--bg); display: inline-block; padding: 10px 20px; border-radius: 8px; margin: 0; border: 1px solid var(--border); }
+  .blog-cards { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  .blog-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px 28px; text-decoration: none; color: var(--text); transition: border-color 0.15s;
+  }
+  .blog-card:hover { border-color: var(--accent); }
+  .blog-card h2 { font-size: 1.3rem; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .blog-card p { color: var(--text-muted); font-size: 0.95rem; margin: 0; }
+  .blog-card .card-meta { color: var(--text-dim); font-size: 0.8rem; margin-top: 12px; }
+`
+
+// ─── Blog Index ───
+
+const blogIndexPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Technical articles about webhooks, API integrations, and developer tooling. Learn webhook best practices, testing strategies, and integration guides.">
+<link rel="canonical" href="https://dread.sh/blog">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="Blog - dread.sh Webhook Engineering">
+<meta property="og:description" content="Technical articles about webhooks, API integrations, and developer tooling.">
+<meta property="og:url" content="https://dread.sh/blog">
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>Blog - dread.sh Webhook Engineering</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>/*! BLOG_CSS */</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+<main class="blog-container">
+  <div class="blog-header">
+    <h1>Blog</h1>
+    <p style="color:var(--text-muted)">Technical articles about webhooks, integrations, and developer tooling.</p>
+  </div>
+  <div class="blog-cards">
+    <a href="/blog/webhook-vs-polling" class="blog-card">
+      <h2>Webhook vs Polling: When to Use Each</h2>
+      <p>Why 98.5% of polling requests are wasted, and how webhooks deliver real-time data with less infrastructure overhead.</p>
+      <div class="card-meta">March 2026 · 6 min read</div>
+    </a>
+    <a href="/blog/test-webhooks-locally" class="blog-card">
+      <h2>How to Test Webhooks Locally</h2>
+      <p>A practical guide to receiving, inspecting, and debugging webhooks in your local development environment.</p>
+      <div class="card-meta">March 2026 · 5 min read</div>
+    </a>
+    <a href="/blog/stripe-webhook-setup" class="blog-card">
+      <h2>How to Set Up Stripe Webhooks</h2>
+      <p>Step-by-step guide to configuring Stripe webhooks, verifying signatures, and getting real-time payment notifications.</p>
+      <div class="card-meta">March 2026 · 7 min read</div>
+    </a>
+  </div>
+</main>
+<script>
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
+lucide.createIcons();
+</script>
+</body>
+</html>`
+
+// ─── Blog Post: Webhook vs Polling ───
+
+const blogWebhookVsPolling = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Webhooks deliver data in real time when events happen. Polling checks repeatedly on a schedule. Learn when to use each approach and why webhooks are more efficient.">
+<link rel="canonical" href="https://dread.sh/blog/webhook-vs-polling">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="Webhook vs Polling: When to Use Each - dread.sh">
+<meta property="og:description" content="Why 98.5% of polling requests are wasted, and how webhooks deliver real-time data with less overhead.">
+<meta property="og:url" content="https://dread.sh/blog/webhook-vs-polling">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Webhook vs Polling: When to Use Each",
+  "description": "Webhooks deliver data in real time. Polling checks on a schedule. Learn when to use each and why webhooks are more efficient.",
+  "datePublished": "2026-03-07",
+  "author": {"@type": "Organization", "name": "dread.sh", "url": "https://dread.sh"},
+  "publisher": {"@type": "Organization", "name": "dread.sh", "url": "https://dread.sh"}
+}
+</script>
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>Webhook vs Polling: When to Use Each - dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>/*! BLOG_CSS */</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+<main class="blog-container">
+  <article>
+    <div class="blog-header">
+      <h1>Webhook vs Polling: When to Use Each</h1>
+      <div class="blog-meta"><time datetime="2026-03-07">March 7, 2026</time> · 6 min read</div>
+    </div>
+    <div class="blog-content">
+      <p><strong>Webhooks push data to you when something happens. Polling asks for data on a schedule.</strong> Both approaches have trade-offs, but for most real-time use cases, webhooks are dramatically more efficient.</p>
+
+      <h2>What is Polling?</h2>
+      <p>Polling means your application repeatedly sends HTTP requests to an API at regular intervals to check for new data. A typical implementation looks like this:</p>
+      <pre><code>// Poll every 30 seconds
+setInterval(async () => {
+  const response = await fetch('/api/orders?since=' + lastCheck);
+  const newOrders = await response.json();
+  if (newOrders.length > 0) {
+    processOrders(newOrders);
+  }
+  lastCheck = Date.now();
+}, 30000);</code></pre>
+      <p>The problem? Most of those requests return nothing. A Zapier study found that <strong>98.5% of polling requests are wasted</strong> — they return empty responses because nothing has changed.</p>
+
+      <h2>What is a Webhook?</h2>
+      <p>A webhook is an HTTP callback. Instead of asking for data, you give a service a URL and it sends you an HTTP POST request whenever something happens:</p>
+      <pre><code>// Your server receives events as they happen
+app.post('/webhooks/stripe', (req, res) => {
+  const event = req.body;
+  if (event.type === 'payment_intent.succeeded') {
+    notifyTeam(event.data.object);
+  }
+  res.status(200).send('ok');
+});</code></pre>
+      <p>No wasted requests. No delays. Data arrives within milliseconds of the event occurring.</p>
+
+      <h2>When to Use Webhooks</h2>
+      <ul>
+        <li><strong>Real-time notifications</strong> — payment confirmations, deployment alerts, error tracking</li>
+        <li><strong>Event-driven workflows</strong> — triggering actions when something happens in another system</li>
+        <li><strong>High-frequency data</strong> — where polling would generate too many empty requests</li>
+        <li><strong>Multi-service orchestration</strong> — connecting Stripe, GitHub, Sentry, and other services</li>
+      </ul>
+
+      <h2>When Polling Still Makes Sense</h2>
+      <ul>
+        <li><strong>The API does not support webhooks</strong> — some legacy APIs only offer polling</li>
+        <li><strong>You need bulk data sync</strong> — periodic full syncs of large datasets</li>
+        <li><strong>Unreliable network</strong> — if your server might be down, polling with retry is simpler</li>
+        <li><strong>Rate-limited APIs</strong> — when you need to control exactly how often you hit an endpoint</li>
+      </ul>
+
+      <h2>Performance Comparison</h2>
+      <p>For a service generating 100 events per day:</p>
+      <ul>
+        <li><strong>Polling every 30s:</strong> 2,880 API requests/day, 100 contain data (3.5% efficiency)</li>
+        <li><strong>Webhooks:</strong> 100 HTTP callbacks/day (100% efficiency)</li>
+      </ul>
+      <p>That is a 28x reduction in network traffic. At scale, this difference translates directly to lower infrastructure costs and faster response times.</p>
+
+      <h2>The Practical Challenge with Webhooks</h2>
+      <p>Webhooks are more efficient, but they introduce operational complexity:</p>
+      <ul>
+        <li>You need a publicly reachable endpoint to receive them</li>
+        <li>You must verify webhook signatures to prevent spoofing</li>
+        <li>You need to handle retries and idempotency</li>
+        <li>Debugging is harder — you cannot just re-run a request</li>
+      </ul>
+      <p>This is exactly why we built <strong>dread</strong>. It gives you a webhook endpoint instantly, delivers events as desktop notifications and a live terminal feed, and lets you inspect and replay payloads without writing any server code.</p>
+
+      <div class="blog-cta">
+        <h3>Try dread</h3>
+        <p>Get webhook notifications in your terminal in 30 seconds.</p>
+        <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+      </div>
+    </div>
+  </article>
+</main>
+<script>
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
+lucide.createIcons();
+</script>
+</body>
+</html>`
+
+// ─── Blog Post: Test Webhooks Locally ───
+
+const blogTestWebhooksLocally = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Learn how to receive, inspect, and debug webhooks in your local development environment. Test Stripe, GitHub, and any webhook source without deploying.">
+<link rel="canonical" href="https://dread.sh/blog/test-webhooks-locally">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="How to Test Webhooks Locally - dread.sh">
+<meta property="og:description" content="Receive, inspect, and debug webhooks in local development without deploying or tunneling.">
+<meta property="og:url" content="https://dread.sh/blog/test-webhooks-locally">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How to Test Webhooks Locally",
+  "description": "A practical guide to receiving, inspecting, and debugging webhooks in your local development environment.",
+  "datePublished": "2026-03-07",
+  "author": {"@type": "Organization", "name": "dread.sh", "url": "https://dread.sh"},
+  "publisher": {"@type": "Organization", "name": "dread.sh", "url": "https://dread.sh"}
+}
+</script>
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>How to Test Webhooks Locally - dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>/*! BLOG_CSS */</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+<main class="blog-container">
+  <article>
+    <div class="blog-header">
+      <h1>How to Test Webhooks Locally</h1>
+      <div class="blog-meta"><time datetime="2026-03-07">March 7, 2026</time> · 5 min read</div>
+    </div>
+    <div class="blog-content">
+      <p><strong>Testing webhooks during development is frustrating.</strong> The service sending the webhook needs a public URL, but your dev server is on localhost. Here are the most practical approaches.</p>
+
+      <h2>The Problem</h2>
+      <p>When you configure a webhook in Stripe, GitHub, or any other service, it needs to send HTTP requests to a URL it can reach. Your local machine at <code>localhost:3000</code> is not reachable from the internet. You need a bridge.</p>
+
+      <h2>Option 1: Use a Webhook Relay</h2>
+      <p>The simplest approach is to use a hosted webhook endpoint that captures events and lets you view them in real time. With dread, this takes 30 seconds:</p>
+      <pre><code># Install dread
+curl -sSL dread.sh/install | sh
+
+# Create a channel and get your webhook URL
+dread init
+
+# Output: Your webhook URL is https://dread.sh/wh/ch_abc123
+# Paste this URL into Stripe/GitHub/etc.</code></pre>
+      <p>Now run <code>dread</code> to see events in your terminal as they arrive:</p>
+      <pre><code># Open the terminal UI
+dread
+
+# Or run in the background with desktop notifications
+dread watch</code></pre>
+      <p>Every webhook that hits your URL shows up instantly as a desktop notification and in the terminal UI where you can inspect the full payload, headers, and metadata.</p>
+
+      <h2>Option 2: Use a Tunnel (ngrok, etc.)</h2>
+      <p>Tunneling tools expose your local server to the internet:</p>
+      <pre><code>ngrok http 3000
+# Gives you a public URL like https://abc123.ngrok.io</code></pre>
+      <p>This works, but has drawbacks:</p>
+      <ul>
+        <li>Free tier URLs change every session — you must reconfigure the webhook each time</li>
+        <li>Your local server must be running to receive events</li>
+        <li>No built-in payload inspection or event history</li>
+        <li>Adds latency and a dependency on the tunnel service</li>
+      </ul>
+
+      <h2>Option 3: CLI-Specific Tools</h2>
+      <p>Some services offer their own CLI for webhook testing:</p>
+      <pre><code># Stripe CLI
+stripe listen --forward-to localhost:3000/webhooks
+stripe trigger payment_intent.succeeded
+
+# GitHub CLI (limited)
+gh webhook forward --repo=owner/repo --events=push</code></pre>
+      <p>These work well for their specific service but do not help when you need to test webhooks from multiple sources simultaneously.</p>
+
+      <h2>Best Practices for Webhook Testing</h2>
+      <ol>
+        <li><strong>Always verify signatures</strong> — Even in development, test that your signature verification code works correctly.</li>
+        <li><strong>Log the raw payload</strong> — Do not just log parsed data. Keep the raw JSON so you can debug parsing issues.</li>
+        <li><strong>Test error scenarios</strong> — What happens when your handler returns a 500? Most services will retry, which can cause duplicate processing.</li>
+        <li><strong>Use idempotency keys</strong> — Design your webhook handler to safely process the same event twice.</li>
+        <li><strong>Check the response time</strong> — Most services expect a response within 5-30 seconds. If your handler takes longer, move the work to a background queue.</li>
+      </ol>
+
+      <h2>Comparing Approaches</h2>
+      <p>For most developers, a webhook relay like dread is the fastest path to testing webhooks. It works across all services, persists event history, and does not require your local server to be running.</p>
+
+      <div class="blog-cta">
+        <h3>Start testing webhooks now</h3>
+        <p>Get a webhook URL and terminal UI in one command.</p>
+        <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+      </div>
+    </div>
+  </article>
+</main>
+<script>
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+}
+lucide.createIcons();
+</script>
+</body>
+</html>`
+
+// ─── Blog Post: Stripe Webhook Setup ───
+
+const blogStripeWebhooks = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Step-by-step guide to setting up Stripe webhooks. Configure endpoints, verify signatures, handle events, and get real-time payment notifications on your desktop.">
+<link rel="canonical" href="https://dread.sh/blog/stripe-webhook-setup">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="dread.sh">
+<meta property="og:title" content="How to Set Up Stripe Webhooks - dread.sh">
+<meta property="og:description" content="Configure Stripe webhook endpoints, verify signatures, and get real-time payment notifications.">
+<meta property="og:url" content="https://dread.sh/blog/stripe-webhook-setup">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How to Set Up Stripe Webhooks",
+  "description": "Step-by-step guide to configuring Stripe webhooks, verifying signatures, and getting real-time payment notifications.",
+  "datePublished": "2026-03-07",
+  "author": {"@type": "Organization", "name": "dread.sh", "url": "https://dread.sh"},
+  "publisher": {"@type": "Organization", "name": "dread.sh", "url": "https://dread.sh"}
+}
+</script>
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<title>How to Set Up Stripe Webhooks - dread.sh</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>/*! BLOG_CSS */</style>
+</head>
+<body>
+<!-- NAV_HTML -->
+<main class="blog-container">
+  <article>
+    <div class="blog-header">
+      <h1>How to Set Up Stripe Webhooks</h1>
+      <div class="blog-meta"><time datetime="2026-03-07">March 7, 2026</time> · 7 min read</div>
+    </div>
+    <div class="blog-content">
+      <p><strong>Stripe webhooks notify your application when events happen in your Stripe account</strong> — successful payments, failed charges, subscription changes, disputes, and more. Here is how to set them up from scratch.</p>
+
+      <h2>Step 1: Get a Webhook Endpoint</h2>
+      <p>You need a publicly reachable URL that Stripe can send events to. For development and monitoring, the fastest approach is dread:</p>
+      <pre><code># Install dread
+curl -sSL dread.sh/install | sh
+
+# Create a channel
+dread init
+
+# You will get a URL like:
+# https://dread.sh/wh/ch_abc123?source=stripe</code></pre>
+      <p>For production, your webhook endpoint is a route in your application:</p>
+      <pre><code>// Node.js / Express
+app.post('/webhooks/stripe', express.raw({type: 'application/json'}), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    return res.status(400).send('Webhook signature verification failed');
+  }
+
+  switch (event.type) {
+    case 'payment_intent.succeeded':
+      console.log('Payment succeeded:', event.data.object.id);
+      break;
+    case 'payment_intent.payment_failed':
+      console.log('Payment failed:', event.data.object.id);
+      break;
+    case 'customer.subscription.deleted':
+      console.log('Subscription cancelled:', event.data.object.id);
+      break;
+  }
+
+  res.status(200).json({received: true});
+});</code></pre>
+
+      <h2>Step 2: Configure in the Stripe Dashboard</h2>
+      <ol>
+        <li>Go to <strong>Developers &rarr; Webhooks</strong> in your Stripe Dashboard</li>
+        <li>Click <strong>Add endpoint</strong></li>
+        <li>Paste your webhook URL</li>
+        <li>Select the events you want to receive (start with the essentials):</li>
+      </ol>
+
+      <h3>Essential Events to Monitor</h3>
+      <ul>
+        <li><code>payment_intent.succeeded</code> — a payment was completed</li>
+        <li><code>payment_intent.payment_failed</code> — a payment attempt failed</li>
+        <li><code>charge.refunded</code> — a refund was issued</li>
+        <li><code>customer.subscription.created</code> — new subscription started</li>
+        <li><code>customer.subscription.updated</code> — subscription plan changed</li>
+        <li><code>customer.subscription.deleted</code> — subscription cancelled</li>
+        <li><code>invoice.payment_failed</code> — recurring payment failed</li>
+        <li><code>charge.dispute.created</code> — a chargeback was filed</li>
+      </ul>
+
+      <h2>Step 3: Verify Webhook Signatures</h2>
+      <p>Always verify the <code>Stripe-Signature</code> header to confirm the event came from Stripe. This prevents attackers from sending fake events to your endpoint.</p>
+      <pre><code># Python
+import stripe
+
+@app.route('/webhooks/stripe', methods=['POST'])
+def stripe_webhook():
+    payload = request.data
+    sig = request.headers.get('Stripe-Signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig, endpoint_secret
+        )
+    except stripe.error.SignatureVerificationError:
+        return 'Invalid signature', 400
+
+    # Process the event
+    handle_event(event)
+    return '', 200</code></pre>
+
+      <blockquote><p>Never skip signature verification, even in development. It is the only way to confirm that Stripe — not an attacker — sent the event.</p></blockquote>
+
+      <h2>Step 4: Handle Retries and Idempotency</h2>
+      <p>Stripe retries failed webhook deliveries for up to 3 days with exponential backoff. Your handler must be idempotent — processing the same event twice should not cause problems.</p>
+      <pre><code>// Store processed event IDs to prevent duplicates
+const processedEvents = new Set();
+
+function handleEvent(event) {
+  if (processedEvents.has(event.id)) {
+    return; // Already processed
+  }
+  processedEvents.add(event.id);
+  // ... process the event
+}</code></pre>
+      <p>In production, use a database instead of an in-memory set.</p>
+
+      <h2>Step 5: Monitor in Real Time</h2>
+      <p>Once your webhooks are configured, use dread to monitor them live. You will get desktop notifications for every event and can inspect payloads in the terminal UI:</p>
+      <pre><code># Watch for events with desktop notifications
+dread watch
+
+# Or open the full terminal UI
+dread
+
+# Forward to Slack for team visibility
+dread config --slack https://hooks.slack.com/services/xxx</code></pre>
+
+      <h2>Common Stripe Webhook Errors</h2>
+      <ul>
+        <li><strong>400 — Signature verification failed:</strong> Check that you are using the correct webhook signing secret (not your API key)</li>
+        <li><strong>Timeout:</strong> Stripe expects a response within 20 seconds. Move heavy processing to a background job</li>
+        <li><strong>Duplicate events:</strong> Stripe may send the same event more than once. Always check idempotency</li>
+      </ul>
+
+      <div class="blog-cta">
+        <h3>Monitor Stripe webhooks from your terminal</h3>
+        <p>Get real-time payment notifications with one command.</p>
+        <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+      </div>
+    </div>
+  </article>
+</main>
+<script>
 function toggleTheme() {
   document.documentElement.classList.toggle('light');
   localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
