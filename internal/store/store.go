@@ -289,10 +289,10 @@ func (s *Store) LiveStats() LiveStats {
 	oneHourAgo := time.Now().UTC().Add(-1 * time.Hour)
 	s.db.QueryRow(`SELECT COUNT(DISTINCT channel) FROM events WHERE timestamp >= ?`, oneHourAgo).Scan(&stats.ActiveChannels)
 
-	oneDayAgo := time.Now().UTC().Add(-24 * time.Hour)
-	s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE timestamp >= ?`, oneDayAgo).Scan(&stats.EventsToday)
+	sevenDaysAgo := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE timestamp >= ?`, sevenDaysAgo).Scan(&stats.EventsToday)
 
-	rows, err := s.db.Query(`SELECT source, COUNT(*) as cnt FROM events WHERE timestamp >= ? GROUP BY source ORDER BY cnt DESC LIMIT 10`, oneDayAgo)
+	rows, err := s.db.Query(`SELECT source, COUNT(*) as cnt FROM events WHERE timestamp >= ? GROUP BY source ORDER BY cnt DESC LIMIT 10`, sevenDaysAgo)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {

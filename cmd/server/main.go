@@ -718,15 +718,22 @@ const landingPage = `<!DOCTYPE html>
 
   /* ---- LIVE STATS ---- */
   .live-stats {
-    display: flex; justify-content: center; gap: 48px;
-    margin-top: 48px; margin-bottom: 0;
+    display: flex; justify-content: center; gap: 16px;
+    margin-bottom: 40px;
     position: relative; z-index: 1;
   }
-  .live-stat {
+  .live-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 32px;
     text-align: center;
+    min-width: 180px;
+    transition: border-color 0.15s;
   }
+  .live-stat-card:hover { border-color: var(--accent-glow-strong); }
   .live-stat-value {
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: 700;
     font-family: "Geist Mono", ui-monospace, monospace;
     color: var(--text);
@@ -735,14 +742,14 @@ const landingPage = `<!DOCTYPE html>
   }
   .live-stat-value .accent { color: var(--accent); }
   .live-stat-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-dim);
-    margin-top: 8px;
+    margin-top: 10px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
   .live-stat-detail {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     margin-top: 4px;
     font-family: "Geist Mono", ui-monospace, monospace;
@@ -750,7 +757,8 @@ const landingPage = `<!DOCTYPE html>
   .live-stat-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 4px; animation: pulse-dot 2s ease-in-out infinite; }
   @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   @media (max-width: 640px) {
-    .live-stats { flex-direction: column; gap: 24px; align-items: center; }
+    .live-stats { flex-direction: column; gap: 12px; align-items: center; }
+    .live-stat-card { min-width: 0; width: 100%; max-width: 280px; }
   }
 
   /* ---- SECTION ---- */
@@ -1162,6 +1170,23 @@ const landingPage = `<!DOCTYPE html>
   <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
   <h1>Webhooks to your<br>terminal and desktop</h1>
   <p class="hero-sub">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
+  <div class="live-stats" id="live-stats">
+    <div class="live-stat-card">
+      <div class="live-stat-value"><span class="accent" id="ls-channels">—</span></div>
+      <div class="live-stat-label"><span class="live-stat-dot"></span>channels active</div>
+      <div class="live-stat-detail">in the last hour</div>
+    </div>
+    <div class="live-stat-card">
+      <div class="live-stat-value" id="ls-events">—</div>
+      <div class="live-stat-label">webhooks this week</div>
+      <div class="live-stat-detail">last 7 days</div>
+    </div>
+    <div class="live-stat-card">
+      <div class="live-stat-value" id="ls-sources">—</div>
+      <div class="live-stat-label">services connected</div>
+      <div class="live-stat-detail" id="ls-source-list"></div>
+    </div>
+  </div>
   <div class="hero-actions">
     <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
   </div>
@@ -1173,23 +1198,6 @@ const landingPage = `<!DOCTYPE html>
       </div>
       <div class="terminal-body" id="terminal-body"></div>
       <div class="terminal-footer">q quit &nbsp; ↑↓ navigate &nbsp; enter detail</div>
-    </div>
-  </div>
-  <div class="live-stats" id="live-stats">
-    <div class="live-stat">
-      <div class="live-stat-value"><span class="accent" id="ls-channels">—</span></div>
-      <div class="live-stat-label"><span class="live-stat-dot"></span>channels active</div>
-      <div class="live-stat-detail">in the last hour</div>
-    </div>
-    <div class="live-stat">
-      <div class="live-stat-value" id="ls-events">—</div>
-      <div class="live-stat-label">webhooks today</div>
-      <div class="live-stat-detail">processed in 24h</div>
-    </div>
-    <div class="live-stat">
-      <div class="live-stat-value" id="ls-sources">—</div>
-      <div class="live-stat-label">services connected</div>
-      <div class="live-stat-detail" id="ls-source-list"></div>
     </div>
   </div>
 </div>
