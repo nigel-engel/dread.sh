@@ -1180,20 +1180,6 @@ const landingPage = `<!DOCTYPE html>
   <div class="badge"><span class="badge-dot"></span> developer tool for teams</div>
   <h1>Webhooks to your<br>terminal and desktop</h1>
   <p class="hero-sub">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
-  <div class="live-stats" id="live-stats">
-    <div class="live-stat-card">
-      <div class="live-stat-value" id="ls-week">—</div>
-      <div class="live-stat-label">webhooks this week</div>
-    </div>
-    <div class="live-stat-card">
-      <div class="live-stat-value" id="ls-total">—</div>
-      <div class="live-stat-label">events processed</div>
-    </div>
-    <div class="live-stat-card">
-      <div class="live-stat-value"><span class="live-stat-dot"></span><span id="ls-uptime">—</span></div>
-      <div class="live-stat-label">uptime</div>
-    </div>
-  </div>
   <div class="hero-actions">
     <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
   </div>
