@@ -36,6 +36,9 @@ var (
 		"paddle": lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#3B58CB")).
 			Bold(true),
+		"trigger.dev": lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#22C55E")).
+			Bold(true),
 	}
 
 	defaultSourceStyle = lipgloss.NewStyle().

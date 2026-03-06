@@ -2211,7 +2211,7 @@ const docsPage = `<!DOCTYPE html>
 
     <section class="docs-section" id="supported-sources">
       <h3>Supported Sources</h3>
-      <p>dread auto-detects <strong>60+</strong> webhook sources from HTTP headers. Any unrecognised source is labelled "webhook" &mdash; or set <code>X-Dread-Source</code> to name it yourself.</p>
+      <p>dread auto-detects <strong>60+</strong> webhook sources from HTTP headers. Any unrecognised source is labelled "webhook" &mdash; add <code>?source=name</code> to your webhook URL to label it yourself.</p>
       <table>
         <tr><th>Category</th><th>Sources</th></tr>
         <tr><td>Payment &amp; Finance</td><td>Stripe, PayPal, Square, Razorpay, Paddle, Recurly, Coinbase, Plaid, Xero, QuickBooks</td></tr>
@@ -2236,7 +2236,11 @@ const docsPage = `<!DOCTYPE html>
   -d '{"event": "deploy.success", "env": "production"}'</code></pre>
         <button class="copy-btn" onclick="copyText('curl -X POST https://dread.sh/wh/ch_my-channel_abc123 -H &quot;Content-Type: application/json&quot; -d \'{}\'', this)" type="button"><i data-lucide="copy"></i></button>
       </div>
-      <p>To set a custom source name, include the <code>X-Dread-Source</code> header:</p>
+      <p>To set a custom source name, add <code>?source=name</code> to your webhook URL:</p>
+      <div class="copy-wrap">
+        <pre><code>https://dread.sh/wh/ch_my-channel_abc123<strong>?source=trigger.dev</strong></code></pre>
+      </div>
+      <p>This works with any service &mdash; just append <code>?source=</code> when pasting the URL into your webhook settings. You can also use the <code>X-Dread-Source</code> header for programmatic control:</p>
       <div class="copy-wrap">
         <pre><code><span class="kw">$</span> curl -X POST https://dread.sh/wh/ch_my-channel_abc123 \
   -H "Content-Type: application/json" \
@@ -2764,7 +2768,7 @@ const changelogPage = `<!DOCTYPE html>
       <li>Database: Supabase, PlanetScale</li>
       <li>SaaS: HubSpot, Typeform, Calendly, DocuSign, Zoom, Figma, Twitch, LaunchDarkly, and more</li>
       <li>User-Agent fallback detection for Zapier, Pingdom, WooCommerce, and others</li>
-      <li>Custom sources via <code>X-Dread-Source</code> header for anything else</li>
+      <li>Custom sources via <code>?source=name</code> URL parameter or <code>X-Dread-Source</code> header</li>
     </ul>
   </div>
 
@@ -3764,6 +3768,7 @@ var SOURCE_COLOURS = {
   telegram: 'oklch(65% 0.17 230)',
   figma: 'oklch(65% 0.18 340)',
   zapier: 'oklch(72% 0.18 40)',
+  'trigger.dev': 'oklch(70% 0.18 165)',
   test: 'oklch(70% 0.15 200)',
   webhook: 'oklch(70.7% 0.165 254.62)'
 };
@@ -4353,12 +4358,10 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <p>The channel ID and webhook URL stay the same &mdash; only the display name changes in the TUI, notifications, and dashboard.</p>
 
 <h3>Change the source label</h3>
-<p>dread auto-detects the source from HTTP headers (Stripe-Signature, X-GitHub-Event, etc.). For services that aren't auto-detected, or to override the label, send an <code>X-Dread-Source</code> header:</p>
-<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
-  -H "Content-Type: application/json" \
-  -H "X-Dread-Source: my-api" \
-  -d '{"event":"deploy"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>The source label controls how events are grouped in the dashboard and which icon appears in the TUI. Auto-detected sources (stripe, github, vercel, sentry, etc.) always take priority over the header.</p>
+<p>dread auto-detects the source from HTTP headers (Stripe-Signature, X-GitHub-Event, etc.). For services that aren't auto-detected, add <code>?source=name</code> to your webhook URL:</p>
+<div class="code-block"><pre><code>https://dread.sh/wh/ch_xxx?source=trigger.dev</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Just paste the URL with <code>?source=</code> into your service's webhook settings &mdash; no custom headers needed. You can also use the <code>X-Dread-Source</code> header for programmatic control.</p>
+<p>The source label controls how events are grouped in the dashboard and which colour appears in the TUI. Auto-detected sources (stripe, github, vercel, sentry, etc.) always take priority.</p>
 
 <h3>Change the summary text</h3>
 <p>The summary is extracted automatically from known payload formats. For custom services, dread looks for these JSON fields in order:</p>
@@ -4367,9 +4370,8 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <li><code>message</code>, <code>description</code>, <code>summary</code>, <code>text</code>, <code>status</code> &mdash; used as the summary text</li>
 </ol>
 <p>To control what appears in notifications, structure your JSON payload with these fields:</p>
-<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
+<div class="code-block"><pre><code>curl -X POST "https://dread.sh/wh/ch_xxx?source=deploy-bot" \
   -H "Content-Type: application/json" \
-  -H "X-Dread-Source: deploy-bot" \
   -d '{"type":"deploy.success","message":"v2.1.0 deployed to production"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
 <div class="expect">This will show as: source <strong>deploy-bot</strong>, type <strong>deploy.success</strong>, summary <strong>deploy-bot &mdash; v2.1.0 deployed to production</strong></div>
 </section>
@@ -5083,7 +5085,7 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <li>Set the URL to your dread webhook URL</li>
 <li>Set <strong>Payload Type</strong> to <strong>Json</strong></li>
 <li>Map fields from the trigger into the payload data (e.g. <code>type</code> = "row.added", <code>message</code> = the row data)</li>
-<li>Add a custom header: <code>X-Dread-Source</code> with the value of your source name (e.g. "google-sheets")</li>
+<li>Add <code>?source=google-sheets</code> to the end of your webhook URL to label events</li>
 <li>Test the action and turn on the Zap</li>
 </ol>
 <p>This is the best way to connect services that don't support webhooks natively &mdash; Notion databases, Google Sheets, Airtable, Monday.com, Trello, and thousands more.</p>
@@ -5193,11 +5195,10 @@ dread add ch_old-name_abc123 "New Display Name"</code></pre><button class="copy-
 <section id="custom-source" class="docs-section">
 <h2>Custom / Any Service</h2>
 <p>Any service that sends JSON webhooks works with dread. Just point it at your channel URL:</p>
-<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_xxx \
+<div class="code-block"><pre><code>curl -X POST "https://dread.sh/wh/ch_xxx?source=myapp" \
   -H "Content-Type: application/json" \
-  -H "X-Dread-Source: myapp" \
   -d '{"type":"deploy.success","message":"v1.2.3 deployed to production"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>Set <code>X-Dread-Source</code> to control the source label. Use <code>type</code> or <code>event</code> in your JSON for the event type, and <code>message</code> or <code>description</code> for the summary text.</p>
+<p>Add <code>?source=myapp</code> to the URL to control the source label. Use <code>type</code> or <code>event</code> in your JSON for the event type, and <code>message</code> or <code>description</code> for the summary text. You can also use the <code>X-Dread-Source</code> header instead.</p>
 <p>For all other features (muting, alerts, export, digest, forwarding, status page, dashboard), see the <a href="/docs" style="color:var(--violet)">Documentation</a>.</p>
 </section>
 

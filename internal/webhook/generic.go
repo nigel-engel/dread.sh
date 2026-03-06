@@ -122,6 +122,8 @@ func (p *GenericProcessor) Process(source string, header http.Header, body []byt
 		ev.Type, ev.Summary = summarizeActiveCampaign(raw)
 	case "basecamp":
 		ev.Type, ev.Summary = summarizeBasecamp(raw)
+	case "trigger.dev":
+		ev.Type, ev.Summary = summarizeTriggerDev(raw)
 	default:
 		ev.Type, ev.Summary = summarizeGeneric(source, raw)
 	}
@@ -1152,6 +1154,29 @@ func summarizeBasecamp(raw map[string]any) (string, string) {
 		}
 	}
 	return kind, kind
+}
+
+func summarizeTriggerDev(raw map[string]any) (string, string) {
+	eventType := str(raw, "event")
+	if eventType == "" {
+		eventType = str(raw, "type")
+	}
+	if eventType == "" {
+		return "webhook", "trigger.dev event"
+	}
+	// Try to get run/task info
+	if payload, ok := raw["payload"].(map[string]any); ok {
+		if taskID := str(payload, "taskIdentifier"); taskID != "" {
+			return eventType, fmt.Sprintf("%s — %s", eventType, taskID)
+		}
+		if name := str(payload, "name"); name != "" {
+			return eventType, fmt.Sprintf("%s — %s", eventType, name)
+		}
+		if id := str(payload, "id"); id != "" {
+			return eventType, fmt.Sprintf("%s — %s", eventType, id)
+		}
+	}
+	return eventType, eventType
 }
 
 func summarizeGeneric(source string, raw map[string]any) (string, string) {

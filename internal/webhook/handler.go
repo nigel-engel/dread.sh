@@ -36,6 +36,13 @@ func MakeHandler(onEvent func(channel string, ev *event.Event)) http.HandlerFunc
 
 		source := DetectSource(r.Header)
 
+		// URL query param overrides generic detection but not header-based detection.
+		if source == "webhook" {
+			if qs := r.URL.Query().Get("source"); qs != "" {
+				source = qs
+			}
+		}
+
 		ev, err := proc.Process(source, r.Header, body)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("webhook rejected: %v", err), http.StatusBadRequest)
