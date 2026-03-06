@@ -931,8 +931,6 @@ func (m Model) View() tea.View {
 		col3Lines = append(col3Lines, dimInfoStyle.Render(""))
 	}
 
-	col3Lines = append(col3Lines, m.perSourceSparklines()...)
-
 	if len(m.events) > 0 {
 		last := m.events[len(m.events)-1]
 		col3Lines = append(col3Lines, dimInfoStyle.Render("last: ")+detailValueStyle.Render(relativeTime(last.Timestamp, m.now)))
@@ -1538,6 +1536,18 @@ func (m Model) renderChannels() string {
 				sb.WriteString("    " + dimInfoStyle.Render(fmt.Sprintf("%d events · last: %s", count, relativeTime(lastTime, m.now))) + "\n")
 			} else {
 				sb.WriteString("    " + dimInfoStyle.Render("no events yet") + "\n")
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// Per-source sparklines
+	if len(m.events) > 0 {
+		sparkLines := m.perSourceSparklines()
+		if len(sparkLines) > 0 {
+			sb.WriteString("  " + statsLabelStyle.Render("Source Activity (last hour)") + "\n\n")
+			for _, line := range sparkLines {
+				sb.WriteString("  " + line + "\n")
 			}
 			sb.WriteString("\n")
 		}
