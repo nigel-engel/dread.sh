@@ -485,7 +485,7 @@ const navCSS = `
   }
   .nav-brand {
     font-family: "Press Start 2P", monospace;
-    font-size: 0.85rem; color: var(--accent);
+    font-size: 1.15rem; color: var(--accent);
     text-decoration: none; letter-spacing: 0.05em;
   }
   .nav-links { display: flex; gap: 24px; align-items: center; }
