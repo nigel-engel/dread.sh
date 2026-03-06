@@ -1362,6 +1362,10 @@ func (m Model) renderStats() string {
 		if i >= 15 {
 			break
 		}
+		pct := 0
+		if maxCount > 0 {
+			pct = sc.count * 100 / maxCount
+		}
 		label := sourceStyle(sc.name).Width(14).Render(sc.name)
 		filled := 0
 		if maxCount > 0 {
@@ -1372,8 +1376,8 @@ func (m Model) renderStats() string {
 		}
 		bar := statsBarStyle.Render(strings.Repeat("█", filled)) +
 			statsBarBgStyle.Render(strings.Repeat("░", barWidth-filled))
-		countStr := dimInfoStyle.Render(fmt.Sprintf(" %d", sc.count))
-		sb.WriteString("  " + label + " " + bar + countStr + "\n")
+		countStr := dimInfoStyle.Render(fmt.Sprintf(" %d (%d%%)", sc.count, pct))
+		sb.WriteString("  " + label + " " + bar + countStr + "\n\n")
 	}
 
 	// Status breakdown
