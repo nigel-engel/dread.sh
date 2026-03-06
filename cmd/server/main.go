@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -60,6 +63,37 @@ func main() {
 	h := hub.New()
 
 	mux := http.NewServeMux()
+
+	// D_ icon for notifications
+	mux.HandleFunc("GET /icon.png", func(w http.ResponseWriter, r *http.Request) {
+		const size = 256
+		black := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+		white := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+		const (
+			left = 28.0; top = 44.0; bottom = 200.0; strokeW = 30.0
+			curveX = 82.0; midY = 122.0; outerR = 78.0; innerR = 48.0
+			usLeft = 172.0; usRight = 224.0; usTop = 184.0; usBottom = 200.0
+		)
+		img := image.NewNRGBA(image.Rect(0, 0, size, size))
+		for py := 0; py < size; py++ {
+			for px := 0; px < size; px++ {
+				x, y := float64(px), float64(py)
+				inOuter := y >= top && y <= bottom && x >= left &&
+					(x <= curveX || (x-curveX)*(x-curveX)+(y-midY)*(y-midY) <= outerR*outerR)
+				inInner := y >= top+strokeW && y <= bottom-strokeW && x >= left+strokeW &&
+					(x <= curveX || (x-curveX)*(x-curveX)+(y-midY)*(y-midY) <= innerR*innerR)
+				inUS := x >= usLeft && x <= usRight && y >= usTop && y <= usBottom
+				if (inOuter && !inInner) || inUS {
+					img.SetNRGBA(px, py, white)
+				} else {
+					img.SetNRGBA(px, py, black)
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		png.Encode(w, img)
+	})
 
 	// Health endpoint
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -1330,12 +1364,14 @@ dread remove &lt;id&gt;           <span class="c"># remove a channel</span></cod
     </div>
     <div class="cmd-group">
       <div class="cmd-group-header">Notifications</div>
-      <pre><code>dread watch                 <span class="c"># headless mode</span>
-dread watch --filter stripe <span class="c"># filtered</span>
-dread watch --slack &lt;url&gt;   <span class="c"># forward to Slack</span>
-dread watch --discord &lt;url&gt; <span class="c"># forward to Discord</span>
-dread mute &lt;id&gt;             <span class="c"># silence a channel</span>
-dread unmute &lt;id&gt;           <span class="c"># unmute a channel</span></code></pre>
+      <pre><code>dread service install        <span class="c"># background service</span>
+dread service uninstall      <span class="c"># remove service</span>
+dread watch                  <span class="c"># headless mode</span>
+dread watch --filter stripe  <span class="c"># filtered</span>
+dread watch --slack &lt;url&gt;    <span class="c"># forward to Slack</span>
+dread watch --discord &lt;url&gt;  <span class="c"># forward to Discord</span>
+dread mute &lt;id&gt;              <span class="c"># silence a channel</span>
+dread unmute &lt;id&gt;            <span class="c"># unmute a channel</span></code></pre>
     </div>
     <div class="cmd-group">
       <div class="cmd-group-header">Data &amp; Alerts</div>
@@ -1503,6 +1539,51 @@ PLISTEOF
   launchctl bootout gui/$(id -u) "$PLIST" 2>/dev/null || true
   launchctl bootstrap gui/$(id -u) "$PLIST"
   echo "Background notifications enabled (launchd)"
+
+  # Build Dread.app for branded desktop notifications
+  if command -v swiftc >/dev/null 2>&1; then
+    APP_DIR="$HOME/.config/dread/Dread.app"
+    rm -rf "$APP_DIR"
+    mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+
+    # Compile notifier
+    cat > "$TMPDIR/notifier.swift" << 'SWIFTEOF'
+import Cocoa
+import UserNotifications
+class D:NSObject,NSApplicationDelegate,UNUserNotificationCenterDelegate{func userNotificationCenter(_ c:UNUserNotificationCenter,willPresent n:UNNotification,withCompletionHandler h:@escaping(UNNotificationPresentationOptions)->Void){h([.banner,.sound])}}
+let a=CommandLine.arguments;var t="dread.sh",m="",s="Sosumi";var i=1;while i<a.count{switch a[i]{case "-title" where i+1<a.count:i+=1;t=a[i];case "-message" where i+1<a.count:i+=1;m=a[i];case "-sound" where i+1<a.count:i+=1;s=a[i];default:break};i+=1}
+let app=NSApplication.shared;let d=D();app.delegate=d;let c=UNUserNotificationCenter.current();c.delegate=d;let sem=DispatchSemaphore(value:0)
+c.requestAuthorization(options:[.alert,.sound]){g,_ in guard g else{sem.signal();return};let n=UNMutableNotificationContent();n.title=t;n.body=m;n.sound=UNNotificationSound(named:UNNotificationSoundName(s));let r=UNNotificationRequest(identifier:UUID().uuidString,content:n,trigger:nil);c.add(r){_ in sem.signal()}};_=sem.wait(timeout:.now()+5)
+SWIFTEOF
+    swiftc "$TMPDIR/notifier.swift" -o "$APP_DIR/Contents/MacOS/Dread" -framework Cocoa -framework UserNotifications -suppress-warnings 2>/dev/null
+
+    # Generate D_ icon
+    curl -sL "https://dread.sh/icon.png" -o "$TMPDIR/icon.png"
+    mkdir -p "$TMPDIR/dread.iconset"
+    for sz in 16 32 64 128 256; do
+      sips -z $sz $sz "$TMPDIR/icon.png" --out "$TMPDIR/dread.iconset/icon_${sz}x${sz}.png" >/dev/null 2>&1
+    done
+    cp "$TMPDIR/dread.iconset/icon_32x32.png" "$TMPDIR/dread.iconset/icon_16x16@2x.png"
+    cp "$TMPDIR/dread.iconset/icon_64x64.png" "$TMPDIR/dread.iconset/icon_32x32@2x.png"
+    cp "$TMPDIR/dread.iconset/icon_256x256.png" "$TMPDIR/dread.iconset/icon_128x128@2x.png"
+    rm -f "$TMPDIR/dread.iconset/icon_64x64.png"
+    iconutil -c icns "$TMPDIR/dread.iconset" -o "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null
+
+    # Info.plist
+    cat > "$APP_DIR/Contents/Info.plist" << 'PLISTEOF2'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Dread</string>
+<key>CFBundleIdentifier</key><string>sh.dread.notifier</string>
+<key>CFBundleName</key><string>Dread</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleVersion</key><string>1.0</string>
+</dict></plist>
+PLISTEOF2
+    echo "Dread.app installed (branded notifications)"
+  fi
 
 elif [ "$OS" = "linux" ]; then
   UNIT_DIR="$HOME/.config/systemd/user"
@@ -1803,6 +1884,7 @@ const docsPage = `<!DOCTYPE html>
       <a href="#cli-test">dread test</a>
       <a href="#cli-add-remove">dread add / remove</a>
       <a href="#cli-watch">dread watch</a>
+      <a href="#cli-service">dread service</a>
       <a href="#cli-replay">dread replay</a>
     </div>
     <div class="docs-sidebar-group">
@@ -2042,6 +2124,27 @@ const docsPage = `<!DOCTYPE html>
       <p>Auto-reconnects after 3 seconds if the connection drops.</p>
     </section>
 
+    <section class="docs-section" id="cli-service">
+      <h3>dread service</h3>
+      <p>Install or remove a background service so <code>dread watch</code> runs automatically &mdash; even after the terminal is closed or the machine restarts.</p>
+      <div class="copy-wrap">
+        <pre><code><span class="kw">$</span> dread service install
+<span class="o">Background service installed and started.</span>
+<span class="o">  Plist:  ~/Library/LaunchAgents/dev.dread.watch.plist</span>
+<span class="o">  Logs:   ~/Library/Logs/dread.log</span>
+<span class="o"></span>
+<span class="o">Notifications will now appear even when the terminal is closed.</span></code></pre>
+        <button class="copy-btn" onclick="copyText('dread service install', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
+      <table>
+        <tr><th>Subcommand</th><th>Description</th></tr>
+        <tr><td><code>install</code></td><td>Install and start the background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux)</td></tr>
+        <tr><td><code>uninstall</code></td><td>Stop and remove the background service</td></tr>
+      </table>
+      <p>On macOS, this creates a <code>launchd</code> agent that starts at login and auto-restarts on failure. On Linux, it creates a <code>systemd</code> user service. Logs are written to <code>~/Library/Logs/dread.log</code> (macOS) or available via <code>journalctl --user -u dread-watch</code> (Linux).</p>
+      <p>Use <code>dread status</code> to check whether the background service is running.</p>
+    </section>
+
     <section class="docs-section" id="cli-replay">
       <h3>dread replay</h3>
       <p>Re-forward a past event to a URL. Fetches the full event payload from the server and POSTs it to the target.</p>
@@ -2158,12 +2261,16 @@ const docsPage = `<!DOCTYPE html>
     <section class="docs-section" id="desktop-notifs">
       <h2>Notifications</h2>
       <h3>Desktop Notifications</h3>
-      <p>dread sends native desktop notifications for every webhook event. The background service (<code>dread watch</code>) runs at login automatically.</p>
+      <p>dread sends native desktop notifications for every webhook event. Run <code>dread service install</code> to set up a background service that starts at login and keeps running even after the terminal is closed.</p>
+      <div class="copy-wrap">
+        <pre><code><span class="kw">$</span> dread service install</code></pre>
+        <button class="copy-btn" onclick="copyText('dread service install', this)" type="button"><i data-lucide="copy"></i></button>
+      </div>
       <ul>
-        <li><strong>macOS</strong> — uses <code>osascript</code> with sound. Notifications appear in Notification Center.</li>
-        <li><strong>Linux</strong> — uses <code>notify-send</code>. Works with any desktop environment that supports freedesktop notifications.</li>
+        <li><strong>macOS</strong> &mdash; uses a native notifier with sound. Notifications appear in Notification Centre.</li>
+        <li><strong>Linux</strong> &mdash; uses <code>notify-send</code>. Works with any desktop environment that supports freedesktop notifications.</li>
       </ul>
-      <p>The install script sets this up as a <code>launchd</code> service (macOS) or <code>systemd</code> user service (Linux) that starts at login.</p>
+      <p>This installs a <code>launchd</code> agent (macOS) or <code>systemd</code> user service (Linux) that auto-restarts on failure. To remove it, run <code>dread service uninstall</code>.</p>
       <h4 style="margin-top:24px;">Custom notification sound</h4>
       <p>Set the <code>"sound"</code> field in your config to change the notification sound (default: <code>Sosumi</code>):</p>
       <div class="copy-wrap">
@@ -2566,11 +2673,23 @@ const changelogPage = `<!DOCTYPE html>
   <p class="subtitle">New updates and improvements to dread.sh</p>
 
   <div class="changelog-entry">
+    <div class="changelog-date">March 6, 2026</div>
+    <div class="changelog-title">Background service command</div>
+    <ul>
+      <li><strong><code>dread service install</code></strong> &mdash; installs a background service so notifications continue even after the terminal is closed</li>
+      <li><strong><code>dread service uninstall</code></strong> &mdash; stops and removes the background service</li>
+      <li><strong>macOS</strong> &mdash; uses <code>launchd</code> with auto-restart and login start. Logs to <code>~/Library/Logs/dread.log</code></li>
+      <li><strong>Linux</strong> &mdash; uses <code>systemd</code> user service. Logs via <code>journalctl</code></li>
+      <li><code>dread status</code> shows whether the background service is running</li>
+    </ul>
+  </div>
+
+  <div class="changelog-entry">
     <div class="changelog-date">March 3, 2026</div>
-    <div class="changelog-title">108 webhook sources, 47 summarizers, TUI fix</div>
+    <div class="changelog-title">108 webhook sources, 47 summarisers, TUI fix</div>
     <ul>
       <li><strong>108 auto-detected sources</strong> &mdash; added 60+ new webhook sources including Pipedrive, Asana, Webflow, Klaviyo, Cal.com, Monday, Chargebee, ActiveCampaign, BambooHR, Smartsheet, Hootsuite, Dropbox, Box, Help Scout, and many more</li>
-      <li><strong>47 payload summarizers</strong> &mdash; 30 new summarizer functions for richer event descriptions from Pipedrive, Asana, Webflow, Klaviyo, Squarespace, Ecwid, Box, Help Scout, Smartsheet, Cal.com, Monday, Chargebee, ActiveCampaign, Basecamp, and more</li>
+      <li><strong>47 payload summarisers</strong> &mdash; 30 new summariser functions for richer event descriptions from Pipedrive, Asana, Webflow, Klaviyo, Squarespace, Ecwid, Box, Help Scout, Smartsheet, Cal.com, Monday, Chargebee, ActiveCampaign, Basecamp, and more</li>
       <li><strong>TUI duplicate event fix</strong> &mdash; fixed a bug where WebSocket reconnects caused duplicate events to pile up in the TUI (e.g. 16 real events showing as 122)</li>
       <li><strong>Default sound changed to Sosumi</strong></li>
     </ul>
@@ -4078,27 +4197,34 @@ const howToPage = `<!DOCTYPE html>
 <section id="quick-setup" class="docs-section">
 <h2>Quick Setup</h2>
 <p>Get dread running in under a minute.</p>
-<ol>
-<li>Install dread:</li>
-</ol>
+
+<h3>1. Install dread</h3>
 <div class="code-block"><pre><code>curl -fsSL https://dread.sh/install | sh</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<ol start="2">
-<li>Create your first channel:</li>
-</ol>
+
+<h3>2. Create a channel</h3>
+<p>A channel is where webhooks get sent. Create one for each service (e.g. Stripe, GitHub):</p>
 <div class="code-block"><pre><code>dread new "Stripe Prod"</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<p>This prints a webhook URL like <code>https://dread.sh/wh/ch_stripe-prod_abc123</code>. Copy it.</p>
-<ol start="3">
-<li>Start the TUI:</li>
-</ol>
+<p>This prints your webhook URL. <strong>This is the URL you paste into other services:</strong></p>
+<div class="code-block"><pre><code>https://dread.sh/wh/ch_stripe-prod_a1b2c3</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Every channel gets its own unique URL. Copy it &mdash; you'll paste it in the next step.</p>
+
+<h3>3. Paste the URL into your service</h3>
+<p>Go to whatever service you want to monitor (Stripe, GitHub, Vercel, etc.), find its webhook settings, and paste the URL from step 2. Each guide below shows you exactly where.</p>
+
+<h3>4. Start watching</h3>
 <div class="code-block"><pre><code>dread</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">You should see the dread TUI with your channel listed, waiting for events.</div>
+<div class="expect">You'll see the dread TUI with your channel listed, waiting for events. When the service sends a webhook, it appears here instantly with a desktop notification.</div>
 </section>
 
 <section id="first-webhook" class="docs-section">
 <h2>Your First Webhook</h2>
-<p>Send a test event to verify everything works:</p>
-<div class="code-block"><pre><code>dread test ch_stripe-prod_abc123</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-<div class="expect">You should see a test event appear in the TUI and get a desktop notification.</div>
+<p>Don't have a service ready yet? Send a test event to make sure everything works:</p>
+<div class="code-block"><pre><code>dread test ch_stripe-prod_a1b2c3</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<p>Or send a real HTTP request from anywhere:</p>
+<div class="code-block"><pre><code>curl -X POST https://dread.sh/wh/ch_stripe-prod_a1b2c3 \
+  -H "Content-Type: application/json" \
+  -d '{"event":"test","message":"Hello from curl"}'</code></pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+<div class="expect">You'll see the event appear in the TUI and get a desktop notification. If this works, you're ready to connect a real service below.</div>
 </section>
 
 <section id="customise" class="docs-section">
