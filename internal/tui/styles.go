@@ -44,15 +44,7 @@ var commandTips = []string{
 // classifyEvent returns "success", "failure", or "neutral" based on event type/summary.
 func classifyEvent(typ, summary string) string {
 	lower := strings.ToLower(typ + " " + summary)
-	for _, kw := range []string{
-		"fail", "error", "denied", "declined", "expired", "canceled",
-		"cancelled", "refused", "rejected", "dispute", "alert",
-		"incident", "critical", "warning", "overdue",
-	} {
-		if strings.Contains(lower, kw) {
-			return "failure"
-		}
-	}
+	// Check success first so "alert.deployment.success" isn't misclassified
 	for _, kw := range []string{
 		"succeed", "success", "completed", "paid", "captured",
 		"created", "active", "resolved", "delivered", "merged",
@@ -60,6 +52,15 @@ func classifyEvent(typ, summary string) string {
 	} {
 		if strings.Contains(lower, kw) {
 			return "success"
+		}
+	}
+	for _, kw := range []string{
+		"fail", "error", "denied", "declined", "expired", "canceled",
+		"cancelled", "refused", "rejected", "dispute",
+		"incident", "critical", "warning", "overdue",
+	} {
+		if strings.Contains(lower, kw) {
+			return "failure"
 		}
 	}
 	return "neutral"

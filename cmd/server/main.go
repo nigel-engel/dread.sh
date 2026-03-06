@@ -3359,6 +3359,13 @@ const dashboardPage = `<!DOCTYPE html>
     background: var(--text-dim);
   }
   .status-dot.connected { background: var(--green); }
+  .health-indicator {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.75rem; font-family: var(--mono);
+  }
+  .health-indicator .hi-success { color: var(--green); }
+  .health-indicator .hi-failure { color: var(--rose); }
+  .health-indicator .hi-neutral { color: var(--text-dim); }
   .filter-input {
     flex: 1; padding: 8px 12px;
     background: var(--surface); border: 1px solid var(--border);
@@ -3765,6 +3772,7 @@ const dashboardPage = `<!DOCTYPE html>
       <button class="toolbar-btn" onclick="toggleKbHelp()"><i data-lucide="keyboard"></i>?</button>
       <input type="text" class="filter-input" id="filter-input" placeholder="Filter: text, source:name, !exclude">
       <span class="filter-mode" id="filter-mode"></span>
+      <div class="health-indicator" id="health-indicator"></div>
       <span class="event-count" id="event-count"></span>
     </div>
     <div class="stats-panel" id="stats-panel">
@@ -4259,10 +4267,10 @@ var SOURCE_COLOUR_POOL = [
 var sourceColourCache = {};
 function classifyEvent(typ, summary) {
   var lower = ((typ || '') + ' ' + (summary || '')).toLowerCase();
-  var failWords = ['fail','error','denied','declined','expired','canceled','cancelled','refused','rejected','dispute','alert','incident','critical','warning','overdue'];
-  for (var i = 0; i < failWords.length; i++) { if (lower.indexOf(failWords[i]) !== -1) return 'failure'; }
   var okWords = ['succeed','success','completed','paid','captured','created','active','resolved','delivered','merged','approved','ready'];
   for (var i = 0; i < okWords.length; i++) { if (lower.indexOf(okWords[i]) !== -1) return 'success'; }
+  var failWords = ['fail','error','denied','declined','expired','canceled','cancelled','refused','rejected','dispute','incident','critical','warning','overdue'];
+  for (var i = 0; i < failWords.length; i++) { if (lower.indexOf(failWords[i]) !== -1) return 'failure'; }
   return 'neutral';
 }
 
@@ -4370,6 +4378,21 @@ function applyFilter() {
 function updateEventCount() {
   var countEl = document.getElementById('event-count');
   countEl.textContent = state.events.length + ' event' + (state.events.length !== 1 ? 's' : '');
+  updateHealthIndicator();
+}
+
+function updateHealthIndicator() {
+  var s = 0, f = 0, n = 0;
+  for (var i = 0; i < state.events.length; i++) {
+    var c = classifyEvent(state.events[i].type, state.events[i].summary);
+    if (c === 'success') s++;
+    else if (c === 'failure') f++;
+    else n++;
+  }
+  var el = document.getElementById('health-indicator');
+  el.innerHTML = '<span class="hi-success">✓ ' + s + '</span>' +
+    '<span class="hi-failure">✗ ' + f + '</span>' +
+    '<span class="hi-neutral">○ ' + n + '</span>';
 }
 
 // Refresh relative timestamps

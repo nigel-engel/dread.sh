@@ -890,7 +890,7 @@ func (m Model) View() tea.View {
 		col2Lines = append(col2Lines, dimInfoStyle.Render("● connecting..."))
 	}
 
-	col2Lines = append(col2Lines, detailValueStyle.Render(fmt.Sprintf("%d channels ", len(m.channelIDs)))+m.channelHealthDots())
+	col2Lines = append(col2Lines, detailValueStyle.Render(fmt.Sprintf("%d channels", len(m.channelIDs))))
 
 	success, failure, neutral := m.eventStatusCounts()
 	statusLine := successCountStyle.Render(fmt.Sprintf("✓ %d", success)) + "  " +
@@ -938,7 +938,7 @@ func (m Model) View() tea.View {
 		col3Lines = append(col3Lines, dimInfoStyle.Render("waiting for first event..."))
 	}
 
-	tip := commandTips[int(m.now.Unix()/10)%len(commandTips)]
+	tip := commandTips[int(m.startedAt.Unix())%len(commandTips)]
 	col3Lines = append(col3Lines, tipStyle.Render(tip))
 
 	col2 := infoPanelStyle.Render(strings.Join(col2Lines, "\n"))
@@ -1555,12 +1555,22 @@ func (m Model) renderChannels() string {
 
 	// Per-channel sparklines
 	if len(m.events) > 0 && len(m.webhookURLs) > 0 {
+		maxNameLen := 0
+		for ch := range m.webhookURLs {
+			n := len(m.displayName(ch))
+			if n > maxNameLen {
+				maxNameLen = n
+			}
+		}
+		if maxNameLen < 8 {
+			maxNameLen = 8
+		}
 		sb.WriteString("  " + statsLabelStyle.Render("Channel Activity (last hour)") + "\n\n")
 		for ch := range m.webhookURLs {
 			name := m.displayName(ch)
 			spark := m.sparklineForChannel(ch)
-			label := channelStyle.Width(14).Render(name)
-			sb.WriteString("  " + label + " " + sparkStyle.Render(spark) + "\n")
+			label := channelStyle.Width(maxNameLen + 2).Render(name)
+			sb.WriteString("  " + label + sparkStyle.Render(spark) + "\n")
 		}
 	}
 
