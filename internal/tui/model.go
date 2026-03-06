@@ -10,7 +10,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/viewport"
-	"charm.land/lipgloss/v2"
 
 	"dread.sh/internal/auth"
 	"dread.sh/internal/clipboard"
@@ -342,8 +341,11 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m Model) View() tea.View {
 	var b strings.Builder
 
-	// Header: title + status
-	header := titleStyle.Render(" dread.sh")
+	// Header: logo + status
+	logo := logoStyle.Render(dreadLogo)
+	b.WriteString(logo)
+	b.WriteString("\n")
+
 	status := "connecting..."
 	if m.connected {
 		filtered := m.filteredEvents()
@@ -360,8 +362,7 @@ func (m Model) View() tea.View {
 	if m.err != nil {
 		status = "reconnecting..."
 	}
-	statusText := statusBarStyle.Width(m.width - lipgloss.Width(header)).Render(status)
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, header, statusText))
+	b.WriteString(statusBarStyle.Width(m.width).Render(status))
 	b.WriteString("\n")
 
 	// Channel webhook URLs
@@ -420,7 +421,7 @@ func (m Model) View() tea.View {
 }
 
 func (m Model) headerHeight() int {
-	h := 1 // title bar
+	h := 7 // logo (6 lines) + status bar
 	if len(m.webhookURLs) > 0 {
 		h += len(m.webhookURLs)
 	} else {
@@ -469,6 +470,7 @@ func (m Model) renderEvents() string {
 		if m.filterText != "" {
 			return "\n  No events match filter: " + filterTextStyle.Render(m.filterText)
 		}
+
 		if len(m.channelIDs) == 0 {
 			return "\n  No channels configured.\n\n  Run: dread new stripe-prod\n  Then paste the webhook URL into your service."
 		}
