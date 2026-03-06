@@ -66,6 +66,8 @@ func main() {
 		cmdAlert(os.Args[2:])
 	case "service":
 		cmdService(os.Args[2:])
+	case "version", "--version", "-v":
+		fmt.Println("dread " + tui.Version)
 	case "help", "--help", "-h":
 		printUsage()
 	default:

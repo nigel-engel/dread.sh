@@ -1561,14 +1561,27 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Downloading dread for ${OS}/${ARCH}..."
-curl -sL "$URL" -o "$TMPDIR/$TARBALL"
-tar -xzf "$TMPDIR/$TARBALL" -C "$TMPDIR"
+curl -fSL "$URL" -o "$TMPDIR/$TARBALL" || { echo "Download failed. Check your internet connection." >&2; exit 1; }
+tar -xzf "$TMPDIR/$TARBALL" -C "$TMPDIR" || { echo "Failed to extract archive." >&2; exit 1; }
 
 mkdir -p "$INSTALL_DIR"
+
+# Stop running dread processes so we can replace the binary
+if command -v pkill >/dev/null 2>&1; then
+  pkill -f "dread watch" 2>/dev/null || true
+fi
+if [ "$OS" = "darwin" ]; then
+  launchctl unload "$HOME/Library/LaunchAgents/dev.dread.watch.plist" 2>/dev/null || true
+fi
+
+# Remove old binary first (handles "text file busy" on some systems)
+rm -f "$INSTALL_DIR/$BINARY" 2>/dev/null || true
 mv "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY"
 
 chmod +x "$INSTALL_DIR/$BINARY"
-echo "Installed dread to $INSTALL_DIR/$BINARY"
+
+NEW_VERSION=$("$INSTALL_DIR/$BINARY" --version 2>/dev/null || echo "latest")
+echo "Installed dread ${NEW_VERSION} to $INSTALL_DIR/$BINARY"
 
 # Set up background notifications
 if [ "$OS" = "darwin" ]; then
