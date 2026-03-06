@@ -3178,6 +3178,16 @@ const dashboardPage = `<!DOCTYPE html>
     padding: 0 16px 16px; border-bottom: 1px solid var(--border);
     background: var(--surface);
   }
+  .json-viewer-wrap { position: relative; }
+  .json-viewer-wrap .copy-json {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-muted); border-radius: 6px; padding: 4px 10px;
+    font-size: 0.7rem; cursor: pointer; opacity: 0; transition: opacity 0.15s;
+    font-family: "Geist", sans-serif;
+  }
+  .json-viewer-wrap:hover .copy-json { opacity: 1; }
+  .json-viewer-wrap .copy-json:hover { color: var(--text-primary); border-color: var(--text-muted); }
   .json-viewer {
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 8px; padding: 16px;
@@ -3702,9 +3712,25 @@ function createDetailRow(ev) {
   } catch(_) {
     json = esc(ev.raw_json || '{}');
   }
-  td.innerHTML = '<div class="json-viewer">' + json + '</div>';
+  var rawStr = '';
+  try {
+    var p = typeof ev.raw_json === 'string' ? JSON.parse(ev.raw_json) : ev.raw_json;
+    rawStr = JSON.stringify(p, null, 2);
+  } catch(_) { rawStr = ev.raw_json || '{}'; }
+  td.innerHTML = '<div class="json-viewer-wrap"><button class="copy-json" onclick="copyPayload(this, event)">Copy</button><div class="json-viewer">' + json + '</div></div>';
+  td._rawJson = rawStr;
   tr.appendChild(td);
   return tr;
+}
+
+function copyPayload(btn, e) {
+  e.stopPropagation();
+  var td = btn.closest('td');
+  var text = td._rawJson || btn.closest('.json-viewer-wrap').querySelector('.json-viewer').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
 }
 
 function toggleDetail(id) {
