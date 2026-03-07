@@ -1045,6 +1045,13 @@ const landingPage = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
 <meta name="theme-color" content="#c37960">
 <title>Webhook Notifications for Your Terminal and Desktop - dread.sh</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-22TEKCP3M8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-22TEKCP3M8');
+</script>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
@@ -2241,6 +2248,9 @@ function toggleTheme() {
 })();
 
 function copyText(text, el) {
+  if (typeof gtag === 'function') {
+    gtag('event', 'copy_install_command', { event_category: 'engagement', event_label: text });
+  }
   navigator.clipboard.writeText(text).then(function() {
     var btn = el.classList.contains('copy-btn') ? el : el.querySelector('.copy-btn');
     if (!btn) return;
