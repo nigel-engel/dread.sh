@@ -1542,9 +1542,15 @@ const landingPage = `<!DOCTYPE html>
 
   /* ---- LOGO MARQUEE ---- */
   .marquee-section {
-    padding: 48px 0 24px;
-    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .marquee-section-inner {
     max-width: 1080px; margin: 0 auto;
+    padding: 48px 24px 24px;
+    border-left: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--border-subtle);
+    text-align: center;
   }
   .marquee-label {
     font-size: 0.75rem; text-transform: uppercase;
@@ -1738,6 +1744,7 @@ const landingPage = `<!DOCTYPE html>
 
 <!-- INTEGRATIONS MARQUEE -->
 <div class="marquee-section">
+<div class="marquee-section-inner">
   <div class="marquee-label">Integrations</div>
   <h2 class="marquee-title">Connects to any webhook</h2>
   <div class="marquee-wrap">
@@ -1790,6 +1797,7 @@ const landingPage = `<!DOCTYPE html>
       <span class="marquee__item"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>Slack</span>
     </div>
   </div>
+</div>
 </div>
 
 <!-- WHY -->
