@@ -30,6 +30,24 @@ import (
 
 var serverStartTime = time.Now()
 
+// lookupGeo fetches geolocation data for an IP using ip-api.com (free, no key needed).
+func lookupGeo(ip string) *store.GeoInfo {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://ip-api.com/json/" + ip)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil
+	}
+	var geo store.GeoInfo
+	if err := json.NewDecoder(resp.Body).Decode(&geo); err != nil {
+		return nil
+	}
+	return &geo
+}
+
 func main() {
 	cfgPath := flag.String("config", "", "path to config file (optional if env vars set)")
 	flag.Parse()
@@ -189,6 +207,75 @@ func main() {
 			"UptimeHours": int(uptime.Hours()),
 		})
 	})
+
+	// Admin PIN auth — exchange PIN for admin key
+	mux.HandleFunc("POST /api/admin/auth", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Pin string `json:"pin"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 256)).Decode(&req); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if cfg.Server.AdminKey == "" || cfg.Server.AdminPin == "" || req.Pin != cfg.Server.AdminPin {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"key": cfg.Server.AdminKey})
+	})
+
+	// Admin auth helper
+	adminAuth := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if cfg.Server.AdminKey == "" {
+				http.Error(w, "admin API not configured", http.StatusServiceUnavailable)
+				return
+			}
+			token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if token != cfg.Server.AdminKey {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next(w, r)
+		}
+	}
+
+	// Admin API — list all unique installs
+	mux.HandleFunc("GET /api/admin/installs", adminAuth(func(w http.ResponseWriter, r *http.Request) {
+		installs, err := db.ListInstalls()
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			log.Printf("list installs: %v", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(installs)
+	}))
+
+	// Admin API — list all workspaces
+	mux.HandleFunc("GET /api/admin/workspaces", adminAuth(func(w http.ResponseWriter, r *http.Request) {
+		workspaces, err := db.ListWorkspaces()
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			log.Printf("list workspaces: %v", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(workspaces)
+	}))
+
+	// Admin API — list all active channels with event counts
+	mux.HandleFunc("GET /api/admin/channels", adminAuth(func(w http.ResponseWriter, r *http.Request) {
+		channels, err := db.ListChannels()
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			log.Printf("list channels: %v", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(channels)
+	}))
 
 	// Workspace API — save workspace
 	mux.HandleFunc("PUT /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -390,8 +477,13 @@ func main() {
 		if ip == "" {
 			ip, _, _ = strings.Cut(r.RemoteAddr, ":")
 		}
-		log.Printf("install: ip=%s ua=%s", strings.TrimSpace(ip), r.UserAgent())
-		db.TrackUniqueInstall(strings.TrimSpace(ip))
+		ip = strings.TrimSpace(ip)
+		log.Printf("install: ip=%s ua=%s", ip, r.UserAgent())
+		geo := lookupGeo(ip)
+		if geo != nil {
+			log.Printf("install geo: ip=%s city=%s region=%s country=%s org=%s isp=%s", ip, geo.City, geo.Region, geo.Country, geo.Org, geo.ISP)
+		}
+		db.TrackUniqueInstall(ip, geo)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte(installScript))
 	})
@@ -409,7 +501,16 @@ func main() {
 		if ip == "" {
 			ip, _, _ = strings.Cut(r.RemoteAddr, ":")
 		}
-		log.Printf("installed: ip=%s ua=%s", strings.TrimSpace(ip), r.UserAgent())
+		ip = strings.TrimSpace(ip)
+
+		var info store.SystemInfo
+		if r.Header.Get("Content-Type") == "application/json" {
+			json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&info)
+		}
+		log.Printf("installed: ip=%s os_version=%s hostname=%s version=%s", ip, info.OSVersion, info.Hostname, info.DreadVersion)
+		if info.OSVersion != "" || info.Hostname != "" || info.DreadVersion != "" {
+			db.UpdateInstallInfo(ip, &info)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -458,9 +559,28 @@ func main() {
 	mux.HandleFunc("GET /download", func(w http.ResponseWriter, r *http.Request) {
 		stats := db.GetStats()
 		page := strings.Replace(builtDownload, "{{UNIQUE_COUNT}}", fmt.Sprintf("%d", stats["unique_installs"]), 1)
+		page = strings.Replace(page, "{{TOTAL_DOWNLOADS}}", fmt.Sprintf("%d", stats["install_downloads"]), 1)
+		page = strings.Replace(page, "{{COMPLETED_INSTALLS}}", fmt.Sprintf("%d", stats["installs"]), 1)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(page))
 	})
+
+	// Admin data API for download page (uses same admin key)
+	mux.HandleFunc("GET /api/admin/overview", adminAuth(func(w http.ResponseWriter, r *http.Request) {
+		stats := db.GetStats()
+		installs, _ := db.ListInstalls()
+		workspaces, _ := db.ListWorkspaces()
+		channels, _ := db.ListChannels()
+		liveStats := db.LiveStats()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"stats":      stats,
+			"live_stats": liveStats,
+			"installs":   installs,
+			"workspaces": workspaces,
+			"channels":   channels,
+		})
+	}))
 
 	// robots.txt — allow all AI crawlers
 	mux.HandleFunc("GET /robots.txt", func(w http.ResponseWriter, r *http.Request) {
@@ -2417,7 +2537,17 @@ UNITEOF
 fi
 
 # Report successful install (non-blocking, silent)
-curl -sS -X POST https://dread.sh/api/installed >/dev/null 2>&1 &
+DREAD_OS_VERSION=""
+if [ "$OS" = "darwin" ]; then
+  DREAD_OS_VERSION="macOS $(sw_vers -productVersion 2>/dev/null || echo unknown)"
+elif [ -f /etc/os-release ]; then
+  DREAD_OS_VERSION=$(. /etc/os-release && echo "$PRETTY_NAME")
+fi
+DREAD_HOSTNAME=$(hostname 2>/dev/null || echo "")
+curl -sS -X POST https://dread.sh/api/installed \
+  -H "Content-Type: application/json" \
+  -d "{\"os_version\":\"${DREAD_OS_VERSION}\",\"hostname\":\"${DREAD_HOSTNAME}\",\"dread_version\":\"${NEW_VERSION}\"}" \
+  >/dev/null 2>&1 &
 
 echo ""
 
@@ -7108,23 +7238,222 @@ const downloadPage = `<!DOCTYPE html>
     font-size: 0.8rem; color: var(--text-dim); margin: 16px 0;
     text-transform: uppercase; letter-spacing: 0.06em;
   }
+
+  .admin-section {
+    text-align: left; margin-bottom: 40px;
+  }
+  .admin-section h2 {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); margin-bottom: 12px; font-weight: 600;
+  }
+  .admin-list { display: flex; flex-direction: column; gap: 8px; }
+  .admin-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px;
+  }
+  .card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .card-title {
+    font-size: 0.9rem; font-weight: 600; color: var(--text);
+  }
+  .card-meta {
+    font-size: 0.75rem; color: var(--text-muted);
+    font-family: "Geist Mono", monospace;
+  }
+  .card-details {
+    display: flex; flex-wrap: wrap; gap: 6px 16px;
+    font-size: 0.78rem; color: var(--text-secondary);
+  }
+  .card-dim { color: var(--text-dim); }
+  .loading { color: var(--text-dim); font-size: 0.85rem; }
 </style>
 </head>
 <body>
 <!-- NAV_HTML -->
 
 <div class="download-page">
-  <h1>Download dread</h1>
+  <!-- PIN Gate -->
+  <div id="pin-gate">
+    <h1>Download dread</h1>
+    <p class="subtitle">Enter access code to continue</p>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
+      <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+        placeholder="Enter code"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;
+        font-size:1.2rem;color:var(--text);text-align:center;width:200px;font-family:Geist Mono,monospace;
+        outline:none;transition:border-color 0.15s;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      <button onclick="checkPin()"
+        style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px 24px;
+        font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;">Go</button>
+    </div>
+    <p id="pin-error" style="color:oklch(65% 0.2 25);font-size:0.8rem;display:none;">Wrong code</p>
+  </div>
 
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-number">{{UNIQUE_COUNT}}</div>
-      <div class="stat-label">Installs</div>
+  <!-- Admin Dashboard (hidden until PIN entered) -->
+  <div id="admin-dash" style="display:none;">
+    <h1>dread admin</h1>
+    <p class="subtitle" style="margin-bottom:32px;">Install analytics &amp; activity</p>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-number">{{UNIQUE_COUNT}}</div>
+        <div class="stat-label">Unique Installs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{{TOTAL_DOWNLOADS}}</div>
+        <div class="stat-label">Downloads</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{{COMPLETED_INSTALLS}}</div>
+        <div class="stat-label">Completed</div>
+      </div>
+    </div>
+
+    <div id="installs-section" class="admin-section">
+      <h2>Installs</h2>
+      <div id="installs-list" class="admin-list"><p class="loading">Loading...</p></div>
+    </div>
+
+    <div id="channels-section" class="admin-section">
+      <h2>Active Channels</h2>
+      <div id="channels-list" class="admin-list"><p class="loading">Loading...</p></div>
+    </div>
+
+    <div id="workspaces-section" class="admin-section">
+      <h2>Workspaces</h2>
+      <div id="workspaces-list" class="admin-list"><p class="loading">Loading...</p></div>
     </div>
   </div>
 </div>
 
 <script>
+function checkPin() {
+  const input = document.getElementById('pin-input');
+  fetch('/api/admin/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: input.value })
+  })
+  .then(r => r.ok ? r.json() : Promise.reject('bad pin'))
+  .then(data => {
+    sessionStorage.setItem('dread-admin-key', data.key);
+    sessionStorage.setItem('dread-pin', 'ok');
+    document.getElementById('pin-gate').style.display = 'none';
+    document.getElementById('admin-dash').style.display = 'block';
+    loadAdmin();
+  })
+  .catch(() => {
+    document.getElementById('pin-error').style.display = 'block';
+    input.value = '';
+    input.focus();
+  });
+}
+
+document.getElementById('pin-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') checkPin();
+});
+
+// Auto-unlock if already entered this session
+if (sessionStorage.getItem('dread-pin') === 'ok') {
+  document.getElementById('pin-gate').style.display = 'none';
+  document.getElementById('admin-dash').style.display = 'block';
+  loadAdmin();
+}
+
+function loadAdmin() {
+  // Fetch from admin API using the admin key stored in env
+  // Since this is a simple PIN page, we embed a fetch to the public stats
+  // and use the admin overview endpoint with the key
+  fetch('/api/admin/overview', {
+    headers: { 'Authorization': 'Bearer ' + getAdminKey() }
+  })
+  .then(r => r.ok ? r.json() : Promise.reject('unauthorized'))
+  .then(data => {
+    renderInstalls(data.installs || []);
+    renderChannels(data.channels || []);
+    renderWorkspaces(data.workspaces || []);
+  })
+  .catch(() => {
+    document.getElementById('installs-list').innerHTML = '<p class="loading">Could not load admin data</p>';
+    document.getElementById('channels-list').innerHTML = '';
+    document.getElementById('workspaces-list').innerHTML = '';
+  });
+}
+
+function getAdminKey() {
+  // The PIN itself maps to the admin key — server validates via a separate endpoint
+  return sessionStorage.getItem('dread-admin-key') || '';
+}
+
+function timeAgo(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const s = Math.floor((now - d) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+function renderInstalls(installs) {
+  const el = document.getElementById('installs-list');
+  if (!installs.length) { el.innerHTML = '<p class="loading">No installs yet</p>'; return; }
+  el.innerHTML = installs.map(i => {
+    const loc = [i.city, i.region, i.country].filter(Boolean).join(', ');
+    return '<div class="admin-card">' +
+      '<div class="card-header">' +
+        '<span class="card-title">' + (i.org || i.isp || 'Unknown') + '</span>' +
+        '<span class="card-meta">' + timeAgo(i.last_seen) + '</span>' +
+      '</div>' +
+      '<div class="card-details">' +
+        (loc ? '<span>' + loc + '</span>' : '') +
+        (i.hostname ? '<span>host: ' + i.hostname + '</span>' : '') +
+        (i.os_version ? '<span>' + i.os_version + '</span>' : '') +
+        (i.dread_version ? '<span>v' + i.dread_version + '</span>' : '') +
+        '<span class="card-dim">' + i.ip + ' · ' + i.count + ' downloads</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderChannels(channels) {
+  const el = document.getElementById('channels-list');
+  if (!channels.length) { el.innerHTML = '<p class="loading">No channels yet</p>'; return; }
+  el.innerHTML = channels.map(c => {
+    return '<div class="admin-card">' +
+      '<div class="card-header">' +
+        '<span class="card-title">' + c.source + '</span>' +
+        '<span class="card-meta">' + c.event_count + ' events</span>' +
+      '</div>' +
+      '<div class="card-details">' +
+        '<span class="card-dim">' + c.channel + '</span>' +
+        (c.last_event ? '<span>last: ' + timeAgo(c.last_event) + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderWorkspaces(workspaces) {
+  const el = document.getElementById('workspaces-list');
+  if (!workspaces.length) { el.innerHTML = '<p class="loading">No workspaces yet</p>'; return; }
+  el.innerHTML = workspaces.map(ws => {
+    const chs = Array.isArray(ws.channels) ? ws.channels : [];
+    return '<div class="admin-card">' +
+      '<div class="card-header">' +
+        '<span class="card-title">' + ws.id.slice(0,12) + '...</span>' +
+        '<span class="card-meta">' + chs.length + ' channels</span>' +
+      '</div>' +
+      '<div class="card-details">' +
+        chs.map(function(ch) { return '<span>' + (ch.name || ch.id) + '</span>'; }).join('') +
+        '<span class="card-dim">updated ' + timeAgo(ws.updated_at) + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
 function copyText(text, btn) {
   navigator.clipboard.writeText(text);
   btn.textContent = 'Copied!';

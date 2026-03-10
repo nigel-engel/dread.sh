@@ -37,6 +37,9 @@ dist/
 /dread
 /server
 
+# Secrets
+.env*
+
 # Project
 dread.yaml
 *.db

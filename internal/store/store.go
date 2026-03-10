@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -30,6 +31,31 @@ func New(path string) (*Store, error) {
 
 	// Add sound column if missing (migration for existing databases).
 	db.Exec(`ALTER TABLE workspaces ADD COLUMN sound TEXT NOT NULL DEFAULT ''`)
+
+	// Add geo columns if missing (migration for existing databases).
+	for _, col := range []string{
+		"country TEXT NOT NULL DEFAULT ''",
+		"country_code TEXT NOT NULL DEFAULT ''",
+		"region TEXT NOT NULL DEFAULT ''",
+		"city TEXT NOT NULL DEFAULT ''",
+		"isp TEXT NOT NULL DEFAULT ''",
+		"org TEXT NOT NULL DEFAULT ''",
+		"as_info TEXT NOT NULL DEFAULT ''",
+		"timezone TEXT NOT NULL DEFAULT ''",
+		"lat REAL NOT NULL DEFAULT 0",
+		"lon REAL NOT NULL DEFAULT 0",
+	} {
+		db.Exec(`ALTER TABLE unique_installs ADD COLUMN ` + col)
+	}
+
+	// Add system info columns if missing (migration for existing databases).
+	for _, col := range []string{
+		"os_version TEXT NOT NULL DEFAULT ''",
+		"hostname TEXT NOT NULL DEFAULT ''",
+		"dread_version TEXT NOT NULL DEFAULT ''",
+	} {
+		db.Exec(`ALTER TABLE unique_installs ADD COLUMN ` + col)
+	}
 
 	return &Store{db: db}, nil
 }
@@ -113,13 +139,33 @@ func (s *Store) Increment(key string) {
 	)
 }
 
-// TrackUniqueInstall records or updates an install by IP.
-func (s *Store) TrackUniqueInstall(ip string) {
+// GeoInfo holds IP geolocation data.
+type GeoInfo struct {
+	Country     string  `json:"country"`
+	CountryCode string  `json:"countryCode"`
+	Region      string  `json:"regionName"`
+	City        string  `json:"city"`
+	ISP         string  `json:"isp"`
+	Org         string  `json:"org"`
+	AS          string  `json:"as"`
+	Timezone    string  `json:"timezone"`
+	Lat         float64 `json:"lat"`
+	Lon         float64 `json:"lon"`
+}
+
+// TrackUniqueInstall records or updates an install by IP with geo data.
+func (s *Store) TrackUniqueInstall(ip string, geo *GeoInfo) {
 	now := time.Now().UTC()
+	if geo == nil {
+		geo = &GeoInfo{}
+	}
 	s.db.Exec(
-		`INSERT INTO unique_installs (ip, first_seen, last_seen, count) VALUES (?, ?, ?, 1)
+		`INSERT INTO unique_installs (ip, first_seen, last_seen, count, country, country_code, region, city, isp, org, as_info, timezone, lat, lon)
+		 VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(ip) DO UPDATE SET last_seen = ?, count = count + 1`,
-		ip, now, now, now,
+		ip, now, now,
+		geo.Country, geo.CountryCode, geo.Region, geo.City, geo.ISP, geo.Org, geo.AS, geo.Timezone, geo.Lat, geo.Lon,
+		now,
 	)
 }
 
@@ -288,6 +334,131 @@ func (s *Store) LiveStats() LiveStats {
 	s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE timestamp >= ?`, sevenDaysAgo).Scan(&stats.EventsWeek)
 	s.db.QueryRow(`SELECT COUNT(*) FROM events`).Scan(&stats.EventsTotal)
 	return stats
+}
+
+// Install holds data for a unique install record.
+type Install struct {
+	IP           string    `json:"ip"`
+	FirstSeen    time.Time `json:"first_seen"`
+	LastSeen     time.Time `json:"last_seen"`
+	Count        int64     `json:"count"`
+	Country      string    `json:"country,omitempty"`
+	CountryCode  string    `json:"country_code,omitempty"`
+	Region       string    `json:"region,omitempty"`
+	City         string    `json:"city,omitempty"`
+	ISP          string    `json:"isp,omitempty"`
+	Org          string    `json:"org,omitempty"`
+	AS           string    `json:"as,omitempty"`
+	Timezone     string    `json:"timezone,omitempty"`
+	Lat          float64   `json:"lat,omitempty"`
+	Lon          float64   `json:"lon,omitempty"`
+	OSVersion    string    `json:"os_version,omitempty"`
+	Hostname     string    `json:"hostname,omitempty"`
+	DreadVersion string    `json:"dread_version,omitempty"`
+}
+
+// SystemInfo holds data sent from the install script phone-home.
+type SystemInfo struct {
+	OSVersion    string `json:"os_version"`
+	Hostname     string `json:"hostname"`
+	DreadVersion string `json:"dread_version"`
+}
+
+// UpdateInstallInfo updates system info for an existing install record.
+func (s *Store) UpdateInstallInfo(ip string, info *SystemInfo) {
+	s.db.Exec(
+		`UPDATE unique_installs SET os_version = ?, hostname = ?, dread_version = ? WHERE ip = ?`,
+		info.OSVersion, info.Hostname, info.DreadVersion, ip,
+	)
+}
+
+// ListInstalls returns all unique installs ordered by most recent.
+func (s *Store) ListInstalls() ([]Install, error) {
+	rows, err := s.db.Query(`SELECT ip, first_seen, last_seen, count, country, country_code, region, city, isp, org, as_info, timezone, lat, lon, os_version, hostname, dread_version FROM unique_installs ORDER BY last_seen DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var installs []Install
+	for rows.Next() {
+		var i Install
+		if err := rows.Scan(&i.IP, &i.FirstSeen, &i.LastSeen, &i.Count, &i.Country, &i.CountryCode, &i.Region, &i.City, &i.ISP, &i.Org, &i.AS, &i.Timezone, &i.Lat, &i.Lon, &i.OSVersion, &i.Hostname, &i.DreadVersion); err != nil {
+			return nil, err
+		}
+		installs = append(installs, i)
+	}
+	return installs, rows.Err()
+}
+
+// WorkspaceSummary holds data for listing workspaces.
+type WorkspaceSummary struct {
+	ID        string          `json:"id"`
+	Channels  json.RawMessage `json:"channels"`
+	Sound     string          `json:"sound,omitempty"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+// ListWorkspaces returns all workspaces.
+func (s *Store) ListWorkspaces() ([]WorkspaceSummary, error) {
+	rows, err := s.db.Query(`SELECT id, channels, sound, updated_at FROM workspaces ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var workspaces []WorkspaceSummary
+	for rows.Next() {
+		var ws WorkspaceSummary
+		var channels string
+		if err := rows.Scan(&ws.ID, &channels, &ws.Sound, &ws.UpdatedAt); err != nil {
+			return nil, err
+		}
+		ws.Channels = json.RawMessage(channels)
+		workspaces = append(workspaces, ws)
+	}
+	return workspaces, rows.Err()
+}
+
+// ChannelSummary holds aggregate data for a channel.
+type ChannelSummary struct {
+	Channel    string     `json:"channel"`
+	Source     string     `json:"source"`
+	EventCount int64     `json:"event_count"`
+	LastEvent  *time.Time `json:"last_event,omitempty"`
+}
+
+// ListChannels returns all channels with event counts and last activity.
+func (s *Store) ListChannels() ([]ChannelSummary, error) {
+	rows, err := s.db.Query(`
+		SELECT
+			t.channel,
+			(SELECT source FROM events WHERE channel = t.channel GROUP BY source ORDER BY COUNT(*) DESC LIMIT 1) as top_source,
+			t.event_count,
+			t.last_event
+		FROM (
+			SELECT channel, COUNT(*) as event_count, MAX(timestamp) as last_event
+			FROM events
+			GROUP BY channel
+		) t
+		ORDER BY t.last_event DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var channels []ChannelSummary
+	for rows.Next() {
+		var ch ChannelSummary
+		var lastEvent time.Time
+		if err := rows.Scan(&ch.Channel, &ch.Source, &ch.EventCount, &lastEvent); err != nil {
+			return nil, err
+		}
+		ch.LastEvent = &lastEvent
+		channels = append(channels, ch)
+	}
+	return channels, rows.Err()
 }
 
 // Close closes the database connection.

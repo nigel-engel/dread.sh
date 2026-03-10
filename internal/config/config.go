@@ -19,6 +19,8 @@ type ServerConfig struct {
 	DB            string `yaml:"db"`
 	BaseURL       string `yaml:"base_url"`
 	RetentionDays int    `yaml:"retention_days"`
+	AdminKey      string `yaml:"admin_key"`
+	AdminPin      string `yaml:"admin_pin"`
 }
 
 // Load reads and parses a YAML config file.
@@ -73,5 +75,11 @@ func applyEnv(cfg *Config) {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.Server.RetentionDays = n
 		}
+	}
+	if v := os.Getenv("DREAD_ADMIN_KEY"); v != "" {
+		cfg.Server.AdminKey = v
+	}
+	if v := os.Getenv("DREAD_ADMIN_PIN"); v != "" {
+		cfg.Server.AdminPin = v
 	}
 }
