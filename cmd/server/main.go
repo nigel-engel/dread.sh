@@ -277,6 +277,29 @@ func main() {
 		json.NewEncoder(w).Encode(channels)
 	}))
 
+	// Admin API — backfill geo data for installs missing it
+	mux.HandleFunc("POST /api/admin/backfill-geo", adminAuth(func(w http.ResponseWriter, r *http.Request) {
+		installs, err := db.ListInstalls()
+		if err != nil {
+			http.Error(w, "db error", http.StatusInternalServerError)
+			return
+		}
+		var updated int
+		for _, inst := range installs {
+			if inst.Country != "" {
+				continue
+			}
+			geo := lookupGeo(inst.IP)
+			if geo != nil {
+				db.BackfillGeo(inst.IP, geo)
+				updated++
+				log.Printf("backfill geo: ip=%s city=%s country=%s org=%s", inst.IP, geo.City, geo.Country, geo.Org)
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]int{"updated": updated})
+	}))
+
 	// Workspace API — save workspace
 	mux.HandleFunc("PUT /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")

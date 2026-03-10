@@ -527,6 +527,14 @@ func (s *Store) GetInstallActivity() (map[string]*InstallActivity, error) {
 	return result, nil
 }
 
+// BackfillGeo updates geo data for an existing install record.
+func (s *Store) BackfillGeo(ip string, geo *GeoInfo) {
+	s.db.Exec(
+		`UPDATE unique_installs SET country=?, country_code=?, region=?, city=?, isp=?, org=?, as_info=?, timezone=?, lat=?, lon=? WHERE ip=?`,
+		geo.Country, geo.CountryCode, geo.Region, geo.City, geo.ISP, geo.Org, geo.AS, geo.Timezone, geo.Lat, geo.Lon, ip,
+	)
+}
+
 // Close closes the database connection.
 func (s *Store) Close() error {
 	return s.db.Close()
