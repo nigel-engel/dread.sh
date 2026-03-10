@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
     id         TEXT PRIMARY KEY,
     channels   TEXT NOT NULL,
     sound      TEXT NOT NULL DEFAULT '',
-    updated_at DATETIME NOT NULL
+    updated_at DATETIME NOT NULL,
+    ip         TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS unique_installs (

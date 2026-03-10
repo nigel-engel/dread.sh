@@ -48,6 +48,9 @@ func New(path string) (*Store, error) {
 		db.Exec(`ALTER TABLE unique_installs ADD COLUMN ` + col)
 	}
 
+	// Add ip column to workspaces if missing (migration for existing databases).
+	db.Exec(`ALTER TABLE workspaces ADD COLUMN ip TEXT NOT NULL DEFAULT ''`)
+
 	// Add system info columns if missing (migration for existing databases).
 	for _, col := range []string{
 		"os_version TEXT NOT NULL DEFAULT ''",
@@ -193,12 +196,12 @@ func (s *Store) GetStats() map[string]int64 {
 	return stats
 }
 
-// SaveWorkspace upserts a workspace with the given channels JSON and sound.
-func (s *Store) SaveWorkspace(id string, channelsJSON string, sound string) error {
+// SaveWorkspace upserts a workspace with the given channels JSON, sound, and client IP.
+func (s *Store) SaveWorkspace(id string, channelsJSON string, sound string, ip string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO workspaces (id, channels, sound, updated_at) VALUES (?, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET channels = excluded.channels, sound = excluded.sound, updated_at = excluded.updated_at`,
-		id, channelsJSON, sound, time.Now().UTC(),
+		`INSERT INTO workspaces (id, channels, sound, updated_at, ip) VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET channels = excluded.channels, sound = excluded.sound, updated_at = excluded.updated_at, ip = excluded.ip`,
+		id, channelsJSON, sound, time.Now().UTC(), ip,
 	)
 	return err
 }
@@ -397,11 +400,12 @@ type WorkspaceSummary struct {
 	Channels  json.RawMessage `json:"channels"`
 	Sound     string          `json:"sound,omitempty"`
 	UpdatedAt time.Time       `json:"updated_at"`
+	IP        string          `json:"ip,omitempty"`
 }
 
 // ListWorkspaces returns all workspaces.
 func (s *Store) ListWorkspaces() ([]WorkspaceSummary, error) {
-	rows, err := s.db.Query(`SELECT id, channels, sound, updated_at FROM workspaces ORDER BY updated_at DESC`)
+	rows, err := s.db.Query(`SELECT id, channels, sound, updated_at, ip FROM workspaces ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +415,7 @@ func (s *Store) ListWorkspaces() ([]WorkspaceSummary, error) {
 	for rows.Next() {
 		var ws WorkspaceSummary
 		var channels string
-		if err := rows.Scan(&ws.ID, &channels, &ws.Sound, &ws.UpdatedAt); err != nil {
+		if err := rows.Scan(&ws.ID, &channels, &ws.Sound, &ws.UpdatedAt, &ws.IP); err != nil {
 			return nil, err
 		}
 		ws.Channels = json.RawMessage(channels)
@@ -459,6 +463,68 @@ func (s *Store) ListChannels() ([]ChannelSummary, error) {
 		channels = append(channels, ch)
 	}
 	return channels, rows.Err()
+}
+
+// InstallActivity holds webhook usage stats for an install IP.
+type InstallActivity struct {
+	Workspaces int64 `json:"workspaces"`
+	Channels   int64 `json:"channels"`
+	Events     int64 `json:"events"`
+}
+
+// GetInstallActivity returns webhook usage stats grouped by IP.
+func (s *Store) GetInstallActivity() (map[string]*InstallActivity, error) {
+	result := make(map[string]*InstallActivity)
+
+	// Count workspaces and channels per IP
+	rows, err := s.db.Query(`SELECT ip, channels FROM workspaces WHERE ip != ''`)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ip, channelsJSON string
+		if err := rows.Scan(&ip, &channelsJSON); err != nil {
+			continue
+		}
+		a, ok := result[ip]
+		if !ok {
+			a = &InstallActivity{}
+			result[ip] = a
+		}
+		a.Workspaces++
+		var chs []json.RawMessage
+		if json.Unmarshal([]byte(channelsJSON), &chs) == nil {
+			a.Channels += int64(len(chs))
+		}
+	}
+
+	// Count events per IP by matching channel IDs from workspaces
+	rows2, err := s.db.Query(`
+		SELECT w.ip, COUNT(e.id)
+		FROM workspaces w
+		JOIN json_each(w.channels) c ON 1=1
+		JOIN events e ON e.channel = json_extract(c.value, '$.id')
+		WHERE w.ip != ''
+		GROUP BY w.ip
+	`)
+	if err == nil {
+		defer rows2.Close()
+		for rows2.Next() {
+			var ip string
+			var count int64
+			if rows2.Scan(&ip, &count) == nil {
+				if a, ok := result[ip]; ok {
+					a.Events = count
+				} else {
+					result[ip] = &InstallActivity{Events: count}
+				}
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // Close closes the database connection.

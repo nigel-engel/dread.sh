@@ -294,7 +294,18 @@ func main() {
 			http.Error(w, "invalid payload: requires {\"channels\":[...]}", http.StatusBadRequest)
 			return
 		}
-		if err := db.SaveWorkspace(id, string(payload.Channels), payload.Sound); err != nil {
+		// Extract client IP to link workspace to install
+		ip := r.Header.Get("Fly-Client-IP")
+		if ip == "" {
+			ip = r.Header.Get("X-Forwarded-For")
+			if i := strings.Index(ip, ","); i != -1 {
+				ip = ip[:i]
+			}
+		}
+		if ip == "" {
+			ip, _, _ = strings.Cut(r.RemoteAddr, ":")
+		}
+		if err := db.SaveWorkspace(id, string(payload.Channels), payload.Sound, strings.TrimSpace(ip)); err != nil {
 			http.Error(w, "db error", http.StatusInternalServerError)
 			log.Printf("save workspace: %v", err)
 			return
@@ -572,6 +583,7 @@ func main() {
 		workspaces, _ := db.ListWorkspaces()
 		channels, _ := db.ListChannels()
 		liveStats := db.LiveStats()
+		activity, _ := db.GetInstallActivity()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"stats":      stats,
@@ -579,6 +591,7 @@ func main() {
 			"installs":   installs,
 			"workspaces": workspaces,
 			"channels":   channels,
+			"activity":   activity,
 		})
 	}))
 
@@ -7372,7 +7385,7 @@ function loadAdmin() {
   })
   .then(r => r.ok ? r.json() : Promise.reject('unauthorized'))
   .then(data => {
-    renderInstalls(data.installs || []);
+    renderInstalls(data.installs || [], data.activity || {});
     renderChannels(data.channels || []);
     renderWorkspaces(data.workspaces || []);
   })
@@ -7398,11 +7411,16 @@ function timeAgo(ts) {
   return Math.floor(s/86400) + 'd ago';
 }
 
-function renderInstalls(installs) {
+function renderInstalls(installs, activity) {
   const el = document.getElementById('installs-list');
   if (!installs.length) { el.innerHTML = '<p class="loading">No installs yet</p>'; return; }
   el.innerHTML = installs.map(i => {
     const loc = [i.city, i.region, i.country].filter(Boolean).join(', ');
+    const a = activity[i.ip] || {};
+    const usage = [];
+    if (a.channels) usage.push(a.channels + ' channel' + (a.channels !== 1 ? 's' : ''));
+    if (a.events) usage.push(a.events + ' event' + (a.events !== 1 ? 's' : ''));
+    if (a.workspaces) usage.push(a.workspaces + ' workspace' + (a.workspaces !== 1 ? 's' : ''));
     return '<div class="admin-card">' +
       '<div class="card-header">' +
         '<span class="card-title">' + (i.org || i.isp || 'Unknown') + '</span>' +
@@ -7413,6 +7431,7 @@ function renderInstalls(installs) {
         (i.hostname ? '<span>host: ' + i.hostname + '</span>' : '') +
         (i.os_version ? '<span>' + i.os_version + '</span>' : '') +
         (i.dread_version ? '<span>v' + i.dread_version + '</span>' : '') +
+        (usage.length ? '<span style="color:var(--accent)">' + usage.join(' · ') + '</span>' : '<span style="color:var(--text-dim)">no webhooks yet</span>') +
         '<span class="card-dim">' + i.ip + ' · ' + i.count + ' downloads</span>' +
       '</div>' +
     '</div>';
