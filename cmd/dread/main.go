@@ -104,7 +104,7 @@ Usage:
   dread alert add <pat> <n> <m>  alert when >=n events match pattern in m minutes
   dread alert list               list alert rules
   dread alert remove <index>     remove an alert rule
-  dread service install          run dread watch as a background service (launchd/systemd)
+  dread service install          run dread watch as a background service (launchd/systemd/Task Scheduler)
   dread service uninstall        stop and remove the background service
 
 Flags (TUI / watch mode):
@@ -526,6 +526,17 @@ func cmdStatus(args []string) {
 				fmt.Println("running (systemd)")
 			} else {
 				fmt.Printf("not running (%s)\n", status)
+			}
+		}
+	case "windows":
+		out, err := exec.Command("schtasks", "/Query", "/TN", "DreadWatch", "/FO", "CSV", "/NH").CombinedOutput()
+		if err != nil {
+			fmt.Println("not running")
+		} else {
+			if strings.Contains(string(out), "Running") {
+				fmt.Println("running (Task Scheduler)")
+			} else {
+				fmt.Println("not running")
 			}
 		}
 	default:
@@ -996,6 +1007,8 @@ func serviceInstall() {
 		serviceInstallDarwin(bin)
 	case "linux":
 		serviceInstallLinux(bin)
+	case "windows":
+		serviceInstallWindows(bin)
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported OS: %s\n", runtime.GOOS)
 		os.Exit(1)
@@ -1077,6 +1090,8 @@ func serviceUninstall() {
 		serviceUninstallDarwin()
 	case "linux":
 		serviceUninstallLinux()
+	case "windows":
+		serviceUninstallWindows()
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported OS: %s\n", runtime.GOOS)
 		os.Exit(1)
@@ -1106,6 +1121,40 @@ func serviceUninstallLinux() {
 		os.Exit(1)
 	}
 	exec.Command("systemctl", "--user", "daemon-reload").Run()
+
+	fmt.Println("Background service stopped and removed.")
+}
+
+func serviceInstallWindows(bin string) {
+	// Use Task Scheduler to create a background task that runs at logon
+	out, err := exec.Command("schtasks", "/Create",
+		"/TN", "DreadWatch",
+		"/TR", fmt.Sprintf(`"%s" watch`, bin),
+		"/SC", "ONLOGON",
+		"/RL", "LIMITED",
+		"/F",
+	).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error creating scheduled task: %s\n%v\n", out, err)
+		os.Exit(1)
+	}
+
+	// Start the task immediately
+	exec.Command("schtasks", "/Run", "/TN", "DreadWatch").Run()
+
+	fmt.Println("Background service installed and started.")
+	fmt.Println("  Task: DreadWatch (Task Scheduler)")
+	fmt.Println()
+	fmt.Println("To stop: dread service uninstall")
+}
+
+func serviceUninstallWindows() {
+	exec.Command("schtasks", "/End", "/TN", "DreadWatch").Run()
+	out, err := exec.Command("schtasks", "/Delete", "/TN", "DreadWatch", "/F").CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error removing scheduled task: %s\n%v\n", out, err)
+		os.Exit(1)
+	}
 
 	fmt.Println("Background service stopped and removed.")
 }

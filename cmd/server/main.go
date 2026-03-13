@@ -765,7 +765,7 @@ Sitemap: https://dread.sh/sitemap.xml
 
 ## Key Features
 
-- Real-time desktop notifications for incoming webhooks (macOS and Linux)
+- Real-time desktop notifications for incoming webhooks (macOS, Linux, and Windows)
 - Terminal UI with per-source sparklines, event timeline, and payload viewer
 - Slack and Discord forwarding with rich formatting
 - Background watch mode with auto-updates
@@ -804,11 +804,11 @@ Sitemap: https://dread.sh/sitemap.xml
 
 ## Installation
 
-Install on macOS or Linux with one command:
+Install on macOS, Linux, or Windows with one command:
 
     curl -sSL dread.sh/install | sh
 
-This downloads the latest binary for your OS and architecture (supports darwin/amd64, darwin/arm64, linux/amd64, linux/arm64).
+This downloads the latest binary for your OS and architecture (supports darwin/amd64, darwin/arm64, linux/amd64, linux/arm64, windows/amd64, windows/arm64).
 
 The CLI auto-updates itself when new versions are available.
 
@@ -933,6 +933,7 @@ The dread binary checks for updates on each run and automatically downloads and 
 
 - macOS (Intel and Apple Silicon)
 - Linux (x86_64 and ARM64)
+- Windows (x86_64 and ARM64)
 `))
 	})
 
@@ -1116,7 +1117,7 @@ const landingPage = `<!DOCTYPE html>
   "name": "dread",
   "description": "Webhook relay and notification tool. Captures webhooks from Stripe, GitHub, Sentry, and any source, then delivers desktop notifications, a live terminal UI, and forwards to Slack or Discord.",
   "applicationCategory": "DeveloperApplication",
-  "operatingSystem": ["macOS", "Linux"],
+  "operatingSystem": ["macOS", "Linux", "Windows"],
   "url": "https://dread.sh",
   "downloadUrl": "https://dread.sh/download",
   "installUrl": "https://dread.sh/install",
@@ -1151,7 +1152,7 @@ const landingPage = `<!DOCTYPE html>
       "name": "How do I install dread?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Run curl -sSL dread.sh/install | sh to install on macOS or Linux. Supports Intel, Apple Silicon, and ARM64."
+        "text": "Run curl -sSL dread.sh/install | sh to install on macOS or Linux. On Windows, download the binary from GitHub Releases. Supports Intel, Apple Silicon, and ARM64."
       }
     },
     {
@@ -1882,7 +1883,7 @@ const landingPage = `<!DOCTYPE html>
 
 <!-- RELEASE BAR -->
 <div class="release-bar">
-  🚀 <code>v0.3.0</code> is out — bookmarks, diff view, command palette, swimlane timeline, and more. <a href="/changelog">Read the changelog →</a>
+  🚀 <code>v0.4.0</code> is out — Windows support! Native notifications, clipboard, and background service. <a href="/changelog">Read the changelog →</a>
 </div>
 
 <!-- HERO -->
@@ -2157,7 +2158,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     <div class="feat">
       <div class="feat-icon ic-green"><i data-lucide="bell"></i></div>
       <h3>Desktop notifications</h3>
-      <p>Native macOS + Linux with customisable sounds. Background or terminal.</p>
+      <p>Native macOS, Linux &amp; Windows with customisable sounds. Background or terminal.</p>
     </div>
     <div class="feat">
       <div class="feat-icon ic-blue"><i data-lucide="terminal"></i></div>
@@ -2252,7 +2253,7 @@ Webhook URL:     </span><span class="h">https://dread.sh/wh/ch_stripe-prod_a1b2c
     <div class="feat">
       <div class="feat-icon ic-rose"><i data-lucide="bell-ring"></i></div>
       <h3>Desktop notifications</h3>
-      <p>Native desktop alerts the moment a webhook arrives. macOS and Linux.</p>
+      <p>Native desktop alerts the moment a webhook arrives. macOS, Linux, and Windows.</p>
     </div>
   </div>
 </div>
@@ -2950,10 +2951,10 @@ const docsPage = `<!DOCTYPE html>
       <ul>
         <li>Download the <code>dread</code> binary to <code>~/.local/bin</code></li>
         <li>Automatically add <code>~/.local/bin</code> to your PATH (no sudo required)</li>
-        <li>Set up a background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux) for desktop notifications</li>
+        <li>Set up a background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux, Task Scheduler on Windows) for desktop notifications</li>
         <li>Start listening for webhook events immediately</li>
       </ul>
-      <p>Supported platforms: macOS and Linux (amd64 and arm64). Re-run the same command to update to the latest version.</p>
+      <p>Supported platforms: macOS, Linux, and Windows (amd64 and arm64). Re-run the same command to update to the latest version.</p>
     </section>
 
     <section class="docs-section" id="first-channel">
@@ -3266,10 +3267,10 @@ const docsPage = `<!DOCTYPE html>
       </div>
       <table>
         <tr><th>Subcommand</th><th>Description</th></tr>
-        <tr><td><code>install</code></td><td>Install and start the background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux)</td></tr>
+        <tr><td><code>install</code></td><td>Install and start the background service (<code>launchd</code> on macOS, <code>systemd</code> on Linux, Task Scheduler on Windows)</td></tr>
         <tr><td><code>uninstall</code></td><td>Stop and remove the background service</td></tr>
       </table>
-      <p>On macOS, this creates a <code>launchd</code> agent that starts at login and auto-restarts on failure. On Linux, it creates a <code>systemd</code> user service. Logs are written to <code>~/Library/Logs/dread.log</code> (macOS) or available via <code>journalctl --user -u dread-watch</code> (Linux).</p>
+      <p>On macOS, this creates a <code>launchd</code> agent that starts at login and auto-restarts on failure. On Linux, it creates a <code>systemd</code> user service. On Windows, it creates a Task Scheduler task that runs at logon. Logs are written to <code>~/Library/Logs/dread.log</code> (macOS) or available via <code>journalctl --user -u dread-watch</code> (Linux).</p>
       <p>Use <code>dread status</code> to check whether the background service is running.</p>
     </section>
 
@@ -3401,8 +3402,9 @@ const docsPage = `<!DOCTYPE html>
       <ul>
         <li><strong>macOS</strong> &mdash; uses a native notifier with sound. Notifications appear in Notification Centre.</li>
         <li><strong>Linux</strong> &mdash; uses <code>notify-send</code>. Works with any desktop environment that supports freedesktop notifications.</li>
+        <li><strong>Windows</strong> &mdash; uses Windows toast notifications via PowerShell. Works on Windows 10 and later.</li>
       </ul>
-      <p>This installs a <code>launchd</code> agent (macOS) or <code>systemd</code> user service (Linux) that auto-restarts on failure. To remove it, run <code>dread service uninstall</code>.</p>
+      <p>This installs a <code>launchd</code> agent (macOS), <code>systemd</code> user service (Linux), or Task Scheduler task (Windows) that auto-restarts on failure. To remove it, run <code>dread service uninstall</code>.</p>
       <h4 style="margin-top:24px;">Custom notification sound</h4>
       <p>Set the <code>"sound"</code> field in your config to change the notification sound (default: <code>Sosumi</code>):</p>
       <div class="copy-wrap">
@@ -3822,6 +3824,18 @@ const changelogPage = `<!DOCTYPE html>
 <div class="changelog">
   <h1>Changelog</h1>
   <p class="subtitle">New updates and improvements to dread.sh</p>
+
+  <div class="changelog-entry">
+    <div class="changelog-date">March 14, 2026</div>
+    <div class="changelog-title">Windows support</div>
+    <ul>
+      <li><strong>Windows builds</strong> &mdash; dread now ships Windows binaries (amd64 and arm64) via GitHub Releases and GoReleaser</li>
+      <li><strong>Windows toast notifications</strong> &mdash; native Windows 10+ toast notifications via PowerShell</li>
+      <li><strong>Windows clipboard</strong> &mdash; copy payloads to clipboard using <code>Set-Clipboard</code></li>
+      <li><strong>Windows background service</strong> &mdash; <code>dread service install</code> creates a Task Scheduler task that runs at logon</li>
+      <li><strong>Supported platforms</strong> &mdash; macOS, Linux, and Windows (amd64 and arm64)</li>
+    </ul>
+  </div>
 
   <div class="changelog-entry">
     <div class="changelog-date">March 6, 2026</div>
@@ -7161,17 +7175,17 @@ const downloadPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Download dread — install with one command on macOS or Linux. Supports Intel, Apple Silicon, and ARM64.">
+<meta name="description" content="Download dread — install with one command on macOS, Linux, or Windows. Supports Intel, Apple Silicon, and ARM64.">
 <link rel="canonical" href="https://dread.sh/download">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="dread.sh">
 <meta property="og:title" content="Download and Install dread - Webhook CLI Tool">
-<meta property="og:description" content="Install dread with one command on macOS or Linux. Supports Intel, Apple Silicon, and ARM64.">
+<meta property="og:description" content="Install dread with one command on macOS, Linux, or Windows. Supports Intel, Apple Silicon, and ARM64.">
 <meta property="og:url" content="https://dread.sh/download">
 <meta property="og:image" content="https://dread.sh/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Download and Install dread - Webhook CLI Tool">
-<meta name="twitter:description" content="Install dread with one command on macOS or Linux. Supports Intel, Apple Silicon, and ARM64.">
+<meta name="twitter:description" content="Install dread with one command on macOS, Linux, or Windows. Supports Intel, Apple Silicon, and ARM64.">
 <meta name="twitter:image" content="https://dread.sh/og.png">
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23c37960'/></svg>">

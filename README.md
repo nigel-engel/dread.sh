@@ -32,7 +32,7 @@ Point your webhook provider at the URL shown by `dread new` and events stream to
 ## Features
 
 - **Live terminal feed** — real-time TUI powered by Bubble Tea
-- **Desktop notifications** — native macOS and Linux notifications, even when the terminal is closed
+- **Desktop notifications** — native macOS, Linux, and Windows notifications, even when the terminal is closed
 - **Team workspaces** — share webhook feeds with your team in one command
 - **Multiple sources** — Stripe, GitHub, Sentry, and any custom webhook
 - **Self-hostable** — single Go binary, deploy anywhere
