@@ -18,6 +18,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"dread.sh/internal/auth"
+	"dread.sh/internal/desktop"
 	"dread.sh/internal/event"
 	"dread.sh/internal/forward"
 	"dread.sh/internal/hub"
@@ -64,6 +65,8 @@ func main() {
 		cmdDigest(os.Args[2:])
 	case "alert":
 		cmdAlert(os.Args[2:])
+	case "desktop":
+		cmdDesktop(os.Args[2:])
 	case "service":
 		cmdService(os.Args[2:])
 	case "version", "--version", "-v":
@@ -104,6 +107,9 @@ Usage:
   dread alert add <pat> <n> <m>  alert when >=n events match pattern in m minutes
   dread alert list               list alert rules
   dread alert remove <index>     remove an alert rule
+  dread desktop                  launch the floating desktop overlay (macOS)
+  dread desktop stop             stop the desktop overlay
+  dread desktop rebuild          force rebuild the overlay app
   dread service install          run dread watch as a background service (launchd/systemd/Task Scheduler)
   dread service uninstall        stop and remove the background service
 
@@ -933,6 +939,53 @@ func cmdAlert(args []string) {
 
 	default:
 		fmt.Fprintln(os.Stderr, "usage: dread alert <add|list|remove> ...")
+		os.Exit(1)
+	}
+}
+
+func cmdDesktop(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "stop":
+			desktop.Stop()
+			return
+		case "rebuild":
+			if err := desktop.Rebuild(); err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+	}
+
+	fs := flag.NewFlagSet("desktop", flag.ExitOnError)
+	serverURL := fs.String("server", "https://dread.sh", "dread server URL")
+	fs.Parse(args)
+
+	cfg, err := auth.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	channels := make([]desktop.Channel, len(cfg.Channels))
+	for i, ch := range cfg.Channels {
+		channels[i] = desktop.Channel{ID: ch.ID, Name: ch.Name}
+	}
+
+	// Include followed workspaces
+	for _, wsID := range cfg.Follows {
+		remote, err := resolveWorkspace(*serverURL, wsID)
+		if err != nil {
+			continue
+		}
+		for _, ch := range remote {
+			channels = append(channels, desktop.Channel{ID: ch.ID, Name: ch.Name})
+		}
+	}
+
+	if err := desktop.Run(*serverURL, channels); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
