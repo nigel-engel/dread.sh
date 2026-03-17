@@ -299,10 +299,10 @@ const htmlTemplate = `<!DOCTYPE html>
   --zinc-950: oklch(10% 0.003 256);
 
   /* Semantic */
-  --bg: transparent;
-  --card: oklch(16% 0.003 256 / 0.55);
-  --card-hover: oklch(23% 0.003 256 / 0.6);
-  --border: oklch(23% 0.003 256 / 0.7);
+  --bg: oklch(10% 0.003 256);
+  --card: oklch(16% 0.003 256);
+  --card-hover: oklch(19.5% 0.003 256);
+  --border: var(--zinc-800);
   --text: var(--zinc-50);
   --text-muted: var(--zinc-400);
   --text-dim: var(--zinc-500);
@@ -386,7 +386,7 @@ body {
 .channel-count {
   font-size: 11px;
   color: var(--text-dim);
-  background: oklch(23% 0.003 256 / 0.5);
+  background: var(--zinc-800);
   padding: 2px 7px;
   border-radius: 10px;
 }
@@ -437,7 +437,7 @@ body {
 }
 .feed::-webkit-scrollbar { width: 5px; }
 .feed::-webkit-scrollbar-track { background: transparent; }
-.feed::-webkit-scrollbar-thumb { background: oklch(40% 0.003 256 / 0.5); border-radius: 3px; }
+.feed::-webkit-scrollbar-thumb { background: var(--zinc-700); border-radius: 3px; }
 
 .empty {
   display: flex;
@@ -514,8 +514,8 @@ body {
 }
 .event-json {
   margin-top: 8px;
-  background: oklch(10% 0.003 256 / 0.5);
-  border: 1px solid var(--border);
+  background: var(--zinc-950);
+  border: 1px solid var(--zinc-800);
   border-radius: var(--radius-sm);
   padding: 10px;
   font-family: 'SF Mono', 'Menlo', monospace;
@@ -547,8 +547,8 @@ body {
   font-size: 11px;
 }
 .footer-btn {
-  background: oklch(23% 0.003 256 / 0.5);
-  border: 1px solid oklch(32% 0.003 256 / 0.4);
+  background: var(--zinc-800);
+  border: 1px solid var(--zinc-700);
   color: var(--text-muted);
   padding: 4px 10px;
   border-radius: var(--radius-sm);
@@ -557,7 +557,7 @@ body {
   font-family: inherit;
   transition: all 0.15s;
 }
-.footer-btn:hover { background: oklch(32% 0.003 256 / 0.6); color: var(--text); border-color: oklch(40% 0.003 256 / 0.5); }
+.footer-btn:hover { background: var(--zinc-700); color: var(--text); border-color: var(--zinc-600); }
 .footer-right { display: flex; gap: 6px; }
 
 /* Source-specific colors — border-left uses 500, badge bg uses 700 */
