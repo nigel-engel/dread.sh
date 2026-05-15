@@ -1176,7 +1176,7 @@ const landingPage = `<!DOCTYPE html>
       "name": "How do I install dread?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "On macOS or Linux, run curl -sSL dread.sh/install | sh. On Windows, run iwr -useb dread.sh/install.ps1 | iex in PowerShell. Supports Intel, Apple Silicon, and ARM64."
+        "text": "On macOS or Linux, run curl -sSL dread.sh/install | sh. On Windows, run powershell -ExecutionPolicy Bypass -c \"irm https://dread.sh/install.ps1 | iex\" — works in PowerShell or cmd.exe. Supports Intel, Apple Silicon, and ARM64."
       }
     },
     {
@@ -1427,6 +1427,11 @@ const landingPage = `<!DOCTYPE html>
   .quickstart-install .install-tabs { margin-bottom: 8px; }
   .quickstart-install .install-cmd { display: none; }
   .quickstart-install .install-cmd.active { display: block; }
+  .install-note {
+    font-size: 0.75rem; color: var(--text-dim);
+    margin-top: 6px;
+    font-family: inherit;
+  }
 
   /* ---- LIVE STATS ---- */
   .live-stats {
@@ -1951,7 +1956,7 @@ const landingPage = `<!DOCTYPE html>
         <button class="install-tab" type="button" data-os="win" onclick="selectInstall('win', this)">Windows</button>
       </div>
       <div class="hero-install install-cmd active" data-os="unix" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
-      <div class="hero-install install-cmd" data-os="win" onclick="copyText('iwr -useb dread.sh/install.ps1 | iex', this)"><span class="prompt">&gt;</span> iwr -useb dread.sh/install.ps1 <span class="pipe">|</span> iex<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
+      <div class="hero-install install-cmd" data-os="win" onclick="copyText('powershell -ExecutionPolicy Bypass -c &quot;irm https://dread.sh/install.ps1 | iex&quot;', this)"><span class="prompt">&gt;</span> powershell -ExecutionPolicy Bypass -c "irm https://dread.sh/install.ps1 <span class="pipe">|</span> iex"<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
     </div>
   </div>
   <div class="hero-right">
@@ -2121,9 +2126,10 @@ const landingPage = `<!DOCTYPE html>
         </div>
         <div class="install-cmd" data-os="win">
           <div class="copy-wrap">
-            <pre><code>iwr -useb dread.sh/install.ps1 | iex</code></pre>
-            <button class="copy-btn" onclick="copyText('iwr -useb dread.sh/install.ps1 | iex', this)" type="button"><i data-lucide="copy"></i></button>
+            <pre><code>powershell -ExecutionPolicy Bypass -c "irm https://dread.sh/install.ps1 | iex"</code></pre>
+            <button class="copy-btn" onclick="copyText('powershell -ExecutionPolicy Bypass -c &quot;irm https://dread.sh/install.ps1 | iex&quot;', this)" type="button"><i data-lucide="copy"></i></button>
           </div>
+          <div class="install-note">Works in PowerShell or cmd.exe (Windows Terminal too).</div>
         </div>
       </div>
     </div>
