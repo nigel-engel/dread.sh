@@ -522,6 +522,30 @@ func main() {
 		w.Write([]byte(installScript))
 	})
 
+	// PowerShell install script (Windows)
+	mux.HandleFunc("GET /install.ps1", func(w http.ResponseWriter, r *http.Request) {
+		db.Increment("install_downloads")
+		ip := r.Header.Get("Fly-Client-IP")
+		if ip == "" {
+			ip = r.Header.Get("X-Forwarded-For")
+			if i := strings.Index(ip, ","); i != -1 {
+				ip = ip[:i]
+			}
+		}
+		if ip == "" {
+			ip, _, _ = strings.Cut(r.RemoteAddr, ":")
+		}
+		ip = strings.TrimSpace(ip)
+		log.Printf("install.ps1: ip=%s ua=%s", ip, r.UserAgent())
+		geo := lookupGeo(ip)
+		if geo != nil {
+			log.Printf("install.ps1 geo: ip=%s city=%s region=%s country=%s org=%s isp=%s", ip, geo.City, geo.Region, geo.Country, geo.Org, geo.ISP)
+		}
+		db.TrackUniqueInstall(ip, geo)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(installPs1Script))
+	})
+
 	// Install completed — phone-home from install script
 	mux.HandleFunc("POST /api/installed", func(w http.ResponseWriter, r *http.Request) {
 		db.Increment("installs")
@@ -1152,7 +1176,7 @@ const landingPage = `<!DOCTYPE html>
       "name": "How do I install dread?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Run curl -sSL dread.sh/install | sh to install on macOS or Linux. On Windows, download the binary from GitHub Releases. Supports Intel, Apple Silicon, and ARM64."
+        "text": "On macOS or Linux, run curl -sSL dread.sh/install | sh. On Windows, run iwr -useb dread.sh/install.ps1 | iex in PowerShell. Supports Intel, Apple Silicon, and ARM64."
       }
     },
     {
@@ -1374,6 +1398,35 @@ const landingPage = `<!DOCTYPE html>
   .hero-install:hover { border-color: var(--text-muted); }
   .hero-install .prompt { color: var(--text-dim); }
   .hero-install .pipe { color: var(--text-dim); }
+
+  /* ---- INSTALL TABS ---- */
+  .install-tabs {
+    display: inline-flex; gap: 4px;
+    margin-bottom: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .install-tab {
+    background: transparent; border: 0;
+    color: var(--text-dim);
+    font-family: inherit; font-size: 0.78rem;
+    padding: 5px 12px; border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .install-tab:hover { color: var(--text); }
+  .install-tab.active {
+    background: var(--bg);
+    color: var(--text);
+  }
+  .install-cmd { display: none; }
+  .install-cmd.active { display: inline-flex; }
+  .install-group { display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
+  .quickstart-install .install-tabs { margin-bottom: 8px; }
+  .quickstart-install .install-cmd { display: none; }
+  .quickstart-install .install-cmd.active { display: block; }
 
   /* ---- LIVE STATS ---- */
   .live-stats {
@@ -1892,7 +1945,14 @@ const landingPage = `<!DOCTYPE html>
   <h1>Webhook notifications<br>to your terminal and desktop</h1>
   <p class="hero-sub">Get desktop notifications and a live terminal feed from Stripe, GitHub, Sentry, and anything else that sends webhooks. Share your setup with the whole team in one command.</p>
   <div class="hero-actions">
-    <div class="hero-install" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
+    <div class="install-group">
+      <div class="install-tabs" role="tablist">
+        <button class="install-tab active" type="button" data-os="unix" onclick="selectInstall('unix', this)">macOS / Linux</button>
+        <button class="install-tab" type="button" data-os="win" onclick="selectInstall('win', this)">Windows</button>
+      </div>
+      <div class="hero-install install-cmd active" data-os="unix" onclick="copyText('curl -sSL dread.sh/install | sh', this)"><span class="prompt">$</span> curl -sSL dread.sh/install <span class="pipe">|</span> sh<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
+      <div class="hero-install install-cmd" data-os="win" onclick="copyText('iwr -useb dread.sh/install.ps1 | iex', this)"><span class="prompt">&gt;</span> iwr -useb dread.sh/install.ps1 <span class="pipe">|</span> iex<button class="copy-btn" type="button"><i data-lucide="copy"></i></button></div>
+    </div>
   </div>
   <div class="hero-right">
     <div class="terminal">
@@ -2048,10 +2108,22 @@ const landingPage = `<!DOCTYPE html>
   <div class="steps">
     <div class="step-row">
       <div class="step-num"><span class="step-n step-n-1">1</span><span class="step-label">Install</span></div>
-      <div class="step-content">
-        <div class="copy-wrap">
-          <pre><code>curl -sSL dread.sh/install | sh</code></pre>
-          <button class="copy-btn" onclick="copyText('curl -sSL dread.sh/install | sh', this)" type="button"><i data-lucide="copy"></i></button>
+      <div class="step-content quickstart-install">
+        <div class="install-tabs" role="tablist">
+          <button class="install-tab active" type="button" data-os="unix" onclick="selectInstall('unix', this)">macOS / Linux</button>
+          <button class="install-tab" type="button" data-os="win" onclick="selectInstall('win', this)">Windows</button>
+        </div>
+        <div class="install-cmd active" data-os="unix">
+          <div class="copy-wrap">
+            <pre><code>curl -sSL dread.sh/install | sh</code></pre>
+            <button class="copy-btn" onclick="copyText('curl -sSL dread.sh/install | sh', this)" type="button"><i data-lucide="copy"></i></button>
+          </div>
+        </div>
+        <div class="install-cmd" data-os="win">
+          <div class="copy-wrap">
+            <pre><code>iwr -useb dread.sh/install.ps1 | iex</code></pre>
+            <button class="copy-btn" onclick="copyText('iwr -useb dread.sh/install.ps1 | iex', this)" type="button"><i data-lucide="copy"></i></button>
+          </div>
         </div>
       </div>
     </div>
@@ -2422,6 +2494,34 @@ function copyText(text, el) {
     }, 1500);
   });
 }
+
+function selectInstall(os, btn) {
+  var group = btn.closest('.install-group, .quickstart-install') || btn.parentElement.parentElement;
+  group.querySelectorAll('.install-tab').forEach(function(t) { t.classList.remove('active'); });
+  group.querySelectorAll('.install-cmd').forEach(function(c) { c.classList.remove('active'); });
+  btn.classList.add('active');
+  var cmd = group.querySelector('.install-cmd[data-os="' + os + '"]');
+  if (cmd) cmd.classList.add('active');
+  // Sync the other install group on the page (hero <-> quickstart) so both show the same OS
+  document.querySelectorAll('.install-group, .quickstart-install').forEach(function(g) {
+    if (g === group) return;
+    g.querySelectorAll('.install-tab').forEach(function(t) {
+      t.classList.toggle('active', t.dataset.os === os);
+    });
+    g.querySelectorAll('.install-cmd').forEach(function(c) {
+      c.classList.toggle('active', c.dataset.os === os);
+    });
+  });
+}
+
+// Auto-select Windows if visitor is on Windows
+(function() {
+  if (/Windows/i.test(navigator.userAgent) || /Win32|Win64/i.test(navigator.platform || '')) {
+    document.querySelectorAll('.install-tab[data-os="win"]').forEach(function(btn, i) {
+      if (i === 0) selectInstall('win', btn);
+    });
+  }
+})();
 </script>
 </body>
 </html>`
@@ -2617,6 +2717,85 @@ esac
 
 echo ""
 echo "Next: dread new \"My Channel\""
+`
+
+const installPs1Script = `#Requires -Version 5.1
+$ErrorActionPreference = "Stop"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$Repo      = "nigel-engel/dread.sh"
+$Binary    = "dread"
+$InstallDir = Join-Path $env:LOCALAPPDATA "Programs\dread"
+
+$arch = switch ($env:PROCESSOR_ARCHITECTURE) {
+  "AMD64" { "amd64" }
+  "ARM64" { "arm64" }
+  default { Write-Error "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE"; exit 1 }
+}
+
+$tarball = "${Binary}_windows_${arch}.tar.gz"
+$url     = "https://github.com/$Repo/releases/latest/download/$tarball"
+
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dread-install-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $tmp | Out-Null
+
+try {
+  Write-Host "Downloading dread for windows/$arch..."
+  $tarPath = Join-Path $tmp $tarball
+  Invoke-WebRequest -Uri $url -OutFile $tarPath -UseBasicParsing
+
+  if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
+    Write-Error "tar.exe not found. Requires Windows 10 1803 or later."
+    exit 1
+  }
+  tar.exe -xzf $tarPath -C $tmp
+  if ($LASTEXITCODE -ne 0) { Write-Error "Failed to extract archive."; exit 1 }
+
+  New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+
+  # Stop running dread processes so we can replace the binary
+  Get-Process -Name $Binary -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  schtasks.exe /End /TN DreadWatch 2>$null | Out-Null
+
+  $dest = Join-Path $InstallDir "$Binary.exe"
+  Move-Item -Force -Path (Join-Path $tmp "$Binary.exe") -Destination $dest
+
+  $newVersion = "latest"
+  try { $newVersion = (& $dest --version 2>$null) } catch {}
+  Write-Host "Installed dread $newVersion to $dest"
+
+  # Add to user PATH if not present
+  $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+  if (-not $userPath) { $userPath = "" }
+  if (($userPath -split ";") -notcontains $InstallDir) {
+    $newPath = if ($userPath) { "$userPath;$InstallDir" } else { $InstallDir }
+    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    $env:Path = "$env:Path;$InstallDir"
+    Write-Host "Added $InstallDir to user PATH"
+  }
+
+  # Register background task for notifications (uses dread's own service installer)
+  try {
+    & $dest service install | Out-Null
+    Write-Host "Background notifications enabled (Task Scheduler)"
+  } catch {
+    Write-Host "Warning: could not register background service: $_"
+  }
+
+  # Report successful install (non-blocking, silent)
+  $osVersion = try { (Get-CimInstance Win32_OperatingSystem).Caption } catch { "Windows" }
+  $hostname  = $env:COMPUTERNAME
+  $payload = @{ os_version = $osVersion; hostname = $hostname; dread_version = "$newVersion" } | ConvertTo-Json -Compress
+  try {
+    Invoke-RestMethod -Uri "https://dread.sh/api/installed" -Method Post -Body $payload -ContentType "application/json" -TimeoutSec 5 | Out-Null
+  } catch {}
+
+  Write-Host ""
+  Write-Host 'Next: dread new "My Channel"'
+  Write-Host "(restart your terminal if 'dread' isn't on PATH yet)"
+} finally {
+  Remove-Item -Recurse -Force -Path $tmp -ErrorAction SilentlyContinue
+}
 `
 
 const docsPage = `<!DOCTYPE html>
