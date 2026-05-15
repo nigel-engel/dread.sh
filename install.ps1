@@ -34,7 +34,7 @@ try {
 
   # Stop running dread processes so we can replace the binary
   Get-Process -Name $Binary -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-  schtasks.exe /End /TN DreadWatch 2>$null | Out-Null
+  try { & schtasks.exe /End /TN DreadWatch 2>&1 | Out-Null } catch {}
 
   $dest = Join-Path $InstallDir "$Binary.exe"
   Move-Item -Force -Path (Join-Path $tmp "$Binary.exe") -Destination $dest
